@@ -1,0 +1,23 @@
+#!/usr/bin/env wolframscript
+(* Build CertiField-<version>.paclet from a clean staging copy (only the files a user needs), then install it into a
+   throw-away paclet directory and smoke-test it.  Usage, from the repository root:
+     wolframscript -file tools/build_paclet.wls                                                        *)
+
+root = DirectoryName[$InputFileName, 2];
+build = FileNameJoin[{root, "build"}];
+stage = FileNameJoin[{build, "CertiField"}];
+Quiet[DeleteDirectory[stage, DeleteContents -> True]];
+CreateDirectory[stage, CreateIntermediateDirectories -> True];
+Scan[CopyFile[FileNameJoin[{root, #}], FileNameJoin[{stage, #}]] &, {"PacletInfo.wl", "LICENSE", "README.md"}];
+Scan[CopyDirectory[FileNameJoin[{root, #}], FileNameJoin[{stage, #}]] &, {"Kernel", "Data", "Examples"}];
+
+archive = CreatePacletArchive[stage, build];
+Print["built: ", archive, "  (", Round[FileByteCount[archive]/1024.], " KB)"];
+
+(* smoke test in this kernel: install from the archive and use it *)
+PacletInstall[archive, ForceVersionInstall -> True];
+Needs["CertiField`"];
+Print["installed from: ", CertiField`Private`$CertiFieldDirectory];
+Print[CertifiedVariationalBound["Phi4Kink"]["Summary"]];
+(* leave no installed copy behind (it would shadow a development checkout) *)
+PacletUninstall["CertiField"];

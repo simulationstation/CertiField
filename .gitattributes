@@ -1,0 +1,13 @@
+# grid data are raw little-endian IEEE doubles / int64: never touch line endings
+*.f64    binary
+*.i64    binary
+*.mx     binary
+*.paclet binary
+# sources: LF in the repository
+*.wl     text eol=lf
+*.wls    text eol=lf
+*.wlt    text eol=lf
+*.md     text eol=lf
+*.json   text eol=lf
+*.py     text eol=lf
+*.yml    text eol=lf

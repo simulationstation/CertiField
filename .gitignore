@@ -1,0 +1,41 @@
+# Wolfram
+*.nb.bak
+*.m~
+.MathLink/
+.Mathematica/
+
+# C/C++ build
+build/
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+
+# LaTeX junk
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Large / derived
+*.pdf.bak
+
+# CertiField
+private/
+*.paclet
+*.mx
+build/

@@ -1,0 +1,104 @@
+# CertiField architecture
+
+This note is for engineers who want to audit a certificate, extend the paclet, or port a model. The guiding rule:
+**every number that leaves CertiField as a bound is produced by arithmetic whose rounding direction is controlled, from
+inputs that are exact.** Everything else (grids, multipliers, candidate profiles, calibration constants found by
+optimisation) is a heuristic choice that can only make a bound less tight, never wrong.
+
+## Layers
+
+```
+Models.wl              public API: CertifiedVariationalBound, VerifyCertificate, CertiFieldModel, presets
+  |-- ScalarField1D.wl     1D: calibration lower bound, admissible competitor, exact / Taylor-model energy
+  |-- SkyrmeLevelSet.wl    Skyrme lower bound: the level-set dynamic programme
+  |-- SkyrmeHedgehog.wl    Skyrme upper bound: hedgehog trial maps and their certified energy
+  |-- Minorants.wl         certified affine minorants of h_kappa (input to the dynamic programme)
+CertifiedBound.wl      the result object: properties, directed decimal display, report
+RigorousQuadrature.wl  adaptive interval quadrature (first order and Simpson with 4th-derivative remainder)
+RigorousArithmetic.wl  exact enclosures of scalars; outward-rounded packed-array arithmetic; verified roots
+```
+
+## Two kinds of rigorous arithmetic
+
+**Exact scalars.** τ-dependent constants of the Skyrme programme (sin, cos at grid levels, π-dependent floors) are exact
+rationals: alternating Taylor series stopped with a remainder below 10⁻⁴⁰ (`sinBr`, `cosBr`), and π bracketed by
+35-digit rationals. They are rounded to machine numbers in the safe direction by exact comparison (`fLo`, `fHi`).
+
+**Outward-rounded arrays.** The dynamic programme works on packed arrays of machine numbers. Every `+ − × ÷` result is
+widened by a relative 2⁻⁴⁹ (eight units in the last place) plus an absolute 10⁻³⁰⁰ (`rUp`, `rDn`). That encloses the exact
+result for IEEE-754 operations with at most two roundings. Selections and comparisons use 0/1 masks, which involve no
+rounding. Square and cube roots from the math library are not trusted. Each candidate root is checked by squaring or
+cubing with directed rounding and nudged until the check passes (`sqrtLo`, `sqrtHi`, `cbrtLo`, `cbrtHi`). Packed arrays
+cannot hold infinities, so ±10³⁰⁰ stands in for them and is only ever compared or selected.
+
+**Interval quadrature.** `rigorousIntegralFn` encloses ∫f on each cell by the intersection of the first-order
+enclosure h·f([l,r]) and Simpson's rule with the remainder −h⁵/2880·f⁗([l,r]), all in Wolfram Language `Interval`
+arithmetic at 30 digits. Simpson is used only on cells where a caller-supplied predicate certifies that f is C⁴ (for
+the 1D lower bound: V + c > 0 on the cell, checked by interval evaluation). Refinement is global: cells wider than
+tolerance/(2·#cells) are bisected, so cells next to a singularity, where only first-order enclosures are valid, are
+refined geometrically without blowing up the cost.
+
+## The Skyrme lower bound (SkyrmeLevelSet.wl, Minorants.wl)
+
+The analytic reduction (manuscript, Theorems 1, 3 and 8) shows E(U) ≥ W(τ₁, v) for some v ≥ 0, where W is the value
+function of a relaxed level-set problem. The verifier builds, backwards over levels τᵢ, functions Λᵢ ≤ W(τᵢ, ·) that are
+affine on the cells of a volume grid. Each transition between levels uses:
+
+* certified affine minorants α + βD ≤ h_κ(D) = 2√((1+2D)(D²+2D+κ)). Validity is equivalent to the cubic
+  P(D) = 8D³ + (20−β²)D² + (8+8κ−2αβ)D + 4κ−α² being ≥ 0 on [0, ∞), which `certifyMinorantMask` checks with
+  outward-rounded interval evaluation at the cubic's critical point. The 1.8-million-entry table is rebuilt and
+  certified in about 10 s, and re-certified whenever it is loaded from the disk cache.
+* the second-order step lemma, condition [*]. Where the enclosure cannot confirm it, the step falls back to the
+  always-valid first-order bound (84,771 fallbacks at μ = 1, Quick).
+* the closed-form floors Ξ, Ξ_μ and the Bogomolny constant, and monotonicity of W in the volume.
+
+The result is min_v Λ₁(v)/(12π²), rounded down. The volume grids in `Data/Skyrme` are heuristic, shipped as exact IEEE
+doubles, and checked for consistency (increasing τ in (0, π), exactly representable steps) before use.
+
+## The Skyrme upper bound (SkyrmeHedgehog.wl)
+
+The trial map is a hedgehog with profile f = π − p, where p is a piecewise cubic Hermite function with rational data and
+p(0) = 0 exactly. On the last cell f decreases linearly to 0, and it is identically 0 beyond. Any such data give an
+admissible degree-one map, so the bound is valid whatever the data. The data (a numerical hedgehog) only affect
+tightness. Energy:
+
+* first cell: exact integral of a polynomial majorant (|sin p| ≤ |p|, 1 + cos p ≤ 2);
+* middle cells: interval Simpson/first-order enclosures with a global tolerance of 10⁻¹⁰;
+* last cell: exact integral of a polynomial majorant, with π bracketed.
+
+## The one-dimensional engine (ScalarField1D.wl)
+
+* **Model normalisation.** Inexact numbers in the model are replaced by the rationals they denote. Potentials must be
+  built from smooth functions (`analyticExpressionQ` rejects `Abs`, `Max`, `Piecewise`, interpolation, …).
+* **Calibration constant.** `calibrationFloor` proposes c = −inf V with `MinValue`, rounds it up to a rational, and
+  *proves* V + c ≥ 0 on ℝ with `Resolve`. Trigonometric polynomials are proved via cos → c, sin → s, c² + s² = 1. On
+  finite domains the optimal c is found by golden-section search (LB(c) is concave). Any admissible c is valid.
+* **Lower bound.** 2√k·|∫√(V+c)| − c·L by interval quadrature, exact for monotone minimisers.
+* **Competitor.** Cubic Hermite interpolation of the candidate at 2001 nodes, values and slopes rounded to multiples of
+  10⁻²⁰, boundary values imposed exactly, constant beyond a window chosen where the candidate reaches the vacua.
+* **Competitor energy.** The kinetic part is exact: ∫p′² = (6/5Δ² − Δ(m₀+m₁)/5 + 2/15(m₀²+m₁²) − m₀m₁/15)/h per cell.
+  The potential part is exact for polynomial V (the integral of V∘p over a cell is precomputed symbolically as a
+  polynomial in the cell data). Otherwise it uses a Taylor model of order 8 around the cell midpoint, with the t-integrals of
+  the powers computed exactly and the Lagrange remainder enclosed on an exact enclosure of the cell's range.
+
+## Certificates and verification
+
+`CertifiedVariationalBound` returns `CertifiedBound[assoc]`. The reported bounds are machine numbers rounded outward
+from the computed enclosures (lower down, upper up); the raw enclosure ends are kept under `"Certificate"`.
+`VerifyCertificate` recomputes every rigorous step from the recorded inputs and checks that it reproduces bounds at
+least as strong as the stored ones:
+
+* Skyrme: the grid preset, the minorant table and the trial map;
+* 1D: the proof of V + c ≥ 0, the calibration constant and the competitor data.
+
+Nothing numerical is copied from the stored result.
+
+## Adding a model
+
+1. Write the analytic lower-bound argument and identify every inequality it needs.
+2. Implement the bound with `RigorousArithmetic.wl` / `RigorousQuadrature.wl` primitives, keeping heuristics (grids,
+   multipliers) separate from the certified evaluation.
+3. Convert candidates into explicitly admissible competitors and compute their energy rigorously.
+4. Register the model in `Models.wl`: `$CertiFieldModels`, `CertiFieldModelInfo`, a description with `"Theorem"`,
+   `"AdmissibleClass"`, `"TrustedBase"`, `"NotClaimed"`, and a branch in `verifyCertificate`.
+5. Add tests that enclose a known exact value and that check failure modes.

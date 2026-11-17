@@ -1,0 +1,195 @@
+(* ::Package:: *)
+
+(* ::Title:: *)
+(*CertiField: model registry and the public entry points*)
+
+Begin["CertiField`Private`"];
+
+$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "SkyrmeDegreeOne"};
+
+(* ---- model specifications ---- *)
+CertiFieldModel[name_String, rules___Rule] := CertiFieldModel[name, Association[rules]];
+CertiFieldModel[name_String, rules : {___Rule}] := CertiFieldModel[name, Association[rules]];
+
+CertiFieldModel /: MakeBoxes[m : CertiFieldModel[name_String, p_Association], fmt_] :=
+  BoxForm`ArrangeSummaryBox[CertiFieldModel, m, None,
+    {{BoxForm`SummaryItem[{"Model: ", name}]}, {BoxForm`SummaryItem[{"Parameters: ", Short[p, 2]}]}}, {}, fmt,
+    "Interpretable" -> Automatic];
+
+(* named presets reduce to ScalarField1D *)
+presetSpec["Phi4Kink", p_] := With[{lam = Lookup[p, "Lambda", 1], v = Lookup[p, "Vacuum", 1]},
+  <|"Potential" -> Function[u, lam/4 (u^2 - v^2)^2], "Stiffness" -> 1/2, "Domain" -> Lookup[p, "Domain", {-Infinity, Infinity}],
+    "BoundaryValues" -> Lookup[p, "BoundaryValues", {-v, v}]|>];
+presetSpec["SineGordonKink", p_] := With[{m = Lookup[p, "Mass", 1]},
+  <|"Potential" -> Function[u, m^2 (1 - Cos[u])], "Stiffness" -> 1/2, "Domain" -> Lookup[p, "Domain", {-Infinity, Infinity}],
+    "BoundaryValues" -> Lookup[p, "BoundaryValues", {0, 2 Pi}]|>];
+presetSpec["MagneticDomainWall", p_] := With[{A = Lookup[p, "A", 1], K = Lookup[p, "K", 1]},
+  <|"Potential" -> Function[t, K Sin[t]^2], "Stiffness" -> A, "Domain" -> Lookup[p, "Domain", {-Infinity, Infinity}],
+    "BoundaryValues" -> Lookup[p, "BoundaryValues", {0, Pi}]|>];
+presetSpec["ScalarField1D", p_] := p;
+
+presetCandidate["Phi4Kink", p_] := With[{lam = Lookup[p, "Lambda", 1], v = Lookup[p, "Vacuum", 1]}, Function[x, v Tanh[v Sqrt[lam/2] x]]];
+presetCandidate["SineGordonKink", p_] := With[{m = Lookup[p, "Mass", 1]}, Function[x, 4 ArcTan[Exp[m x]]]];
+presetCandidate["MagneticDomainWall", p_] := With[{A = Lookup[p, "A", 1], K = Lookup[p, "K", 1]}, Function[x, 2 ArcTan[Exp[x Sqrt[K/A]]]]];
+
+(* ---- model documentation ---- *)
+CertiFieldModelInfo["ScalarField1D"] := <|
+  "Name" -> "ScalarField1D",
+  "Energy" -> "E[u] = \[Integral] (k u'(x)^2 + V(u(x))) dx over a < x < b",
+  "Parameters" -> <|"Potential" -> "pure function V", "Stiffness" -> "k > 0 (default 1/2)", "Domain" -> "{a, b}, ends may be infinite",
+    "BoundaryValues" -> "{uA, uB}; at an infinite end it must be a zero of V"|>,
+  "AdmissibleClass" -> "absolutely continuous u with the boundary values (limits at infinite ends) and finite energy",
+  "LowerBound" -> "calibration: E \[GreaterEqual] 2\[Sqrt]k |\[Integral] \[Sqrt](V+c) ds| - c (b - a), for every c with V + c \[GreaterEqual] 0 on \[DoubleStruckCapitalR]; exact when the minimiser is monotone",
+  "UpperBound" -> "energy of the cubic Hermite interpolant of the candidate (exact rational arithmetic for polynomial V)",
+  "Status" -> "Supported"|>;
+CertiFieldModelInfo["Phi4Kink"] := <|"Name" -> "Phi4Kink", "Energy" -> "E[u] = \[Integral] (u'^2/2 + \[Lambda]/4 (u^2 - v^2)^2) dx", "Parameters" -> <|"Lambda" -> 1, "Vacuum" -> 1|>,
+  "Reduces to" -> "ScalarField1D", "Minimum (exact)" -> "(2\[Sqrt]2/3) \[Sqrt]\[Lambda] v^3 on the line", "Status" -> "Supported"|>;
+CertiFieldModelInfo["SineGordonKink"] := <|"Name" -> "SineGordonKink", "Energy" -> "E[u] = \[Integral] (u'^2/2 + m^2 (1 - cos u)) dx", "Parameters" -> <|"Mass" -> 1|>,
+  "Reduces to" -> "ScalarField1D", "Minimum (exact)" -> "8 m on the line", "Status" -> "Supported"|>;
+CertiFieldModelInfo["MagneticDomainWall"] := <|"Name" -> "MagneticDomainWall",
+  "Energy" -> "\[Sigma][\[Theta]] = \[Integral] (A \[Theta]'^2 + K sin^2 \[Theta]) dx  (Bloch wall, uniaxial anisotropy; energy per unit wall area)",
+  "Parameters" -> <|"A" -> "exchange stiffness", "K" -> "anisotropy constant"|>, "Reduces to" -> "ScalarField1D",
+  "Minimum (exact)" -> "4 \[Sqrt](A K) on the line", "Status" -> "Supported"|>;
+CertiFieldModelInfo["SkyrmeDegreeOne"] := <|
+  "Name" -> "SkyrmeDegreeOne",
+  "Energy" -> "E(U) = \[Integral] |dU|^2 + |\[CapitalLambda]^2 dU|^2 + 2\[Mu]^2 (1 - cos f) over \[DoubleStruckCapitalR]^3, f = dist(U, 1); reported as E/(12\[Pi]^2)",
+  "Parameters" -> <|"PionMass" -> "\[Mu] \[Element] {0, 263/500, 13/20, 1}"|>,
+  "AdmissibleClass" -> "finite-energy maps U: \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 of degree one with U - 1 \[Element] L^6 (the class in which minimisers exist)",
+  "LowerBound" -> "level-set lower bound (coarea + isoperimetry + convexification; certified dynamic programme)",
+  "UpperBound" -> "energy of an explicit hedgehog trial map (rigorous quadrature)",
+  "Resolutions" -> Keys[$skyrmePresets],
+  "Status" -> "Supported"|>;
+CertiFieldModelInfo[other_] := Missing["UnknownModel", other];
+
+(* ---- Skyrme: presets of the level-set certificate (grids shipped as data) ---- *)
+$skyrmePresets = <|
+  "Quick" -> <|"Table" -> {2000, 900, 1/10^10}|>,
+  "Standard" -> <|"Table" -> {2000, 900, 1/10^10}|>,
+  "Publication" -> <|"Table" -> {2000, 900, 1/10^10}|>|>;
+$skyrmeMuNames = <|0 -> "0", 263/500 -> "263o500", 13/20 -> "13o20", 1 -> "1"|>;
+
+skyrmeGridDir[muq_, preset_String] := FileNameJoin[{$CertiFieldDirectory, "Data", "Skyrme", "mu" <> $skyrmeMuNames[muq] <> "_" <> ToLowerCase[preset]}];
+skyrmeTrialFile[muq_] := FileNameJoin[{$CertiFieldDirectory, "Data", "Skyrme", "hedgehog_mu" <> $skyrmeMuNames[muq] <> ".wl"}];
+
+(* the certified minorant table is built once per kernel session (and cached on disk, re-certified on load) *)
+(* The cache stores only the raw table; every entry is re-certified whenever it is loaded. *)
+minorantTable[{nK_, nD_, kmin_}] := minorantTable[{nK, nD, kmin}] = Module[{cache, data, tab = $Failed},
+  cache = FileNameJoin[{$UserBaseDirectory, "ApplicationData", "CertiField",
+    "minorants_" <> ToString[nK] <> "_" <> ToString[nD] <> "_v" <> $CertiFieldVersion <> ".mx"}];
+  If[FileExistsQ[cache],
+    data = Quiet@Import[cache, "MX"];
+    If[AssociationQ[data],
+      tab = Catch[makeMinorantTable[data["KN"], data["DG"], data["AL"], data["BE"], data["Info"]], "CertiFieldTable"]]];
+  If[! AssociationQ[tab],
+    tab = Catch[buildMinorantTable[nK, nD, N[kmin]], "CertiFieldTable"];
+    If[! AssociationQ[tab], Throw[failure["Internal", "Could not certify the minorant table."], "CertiField"]];
+    Quiet@CreateDirectory[DirectoryName[cache]];
+    Quiet@Export[cache, <|"KN" -> tab["KN"], "DG" -> tab["DG"], "AL" -> Partition[tab["ALf"], tab["nD"]],
+      "BE" -> Partition[tab["BEf"], tab["nD"]], "Info" -> tab["Info"]|>, "MX"]];
+  tab];
+
+skyrmeMu[params_] := Module[{mu = Lookup[params, "PionMass", 1]},
+  mu = If[InexactNumberQ[mu], Rationalize[mu, 10^-12], mu];
+  If[! KeyExistsQ[$skyrmeMuNames, mu],
+    Throw[failure["BadModel", "Supported pion masses: 0, 0.526, 0.65, 1 (Battye\[Dash]Sutcliffe units)."], "CertiField"]];
+  mu];
+
+certifySkyrme[params_Association, cand_, opts_List] := Module[
+  {muq = skyrmeMu[params], preset = OptionValue[CertifiedVariationalBound, opts, "Resolution"], verbose = TrueQ[OptionValue[CertifiedVariationalBound, opts, "Verbose"]],
+   gridDir, grid, tab, lbRes, trial, ubRes, t0 = AbsoluteTime[], monitor},
+  If[! KeyExistsQ[$skyrmePresets, preset], Throw[failure["BadOption", "\"Resolution\" must be one of " <> ToString[Keys[$skyrmePresets]] <> "."], "CertiField"]];
+  gridDir = skyrmeGridDir[muq, preset];
+  If[! DirectoryQ[gridDir], Throw[failure["MissingData", "Grid data not found: " <> gridDir], "CertiField"]];
+  grid = loadSkyrmeGrid[gridDir];
+  tab = minorantTable[$skyrmePresets[preset, "Table"]];
+  monitor = If[verbose, Function[s, If[Mod[s["Level"], 250] == 0, Print["  level ", s["Level"], "/", s["Levels"], "   pairs ", s["Pairs"], "   ", Round[s["Seconds"], 0.1], " s"]]], None];
+  lbRes = levelSetLowerBound[muq, grid, tab, "Monitor" -> monitor];
+  trial = Which[
+    cand === Automatic, Get[skyrmeTrialFile[muq]],
+    AssociationQ[cand] && KeyExistsQ[cand, "r"], cand,
+    True, Module[{f = cand, df}, df = Derivative[1][f]; hedgehogTrialData[f, df, muq]]];
+  ubRes = hedgehogUpperBound[trial, muq];
+  <|"LowerBound" -> lbRes["LowerBound"], "UpperBound" -> ubRes["UpperBound"], "Seconds" -> AbsoluteTime[] - t0,
+    "LevelSet" -> lbRes, "Hedgehog" -> KeyDrop[ubRes, "Enclosure"], "Trial" -> trial, "Preset" -> preset, "Mu" -> muq,
+    "GridMeta" -> grid["Meta"], "TableInfo" -> tab["Info"]|>];
+
+(* ---- assembling the CertifiedBound ---- *)
+Options[CertifiedVariationalBound] = {"Resolution" -> "Quick", "Nodes" -> Automatic, "GapTolerance" -> None,
+  "Verbose" -> False, WorkingPrecision -> 30};
+
+(* convenience: CertifiedVariationalBound["Name", candidate?, modelParam -> v, ..., option -> v, ...] *)
+$cvbOptionNames := ToString /@ Keys[Options[CertifiedVariationalBound]];
+splitRules[rules_List] := {Select[rules, ! MemberQ[$cvbOptionNames, ToString[First[#]]] &], Select[rules, MemberQ[$cvbOptionNames, ToString[First[#]]] &]};
+CertifiedVariationalBound[name_String, cand_ /; ! OptionQ[cand], rules___?OptionQ] :=
+  With[{sp = splitRules[Flatten[{rules}]]}, CertifiedVariationalBound[CertiFieldModel[name, Association[sp[[1]]]], cand, Sequence @@ sp[[2]]]];
+CertifiedVariationalBound[name_String, rules___?OptionQ] :=
+  With[{sp = splitRules[Flatten[{rules}]]}, CertifiedVariationalBound[CertiFieldModel[name, Association[sp[[1]]]], Automatic, Sequence @@ sp[[2]]]];
+CertifiedVariationalBound[m : CertiFieldModel[_String, _Association], opts : OptionsPattern[]] := CertifiedVariationalBound[m, Automatic, opts];
+CertifiedVariationalBound[CertiFieldModel[name_String, params_Association], cand_ /; ! OptionQ[cand], opts : OptionsPattern[]] :=
+  Catch[assembleCertificate[name, params, cand, {opts}], "CertiField"];
+
+(* The reported bounds are machine numbers rounded outward from the computed enclosures (lower bound down, upper bound
+   up), so they are safe to use in further floating-point work and are reproduced exactly by VerifyCertificate.
+   The raw enclosure ends are kept in "Certificate". *)
+assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, status, tolerance, rel},
+  If[! MemberQ[$CertiFieldModels, name], Message[CertifiedVariationalBound::nomodel, name, $CertiFieldModels];
+    Throw[failure["UnknownModel", "Unknown model: " <> name], "CertiField"]];
+  tolerance = OptionValue[CertifiedVariationalBound, opts, "GapTolerance"];
+  raw = If[name === "SkyrmeDegreeOne",
+    certifySkyrme[params, cand, opts],
+    certifyScalarField1D[presetSpec[name, params], If[cand === Automatic && name =!= "ScalarField1D", presetCandidate[name, params], cand], opts]];
+  If[! (NumericQ[raw["LowerBound"]] && NumericQ[raw["UpperBound"]]),
+    Throw[failure["Inconclusive", "A bound could not be enclosed."], "CertiField"]];
+  res = Join[raw, <|"LowerBound" -> fLo[exactNumber[raw["LowerBound"]]], "UpperBound" -> fHi[exactNumber[raw["UpperBound"]]],
+    "RawBounds" -> {raw["LowerBound"], raw["UpperBound"]}|>];
+  If[res["LowerBound"] > res["UpperBound"], Throw[failure["Internal", "Lower bound exceeds upper bound."], "CertiField"]];
+  base = If[name === "SkyrmeDegreeOne", skyrmeDescription[res], scalarDescription[name, params, res]];
+  rel = N[relGapOf[res]];
+  status = If[tolerance === None || rel <= tolerance, "Certified", "Inconclusive"];
+  CertifiedBound[Join[base, <|"Status" -> status, "LowerBound" -> res["LowerBound"], "UpperBound" -> res["UpperBound"],
+    "Seconds" -> res["Seconds"], "Version" -> $CertiFieldVersion, "GapTolerance" -> tolerance,
+    "Certificate" -> KeyDrop[res, {"LowerBound", "UpperBound", "Seconds", "Spec"}], "Model" -> name, "Parameters" -> params|>]]];
+
+skyrmeDescription[res_] := <|
+  "Units" -> "12\[Pi]^2 (Faddeev\[Dash]Bogomolny units), Battye\[Dash]Sutcliffe normalisation",
+  "Theorem" -> Row[{"Every finite-energy degree-one map U: \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 with pion mass \[Mu] = ", res["Mu"],
+    " has E(U)/(12\[Pi]^2) \[GreaterEqual] ", lowerString[res["LowerBound"], 8], ".  The hedgehog trial map has E/(12\[Pi]^2) \[LessEqual] ",
+    upperString[res["UpperBound"], 8], "."}],
+  "AdmissibleClass" -> "all finite-energy maps \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 of degree one (no symmetry assumed)",
+  "LowerBoundMethod" -> Row[{"level-set bound (coarea, isoperimetry, convexified level energy), certified dynamic programme: ",
+    res["LevelSet", "Levels"], " levels, ", res["LevelSet", "Pairs"], " transitions, outward-rounded arithmetic"}],
+  "UpperBoundMethod" -> Row[{"hedgehog trial map with ", res["Hedgehog", "Cells"], " cubic cells, rigorous quadrature"}],
+  "TrustedBase" -> "IEEE-754 machine arithmetic (+, \[Minus], \[Times], \[Divide]), Wolfram Language Interval arithmetic, and the analytic reduction (note_levelset.tex, Theorems 1, 3, 8)",
+  "NotClaimed" -> "that the hedgehog is the minimiser; the gap is a certified bound on how far below the hedgehog any degree-one map can be",
+  "References" -> "Level-set lower bound: note_levelset.tex (2026), Theorem 3; computer-assisted part re-implemented in Wolfram Language."|>;
+
+scalarDescription[name_, params_, res_] := Module[{sp = res["Spec"], dom, bv, d = Max[displayDigits[res], 10]},
+  dom = sp["Domain"]; bv = sp["BoundaryValues"];
+  <|"Units" -> "energy units of the model",
+    "Theorem" -> Row[{"Every admissible u with u(", dom[[1]], ") = ", bv[[1]], ", u(", dom[[2]], ") = ", bv[[2]],
+      " has E[u] \[GreaterEqual] ", lowerString[res["LowerBound"], d], "; the competitor has E \[LessEqual] ", upperString[res["UpperBound"], d], "."}],
+    "AdmissibleClass" -> Row[{"absolutely continuous u on ", dom, " with the boundary values ", bv, " and finite energy"}],
+    "LowerBoundMethod" -> Row[{"calibration k u'^2 + V(u) + c \[GreaterEqual] 2\[Sqrt](k(V+c)) |u'| with c = ", res["Calibration"], "; rigorous quadrature"}],
+    "UpperBoundMethod" -> Row[{"cubic Hermite interpolant of the candidate on ", Length[res["Competitor", "x"]] - 1, " cells",
+      If[TrueQ[res["Exact"]], ", energy in exact rational arithmetic", ", rigorous quadrature"]}],
+    "TrustedBase" -> "Wolfram Language exact rational arithmetic, Interval arithmetic, and quantifier elimination (Resolve) for V + c \[GreaterEqual] 0",
+    "References" -> "Bogomolny (1976); Modica\[Dash]Mortola (1977); the calibration family with c is standard (energy integral of the Euler\[Dash]Lagrange equation)."|>];
+
+(* ---- independent re-verification from the stored certificate ----
+   Recomputes every rigorous step from the recorded inputs (grid preset, minorant-table parameters, trial map,
+   calibration constant, competitor data); nothing numerical is copied from the stored result. *)
+VerifyCertificate[CertifiedBound[a_Association]] := TrueQ[Catch[verifyCertificate[a], "CertiField"]];
+
+verifyCertificate[a_Association] := Module[{c = a["Certificate"], name = a["Model"], lb, ub, spec, prec = 30},
+  Which[
+    name === "SkyrmeDegreeOne",
+      lb = levelSetLowerBound[c["Mu"], loadSkyrmeGrid[skyrmeGridDir[c["Mu"], c["Preset"]]], minorantTable[$skyrmePresets[c["Preset"], "Table"]]]["LowerBound"];
+      ub = hedgehogUpperBound[c["Trial"], c["Mu"]]["UpperBound"],
+    True,
+      spec = scalarField1DSpec[presetSpec[name, a["Parameters"]]];
+      If[! provedNonnegative[spec, c["Calibration"]], Return[False]];
+      lb = Min[scalarLB[spec, c["Calibration"], prec]];
+      ub = Max[competitorEnergy[spec, c["Competitor"], prec]]];
+  NumericQ[lb] && NumericQ[ub] && lb >= a["LowerBound"] && ub <= a["UpperBound"]];
+
+End[];

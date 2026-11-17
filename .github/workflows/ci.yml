@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  wl-static-check:
+    name: Wolfram Language static check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Bracket balance, nested comments, unterminated strings, BeginPackage/EndPackage pairs.
+      # The full test suite needs a Wolfram kernel: wolframscript -file tools/run_tests.wls
+      - name: Static-check all Wolfram Language sources
+        run: python tools/wl_syntax_check.py Kernel/*.wl PacletInfo.wl Tests/*.wlt tools/*.wls Data/Skyrme/*.wl
+
+  data-integrity:
+    name: Shipped grid data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every grid directory has its five files and valid metadata
+        run: |
+          set -e
+          for d in Data/Skyrme/mu*_*/; do
+            for f in meta.json taus.f64 vref.f64 eug.f64 offs.i64; do test -s "$d$f" || { echo "missing $d$f"; exit 1; }; done
+            jq -e '.python_reference.certified_lower_bound' "$d/meta.json" > /dev/null
+          done
+          echo "grid data OK"

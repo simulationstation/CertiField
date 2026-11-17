@@ -1,0 +1,49 @@
+{
+ "model": "SkyrmeDegreeOne",
+ "certificate": "level-set lower bound (note_levelset.tex, Theorem 3)",
+ "mu": 0.0,
+ "mu_exact": "0",
+ "preset": "standard",
+ "params": {
+  "du": 0.02,
+  "cg": 0.02,
+  "U1": 4.0,
+  "U2": 2.0,
+  "growth": 1.05,
+  "dumax": 0.2,
+  "ulo": -32.0,
+  "uhi": 22.0,
+  "t1": 0.03,
+  "lN": 0.02,
+  "eps1": 0.1,
+  "dtmax": 0.004,
+  "m1": 8.0,
+  "m2": 3.0,
+  "nmin": 6,
+  "table": [
+   2000,
+   900,
+   1e-10
+  ]
+ },
+ "N": 1445,
+ "n_u": 599,
+ "i0": 369,
+ "files": {
+  "taus": "taus.f64",
+  "vref": "vref.f64",
+  "eug": "eug.f64",
+  "ug": "ug.f64",
+  "offs": "offs.i64"
+ },
+ "note": "Grid data are heuristic; they affect the tightness of the bound, not its validity.",
+ "python_reference": {
+  "certified_lower_bound": 1.1919356155652894,
+  "pairs": 17787188,
+  "fallback": 6343716,
+  "far_binding": 0,
+  "N": 1445,
+  "seconds": 30.989235162734985,
+  "source": "levelset_cert3_results.jsonl (published run)"
+ }
+}
