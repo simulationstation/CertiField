@@ -21,12 +21,12 @@ sol = NDSolveValue[{u''[x] == u[x]^3 - u[x], u[0] == -1, u[3] == 1/2}, u, {x, 0,
 bvp = CertifiedVariationalBound[CertiFieldModel["ScalarField1D",
    <|"Potential" -> Function[s, (s^2 - 1)^2/4], "Domain" -> {0, 3}, "BoundaryValues" -> {-1, 1/2}|>], sol];
 Print[bvp["Summary"]];
-Print["   theorem: ", ToString[bvp["Theorem"]], "\n"];
+Print["   theorem: ", TextString[bvp["Theorem"]], "\n"];
 
 (* 4. The Skyrme model: a lower bound over every degree-one map (about 30 s) *)
 sk = CertifiedVariationalBound["SkyrmeDegreeOne", "PionMass" -> 1];
 Print[sk["Summary"]];
-Print["   ", ToString[sk["Theorem"]]];
+Print["   ", TextString[sk["Theorem"]]];
 Print["   not claimed: ", sk["NotClaimed"], "\n"];
 
 (* 5. Anyone can re-check a certificate *)

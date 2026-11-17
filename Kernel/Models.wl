@@ -150,9 +150,12 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
     "Seconds" -> res["Seconds"], "Version" -> $CertiFieldVersion, "GapTolerance" -> tolerance,
     "Certificate" -> KeyDrop[res, {"LowerBound", "UpperBound", "Seconds", "Spec"}], "Model" -> name, "Parameters" -> params|>]]];
 
+(* exact numbers in theorem statements, as unambiguous linear text: 1/2, 2*Pi, -Infinity *)
+exactString[x_] := ToString[x, InputForm];
+
 skyrmeDescription[res_] := <|
   "Units" -> "12\[Pi]^2 (Faddeev\[Dash]Bogomolny units), Battye\[Dash]Sutcliffe normalisation",
-  "Theorem" -> Row[{"Every finite-energy degree-one map U: \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 with pion mass \[Mu] = ", res["Mu"],
+  "Theorem" -> Row[{"Every finite-energy degree-one map U: \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 with pion mass \[Mu] = ", exactString[res["Mu"]],
     " has E(U)/(12\[Pi]^2) \[GreaterEqual] ", lowerString[res["LowerBound"], 8], ".  The hedgehog trial map has E/(12\[Pi]^2) \[LessEqual] ",
     upperString[res["UpperBound"], 8], "."}],
   "AdmissibleClass" -> "all finite-energy maps \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 of degree one (no symmetry assumed)",
@@ -166,9 +169,10 @@ skyrmeDescription[res_] := <|
 scalarDescription[name_, params_, res_] := Module[{sp = res["Spec"], dom, bv, d = Max[displayDigits[res], 10]},
   dom = sp["Domain"]; bv = sp["BoundaryValues"];
   <|"Units" -> "energy units of the model",
-    "Theorem" -> Row[{"Every admissible u with u(", dom[[1]], ") = ", bv[[1]], ", u(", dom[[2]], ") = ", bv[[2]],
+    "Theorem" -> Row[{"Every admissible u with u(", exactString[dom[[1]]], ") = ", exactString[bv[[1]]], ", u(", exactString[dom[[2]]], ") = ", exactString[bv[[2]]],
       " has E[u] \[GreaterEqual] ", lowerString[res["LowerBound"], d], "; the competitor has E \[LessEqual] ", upperString[res["UpperBound"], d], "."}],
-    "AdmissibleClass" -> Row[{"absolutely continuous u on ", dom, " with the boundary values ", bv, " and finite energy"}],
+    "AdmissibleClass" -> Row[{"absolutely continuous u on (", exactString[dom[[1]]], ", ", exactString[dom[[2]]], ") with u(", exactString[dom[[1]]], ") = ",
+      exactString[bv[[1]]], ", u(", exactString[dom[[2]]], ") = ", exactString[bv[[2]]], " and finite energy"}],
     "LowerBoundMethod" -> Row[{"calibration k u'^2 + V(u) + c \[GreaterEqual] 2\[Sqrt](k(V+c)) |u'| with c = ", res["Calibration"], "; rigorous quadrature"}],
     "UpperBoundMethod" -> Row[{"cubic Hermite interpolant of the candidate on ", Length[res["Competitor", "x"]] - 1, " cells",
       If[TrueQ[res["Exact"]], ", energy in exact rational arithmetic", ", rigorous quadrature"]}],

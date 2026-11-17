@@ -14,7 +14,8 @@ and it returns
 packaged as a `CertifiedBound` object that anyone can re-check in their own kernel with `VerifyCertificate`.
 
 ```wolfram
-In[1]:= PacletInstall["CertiField-0.2.0.paclet"]; Needs["CertiField`"]
+In[1]:= PacletInstall["https://github.com/simulationstation/CertiField/releases/download/v0.2.0/CertiField-0.2.0.paclet"];
+        Needs["CertiField`"]
 
 In[2]:= cert = CertifiedVariationalBound["SkyrmeDegreeOne", "PionMass" -> 1];     (* about 30 s *)
 
@@ -66,8 +67,9 @@ computer-assisted theorem about **all** finite-energy degree-one maps, with **no
 | 0.526 | 1.301718 | 1.307666 | ≤ 0.455% |
 | 0 (massless) | 1.192040 | 1.231447 | ≤ 3.20% |
 
-These lower bounds use the Publication-resolution grids and come from the reference verifier. Upper bounds are
-computed by CertiField. All entries are rounded in the safe direction. Battye–Sutcliffe units:
+These lower bounds use the Publication-resolution grids. CertiField reproduces the μ = 1 value in Wolfram Language in
+about an hour: 1.4143249628948 against the reference verifier's 1.4143249629108, over the same 517,125,854 transitions.
+Upper bounds are computed by CertiField. All entries are rounded in the safe direction. Battye–Sutcliffe units:
 E = ∫ |dU|² + |Λ²dU|² + 2μ²(1 − cos f).
 
 In plain terms: **at μ = 1, no degree-one Skyrme field of any shape can have less than 99.865% of the hedgehog's
@@ -79,6 +81,7 @@ Running the certificate end to end in CertiField (one core, Wolfram Engine 15.0)
 |---|---|---|---|---|
 | 1 | Quick | 1.41402 ≤ inf E ≤ 1.41623 | 0.156% | 36 s (includes certifying the minorant table once) |
 | 1 | Standard | 1.41420 ≤ inf E ≤ 1.41623 | 0.143% | 77 s |
+| 1 | Publication | 1.41432 ≤ inf E ≤ 1.41623 | 0.135% | 59 min |
 | 0.65 | Quick | 1.33062 ≤ inf E ≤ 1.33516 | 0.340% | 27 s |
 | 0.526 | Quick | 1.30142 ≤ inf E ≤ 1.30767 | 0.478% | 28 s |
 | 0 | Quick | 1.19174 ≤ inf E ≤ 1.23145 | 3.23% | 33 s |
@@ -117,8 +120,10 @@ s). On identical inputs the two implementations agree structurally and numerical
 | Second-order fallbacks | 84,771 | 84,771 |
 | Far-target bindings | 0 | 0 |
 
-The 3×10⁻¹² difference comes from CertiField's slightly more conservative rounding. On every preset checked (all four Quick grids and
-Standard at μ = 1) the transition counts are identical, and the fallback counts are identical for every μ > 0. At μ = 0 there is no mass term to give slack, so
+The 3×10⁻¹² difference comes from CertiField's slightly more conservative rounding. On every preset checked (all four Quick grids, and
+Standard and Publication at μ = 1) the transition counts are identical. The fallback counts are identical for every
+Quick and Standard preset with μ > 0. At Publication they differ by 6 out of 576,134, because CertiField rebuilds the
+minorant table itself and borderline steps can fall either way. At μ = 0 there is no mass term to give slack, so
 many step conditions sit exactly at the edge. There, CertiField's wider rounding margin triggers 649 extra
 first-order fallbacks (0.013% of transitions), and its bound is 1.2×10⁻⁷ lower. Being more conservative is always
 safe.
@@ -190,7 +195,8 @@ and it is what lets a third party re-verify a computer-assisted theorem with one
 Requires Wolfram Language 13 or later (developed and tested on 15.0, including the free Wolfram Engine).
 
 ```wolfram
-PacletInstall["path/to/CertiField-0.2.0.paclet"]    (* or: PacletDirectoryLoad["path/to/this/repository"] *)
+PacletInstall["https://github.com/simulationstation/CertiField/releases/download/v0.2.0/CertiField-0.2.0.paclet"]
+(* or, from a clone of this repository: PacletDirectoryLoad["path/to/CertiField"] *)
 Needs["CertiField`"]
 
 cert = CertifiedVariationalBound["Phi4Kink"]          (* built-in reference candidate *)
@@ -214,13 +220,14 @@ Options: `"Resolution"` (`"Quick"`, `"Standard"`, `"Publication"` for Skyrme), `
 
 **Timings** (one core, Wolfram Engine 15.0): 1D models take 0.5–10 s. Skyrme at Quick resolution takes 25–35 s per
 pion mass, including the minorant table, which is certified once (about 10 s), cached on disk and re-certified on
-load. Standard takes about 80 s. Publication is about 28× Standard in the reference verifier, so expect roughly 35–45 minutes.
+load. Standard takes about 80 s, and Publication about an hour (59 min at μ = 1).
 
 ## Validation
 
 * The Wolfram Language dynamic programme reproduces the independent Python verifier on identical inputs. At μ = 1 it
   checks the same 5,025,904 transitions with the same 84,771 fallbacks, and the values agree to 3×10⁻¹². Transition
-  counts match on every preset checked, and fallback counts match for every μ > 0.
+  counts match on every preset checked, including Publication at μ = 1 (517,125,854 transitions, bound within
+  1.6×10⁻¹¹).
 * `VerifyCertificate` re-derives the μ = 1 Skyrme certificate from its recorded inputs in 26 s.
 * The exact minima of the φ⁴, sine-Gordon and domain-wall models lie inside the certified enclosures, which are
   10⁻¹³ wide.
