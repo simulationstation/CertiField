@@ -22,6 +22,12 @@ docs/ELASTICITY.md has the theorem and its proof.
 Everything in upper_bound and lower_bound is rigorous: outward-rounded interval arithmetic (ia.py) on exact inputs
 (binary floats and rationals).  The two linear solves (solve_candidate, solve_stress) are plain floating point and
 are never trusted.
+
+Both evaluators form their quadratic forms from DIFFERENCES of nodal values (from an affine function for the Airy
+function, from a constant for the displacement).  The element matrices annihilate affine Airy functions and constant
+displacements exactly (asserted in rational arithmetic), so nothing changes mathematically; but the products of the
+nodal values themselves are larger than the result by the factor (|phi| / (h^2 |stress|))^2, and outward rounding of
+terms that cancel would cost accuracy growing like h^-4 under refinement.
 """
 import itertools
 import json
@@ -83,6 +89,8 @@ JH = [[[pint01(pmul([Fr(0)] * k + [Fr(1)], pder(Hk, a))) for Hk in HERM] for a i
 STRAIN = [(0, 0, 0), (1, 1, 1), (2, 0, 1), (2, 1, 0)]
 # stress of an Airy function: s_m = sign * d1^alpha d2^beta phi for (m, alpha, beta, sign) in
 AIRY = [(0, 0, 2, 1), (1, 2, 0, 1), (2, 1, 1, -1)]
+# local unknowns of a cell that carry phi, d1 phi, d2 phi at its lower corner (they fix the affine part)
+AFF = {(0, 0), (1, 0), (0, 1)}
 
 
 def inv3(D):
@@ -225,6 +233,10 @@ class Problem:
                                 K[key] = K.get(key, Fr(0)) + self.D[m][n] * v
             intL = [pint01(q) for q in L]
             f = {(a, P): self.b[a] * h[0] * h[1] * intL[P[0]] * intL[P[1]] for a in range(2) for P in loc}
+            # a constant displacement has no strain: K annihilates it (upper_bound relies on this)
+            for a in range(2):
+                for row in [(c, Q) for c in range(2) for Q in loc]:
+                    assert sum(K.get((row, (a, Pn)), Fr(0)) for Pn in loc) == 0
             self._Kloc = ({k: v for k, v in K.items() if v != 0}, f, loc)
         return self._Kloc
 
@@ -258,6 +270,13 @@ class Problem:
                     a0 += c * ((-b[0] * S[m][0]) * h[0] * JH[1][am][k[0]] * JH[0][bm][k[1]]
                                + (-b[1] * S[m][1]) * h[1] * JH[0][am][k[0]] * JH[1][bm][k[1]])
                 w0[k], w1[k], w2[k] = a0, a1, a2
+            # the stress of an affine Airy function is zero: A and w annihilate the nodal values of 1, x1 - xc1 and
+            # x2 - xc2 (lower_bound relies on this)
+            for vec in ({k: Fr(int(k[0] % 2 == 0 and k[1] % 2 == 0)) for k in loc},
+                        {k: (h[0] * (k[0] // 2) if (k[0] % 2, k[1] % 2) == (0, 0) else Fr(int((k[0] % 2, k[1] % 2) == (1, 0)))) for k in loc},
+                        {k: (h[1] * (k[1] // 2) if (k[0] % 2, k[1] % 2) == (0, 0) else Fr(int((k[0] % 2, k[1] % 2) == (0, 1)))) for k in loc}):
+                assert all(sum(A.get((k, l), Fr(0)) * vec[l] for l in loc) == 0 for k in loc)
+                assert all(sum(w[k] * vec[k] for k in loc) == 0 for w in (w0, w1, w2))
             self._Aloc = ({k: v for k, v in A.items() if v != 0}, w0, w1, w2, loc)
         return self._Aloc
 
@@ -265,7 +284,11 @@ class Problem:
         """exact matrices for the boundary term: HL2[k][q] = int H_k'' L_q, HL1[k][q] = int H_k' L_q, LI[q] = int L_q"""
         if not hasattr(self, '_Floc'):
             L = lagrange(self.p)
-            self._Floc = (imat(HERM, 2, L, 0), imat(HERM, 1, L, 0), [pint01(q) for q in L])
+            HL2, HL1 = imat(HERM, 2, L, 0), imat(HERM, 1, L, 0)
+            # the second derivative of an affine function and the first derivative of a constant vanish
+            for q in range(self.p + 1):
+                assert HL2[0][q] + HL2[2][q] == 0 and HL2[1][q] + HL2[2][q] + HL2[3][q] == 0 and HL1[0][q] + HL1[2][q] == 0
+            self._Floc = (HL2, HL1, [pint01(q) for q in L])
         return self._Floc
 
     # ---- the traction-free faces ----------------------------------------------------------------------------------
@@ -405,15 +428,22 @@ def _ucells(P, U):
 
 def upper_bound(P, U):
     """RIGOROUS enclosure (lo, hi) of E[u_h], u_h the Q_p function with nodal values U (shape (2,) + P.M).
-    E[u_h] = sum over the cells of  1/2 u^T K u - f.u  with the exact element matrix K and load vector f."""
+    E[u_h] = sum over the cells of  1/2 u^T K u - f.u  with the exact element matrix K and load vector f.
+    K annihilates constants, so u^T K u = d^T K d with d the differences from the nodal value at the lower corner of
+    the cell, component by component; f.u = f.d + (sum of f over the nodes of the component) u(lower corner)."""
     assert U.shape == (2,) + P.M and np.all(np.isfinite(U))
     assert np.array_equal(U[:, P.fixed], P.gval[:, P.fixed]), "Dirichlet nodal values are not imposed exactly"
     K, f, loc = P.stiffness_local()
     X = {k: I(v) for k, v in _ucells(P, U).items()}
-    en = _quadratic(K, X) * fr(Fr(1, 2))
+    D = {k: X[k] - X[(k[0], (0, 0))] for k in X if k[1] != (0, 0)}
+    en = _quadratic({kl: v for kl, v in K.items() if kl[0][1] != (0, 0) and kl[1][1] != (0, 0)}, D) * fr(Fr(1, 2))
     for k, v in f.items():
-        if v != 0:
-            en = en - X[k] * fr(v)
+        if v != 0 and k[1] != (0, 0):
+            en = en - D[k] * fr(v)
+    for a in range(2):
+        fa = sum(v for k, v in f.items() if k[0] == a)
+        if fa != 0:
+            en = en - X[(a, (0, 0))] * fr(fa)
     tot = _total(en)
     return float(tot.lo), float(tot.hi)
 
@@ -530,8 +560,24 @@ def lower_bound(P, st, return_parts=False):
     HL2, HL1, LI = P.face_local()
     X = nodal_enclosure(P, st)
     Xc = _xcells(P, X)
+    # differences from the affine function that has the values (phi, d1 phi, d2 phi) of the lower corner of the cell;
+    # A and w annihilate affine functions, so X^T A X = d^T A d and w.X = w.d
+    a0, a1, a2 = Xc[(0, 0)], Xc[(1, 0)], Xc[(0, 1)]
+    Dc = {}
+    for k in loc:
+        if k in AFF:
+            continue
+        kind = (k[0] % 2, k[1] % 2)
+        if kind == (0, 0):
+            Dc[k] = Xc[k] - (a0 + a1 * fr((k[0] // 2) * P.h[0]) + a2 * fr((k[1] // 2) * P.h[1]))
+        elif kind == (1, 0):
+            Dc[k] = Xc[k] - a1
+        elif kind == (0, 1):
+            Dc[k] = Xc[k] - a2
+        else:
+            Dc[k] = Xc[k]
     # the cell integrals:  int s^T S s = Q_phi + 2 Q_cross + Q_b
-    q = _quadratic(A, Xc)
+    q = _quadratic({kl: v for kl, v in A.items() if kl[0] not in AFF and kl[1] not in AFF}, Dc)
     if any(x != 0 for x in P.b):
         # the lower corners of the cells are rationals; enclose them
         x1 = I(np.array([[fr(P.vnodes[0][i]).lo] for i in range(P.N[0])]) * np.ones(P.N),
@@ -539,8 +585,8 @@ def lower_bound(P, st, return_parts=False):
         x2 = I(np.array([[fr(P.vnodes[1][j]).lo for j in range(P.N[1])]]) * np.ones(P.N),
                np.array([[fr(P.vnodes[1][j]).hi for j in range(P.N[1])]]) * np.ones(P.N))
         for k in loc:
-            if w0[k] != 0 or w1[k] != 0 or w2[k] != 0:
-                q = q + Xc[k] * (fr(w0[k]) + x1 * fr(w1[k]) + x2 * fr(w2[k])) * fr(2)
+            if k not in AFF and (w0[k] != 0 or w1[k] != 0 or w2[k] != 0):
+                q = q + Dc[k] * (fr(w0[k]) + x1 * fr(w1[k]) + x2 * fr(w2[k])) * fr(2)
     (a1, c1), (a2, c2) = P.box
     S, b = P.S, P.b
     qb = (S[0][0] * b[0] ** 2 * (c1 ** 3 - a1 ** 3) / 3 * (c2 - a2)
@@ -554,14 +600,18 @@ def lower_bound(P, st, return_parts=False):
         ht = P.h[j]
         a = P.box[i][side]
         cA, cB, gn, gt = _face_data(P, X, i, side)
+        # differences again: the second derivative annihilates the affine function through the value and the slope at
+        # the lower end of the cell face, the first derivative the constant through the value there
+        dA = {2: cA[2] - (cA[0] + cA[1]), 3: cA[3] - cA[1]}
+        dB = {1: cB[1], 2: cB[2] - cB[0], 3: cB[3]}
         acc = None
         for qn in range(P.p + 1):
             for k in range(4):
-                if HL2[k][qn] != 0:
-                    term = cA[k] * gn[qn] * fr(HL2[k][qn] / ht)
+                if k in dA and HL2[k][qn] != 0:
+                    term = dA[k] * gn[qn] * fr(HL2[k][qn] / ht)
                     acc = term if acc is None else acc + term
-                if HL1[k][qn] != 0:
-                    term = cB[k] * gt[qn] * fr(-HL1[k][qn])
+                if k in dB and HL1[k][qn] != 0:
+                    term = dB[k] * gt[qn] * fr(-HL1[k][qn])
                     acc = term if acc is None else acc + term
             if P.b[i] != 0 and a != 0:
                 term = gn[qn] * fr(-P.b[i] * a * ht * LI[qn])

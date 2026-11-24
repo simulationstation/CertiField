@@ -7,9 +7,11 @@ matrices, the exact nodal values on the traction-free faces, both certified boun
 of fields and certificates written by the reference, the certificate and its re-verification; registration in
 `Kernel/Models.wl`; `Tests/Elasticity.wlt` (90 tests, `tools/run_tests.wls --elasticity`).
 
-**In progress.** Documentation (`docs/ELASTICITY.md` Sections 7 and 8, `docs/ARCHITECTURE.md`, `README.md`,
-`Reference/Elasticity/README.md`), the example, the build smoke test and the CI step; the same evaluation on
-differences in the Python reference (Section 5, item 1).
+The reference evaluates on differences as well (Section 6); its certificates and test vectors were regenerated.
+
+**In progress.** Documentation: the results table of the Wolfram Language model in `docs/ELASTICITY.md`,
+`docs/ARCHITECTURE.md`, `README.md`, `Reference/Elasticity/README.md`, the example, the build smoke test and the
+CI step.
 
 **Next.** Final runs of the existing suites (fast, `--nd`, `--skyrme`).
 
@@ -76,16 +78,8 @@ The port reproduces `upper_enclosure`, `boundary`, `intQ` and `lower` to better 
 
 ## 5. Differences between the two implementations
 
-1. **Evaluation on differences (port).** The first version of both evaluators formed the quadratic forms
-   X·A·X and u·K·u from the nodal values directly. The products are then larger than the result by the factor
-   (|φ|/(h²|σ|))² (stress) and (|u|/(h|∇u|))² (displacement), and outward rounding of the cancelling terms costs
-   accuracy that grows like h⁻⁴ under refinement: on the 16×16 block the port's lower bound was 7×10⁻⁹ below the
-   exact value of the bound (the port widens every operation by 2⁻⁴⁹, sixteen times more than the reference). The
-   port now works with differences: the Airy nodal values of a cell minus the affine function through the three
-   values at its lower corner, the displacement nodal values minus the value at the lower corner, and on a cell
-   face the corresponding one-dimensional differences. This is exact, because the element matrices annihilate
-   affine Airy functions and constant displacements; both facts are checked in exact arithmetic when the local
-   matrices are built.
+1. **Slope differences on a cell face.** The reference scales the two tangential slopes by the cell length and then
+   subtracts; the port subtracts and then scales. Both enclose the same number.
 2. **Sums.** The reference sums the cell enclosures with `math.fsum` and two outward steps; the port sums them
    exactly in rational arithmetic and combines the boundary term and the cell term exactly.
 3. **Nodal values on the traction-free faces.** The reference encloses ψ_b + Σ P_k ψ_k by interval arithmetic; the
@@ -99,7 +93,29 @@ The port reproduces `upper_enclosure`, `boundary`, `intQ` and `lower` to better 
 ## 6. Log
 
 * 23 November 2026. First execution: the rigorous evaluators agreed with the reference on all six test vectors
-  at once (differences below 5×10⁻¹²), the public interface reproduced the block and gravity examples of the
-  reference. Re-verification of the stored 16×16 and 32×32 certificates failed by 10⁻¹⁰: cause and fix in
-  Section 5, item 1. After the fix all stored certificates of the reference are recomputed with bounds at least as
-  strong as their claims. Test suite written: 90 tests pass.
+  at once (differences below 5×10⁻¹²), and the public interface reproduced the block and gravity examples of the
+  reference.
+* 23 November 2026. **Cancellation found and removed in both implementations.** Re-verification of the stored
+  16×16 and 32×32 certificates in the Wolfram Language failed by 10⁻¹⁰. Cause: both evaluators formed the quadratic
+  forms X·A·X and u·K·u from the nodal values directly. The products are then larger than the result by the factor
+  (|φ|/(h²|σ|))² (stress) and (|u|/(h|∇u|))² (displacement), and outward rounding of the cancelling terms costs
+  accuracy that grows like h⁻⁴ under refinement. The port widens every operation by 2⁻⁴⁹, sixteen times more than
+  the reference, so it showed first (10⁻¹⁰ in the lower bound of the 16×16 block, which is 0.0150172); the
+  reference lost 2×10⁻¹⁰ on the 32×32 block and 10⁻⁹ on the 16×32 column (lower bound −0.4514566). Never a wrong
+  bound, only a weaker one. Fix, in both: work with
+  differences. The Airy nodal values of a cell minus the affine function through the three values at its lower
+  corner, the displacement nodal values minus the value at the lower corner, and on a cell face the corresponding
+  one-dimensional differences. This is exact, because the element matrices annihilate affine Airy functions and
+  constant displacements; both facts are checked in rational arithmetic when the local matrices are built (an
+  assertion in the reference, a `Failure` in the port). `check_exact.py`, `check_theorem.py` and `verify_all.py`
+  pass; the stored certificates and test vectors were regenerated (the arrays are bit-identical, the claims and
+  expected values changed in the last digits).
+* 23 November 2026. All stored certificates of the reference are recomputed in the Wolfram Language with bounds at
+  least as strong as their claims. Test suite written: 90 tests pass.
+
+## 7. Observations
+
+* The first row of the results table in `docs/ELASTICITY.md` had its lower bound rounded to nearest
+  (0.01500031) instead of down (0.01500030). The table is now produced with outward rounding.
+* A reference in three dimensions that forms X·A·X from the nodal values directly will lose accuracy in the same
+  way, and sooner (more terms, the same factor h⁻⁴).

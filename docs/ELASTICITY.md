@@ -1,11 +1,8 @@
 # Linear elasticity on boxes: the certified bounds
 
-This note states and proves what the model `LinearElasticity` will certify, and describes how the two bounds are
-computed. It is the analytic reduction behind `Reference/Elasticity/elasticity.py` (the Python reference).
-
-**State of the work (23 November 2026).** The Python reference for two dimensions is complete and tested
-(Sections 7 and 8). The Wolfram Language model (`Kernel/Elasticity.wl`, registration, `VerifyCertificate`, tests
-against `Reference/Elasticity/testvectors`) is not written yet, and three dimensions are not started.
+This note states and proves what the model `LinearElasticity` certifies, and describes how the two bounds are
+computed. It is the analytic reduction behind `Kernel/Elasticity.wl` and behind its Python reference,
+`Reference/Elasticity/elasticity.py`.
 
 **Status.** Two dimensions (plane strain). The inequality is the complementary-energy principle of Prager and Synge
 (1947) and the construction of the stress field by an Airy function in a C¹ finite-element space is classical; no
@@ -127,8 +124,20 @@ values φ, ∂₁φ, ∂₂φ at one node are set to zero.
 is a polynomial of degree two in the nodal values and the parameters, with rational coefficients: on each cell
 sᵀSs is a product of polynomials, and on each Dirichlet cell face (σν)·g is a product of polynomials, so the
 integrals are exact combinations of the integrals of products of the one-dimensional basis functions and their
-derivatives. `lower_bound` evaluates this polynomial with outward-rounded interval arithmetic; the nodal values on
-Γ_N enter as enclosures of their exact values, all others as the exact binary numbers they are.
+derivatives. `lower_bound` (`elLowerBound`) evaluates this polynomial with outward-rounded interval arithmetic; the
+nodal values on Γ_N enter as enclosures of their exact values, all others as the exact binary numbers they are.
+
+**Evaluation on differences.** Written in the nodal values X of a cell, the cell integral is X·A·X with an exact
+symmetric matrix A. Its terms are larger than their sum by the factor (|φ|/(h²|σ|))², so that outward rounding of the
+cancelling terms would cost accuracy growing like h⁻⁴ on fine grids. The stress of an affine function is zero, hence
+A v = 0 for the nodal values v of 1, x₁ and x₂, and X·A·X = d·A·d for d = X − (nodal values of the affine function
+with the values φ, ∂₁φ, ∂₂φ of the lower corner of the cell). Both implementations compute the differences d in
+interval arithmetic and form d·A·d; three of the sixteen differences are zero. The same is done
+for the cross term with σ^b, on the cell faces of Γ_D (differences from the affine function through the value and
+the slope at one end), and in the upper bound (differences from the value at the lower corner; the element matrix
+annihilates constants). The identities A v = 0 are checked in rational arithmetic when the matrices are built.
+With this the certified value stays within about 10⁻¹² (relative) of the exact value of the bound on all grids
+tried (Section 7).
 
 ## 4. The upper bound
 
@@ -152,9 +161,17 @@ Rigorous code uses +, −, × of IEEE-754 doubles with outward rounding, compari
 linear solver and no library function enters a certified number. Trusted: IEEE-754 arithmetic; exact rational
 arithmetic; this note.
 
+In the Wolfram Language model every interval operation widens its result by a relative 2⁻⁴⁹ plus 10⁻³⁰⁰ and is
+tested for machine overflow (the evaluation then stops as `"Inconclusive"`); the sums over cells and cell faces and
+the final combination of the two terms are exact rational sums; the nodal values on Γ_N are computed exactly from
+the machine numbers P_k and then enclosed. The stored claims are the computed bounds weakened by one part in 10⁹
+of the larger modulus, as in the Python reference. `VerifyCertificate` recomputes both bounds from the stored
+nodal values of the candidate, the stored nodal values and parameters of the stress field and the stored nodal
+boundary values, and accepts if they are at least as strong as the claims.
+
 ## 7. Checks
 
-All with the Python reference (`Reference/Elasticity`).
+### 7.1 Python reference (`Reference/Elasticity`)
 
 * **Exact cross-check** (`check_exact.py`). For seven problems (all faces Dirichlet; one, two adjacent, two
   opposite and three traction-free faces; with and without body force; isotropic and anisotropic stiffness; p = 1
@@ -172,14 +189,44 @@ All with the Python reference (`Reference/Elasticity`).
   problems: no pair has LB(σ) > E[u]; the smallest difference found is 1.7×10⁻⁵.
 * **Stored certificates** (`verify_all.py`) recompute both bounds from the stored fields.
 
-## 8. Results (Python reference)
+### 7.2 Wolfram Language model (`Tests/Elasticity.wlt`, 90 tests)
+
+* **Second implementation.** On the six test vectors of the reference (`Reference/Elasticity/testvectors`: identical
+  boundary data, candidate and stress field) the port reproduces the enclosure of the candidate's energy, the
+  boundary term, the cell term and the lower bound to better than 10⁻¹¹ relative, and it finds the same number of
+  parameters on the traction-free faces. The two evaluators share no code, and they organise the computation
+  differently (Section 3, evaluation on differences; `Reference/Elasticity/PORTING.md`, Section 5). All six
+  certificates stored by the reference are recomputed with bounds at least as strong as their claims.
+* **Independent exact evaluation.** The test file rebuilds both fields cell by cell as symbolic polynomials with
+  rational coefficients and checks, for the six test vectors and for six pairs of random fields: div σ + b = 0 in
+  every cell, equal tractions on both sides of every interior cell face, zero traction on the traction-free faces,
+  continuity of the candidate, the identity E[u_h] − LB(σ) = ½∫(e − Ss)ᵀD(e − Ss) as an equality of rationals, and
+  that the exact values of both bounds lie inside the certified enclosures.
+* **Exact local matrices.** The one-dimensional integrals agree with symbolic integration; the element matrices
+  reproduce the cell integrals of random polynomial fields exactly.
+* **Known minima** (E-T1, E-T2). The four problems of Section 7.1, six cases with p = 1 and 2: the exact minimum
+  (101/256, 3/32, 121/192, 1/32) lies inside the certified interval and both bounds equal it to 10⁻¹⁰.
+* **Falsification** (E-T3). For four problems, three grids and both degrees, the optimal fields and fifteen random
+  perturbations of each (five sizes from 10⁻⁴ to 1) are paired: the certified lower bound of a stress field never
+  exceeds the lower end of the energy enclosure of a displacement. For the block problem, whose datum is the same
+  on every grid, the lower bounds of all grids and degrees lie below all upper bounds.
+* **Certificates.** `VerifyCertificate` accepts genuine certificates and rejects a raised lower bound, a lowered
+  upper bound, a changed stress field, changed parameters, a changed candidate, a candidate that does not take the
+  datum, changed boundary values and another material.
+* **Failure modes.** No Dirichlet face, a stiffness that is not positive definite or not symmetric, symbolic or
+  non-finite data, a three-dimensional domain, malformed candidates and stress fields return `Failure` objects;
+  machine overflow in either evaluator returns `"Inconclusive"`.
+
+## 8. Results
+
+### 8.1 Python reference
 
 Unit square, λ = 3/2, μ = 1 (Poisson ratio 0.3), clamped on the left face, displaced by (0.1, 0) on the right face,
 no traction on the other two (the corners where the two kinds of face meet carry stress singularities):
 
 | Grid | p | Certified: lower ≤ inf E ≤ upper | Gap | Time |
 |---|---|---|---|---|
-| 8×8 | 1 | 0.01500031 ≤ inf E ≤ 0.01512044 | 0.794 % | 0.1 s |
+| 8×8 | 1 | 0.01500030 ≤ inf E ≤ 0.01512043 | 0.795 % | 0.1 s |
 | 16×16 | 1 | 0.01501720 ≤ inf E ≤ 0.01506422 | 0.313 % | 0.1 s |
 | 32×32 | 1 | 0.01502346 ≤ inf E ≤ 0.01504168 | 0.122 % | 0.2 s |
 | 64×64 | 1 | 0.01502578 ≤ inf E ≤ 0.01503277 | 0.047 % | 1.2 s |
