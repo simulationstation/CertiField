@@ -1,0 +1,11 @@
+block3d_4   N=4x4x4  p=2  +0.0137338036 <= inf E <= +0.0138966666   gap 1.1720 %   11.2 s   stored-certificate check: OK
+block3d_6   N=6x6x6  p=2  +0.0137758543 <= inf E <= +0.0138683404   gap 0.6669 %   50.0 s   stored-certificate check: OK
+shear3d_4   N=4x4x4  p=2  +0.0033192083 <= inf E <= +0.0033896671   gap 2.0786 %   11.6 s   stored-certificate check: OK
+twist3d_4   N=4x4x4  p=2  +0.0007226779 <= inf E <= +0.0007301380   gap 1.0217 %   10.9 s   stored-certificate check: OK
+bending3d   N=2x2x2  p=2  +0.0312500000 <= inf E <= +0.0312500000   gap 0.0000 %   9.3 s   stored-certificate check: OK   exact 0.0312500000 inside
+gravity3d   N=3x3x6  p=2  -0.4954477213 <= inf E <= -0.4895735507   gap 1.1999 %   15.1 s   stored-certificate check: OK
+plate3d     N=4x2x4  p=2  -0.0121227116 <= inf E <= -0.0111375307   gap 8.8456 %   12.4 s   stored-certificate check: OK
+
+real	3m13.469s
+user	0m0.000s
+sys	0m0.046s

@@ -1,0 +1,111 @@
+{
+ "format": "CertiField-elasticity3d-certificate-1",
+ "problem": {
+  "name": "gravity3d",
+  "box": [
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "2"
+   ]
+  ],
+  "N": [
+   3,
+   3,
+   6
+  ],
+  "D": [
+   [
+    "7/2",
+    "3/2",
+    "3/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "3/2",
+    "7/2",
+    "3/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "3/2",
+    "3/2",
+    "7/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "1",
+    "0",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "0",
+    "1",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "1"
+   ]
+  ],
+  "b": [
+   "0",
+   "0",
+   "-1"
+  ],
+  "bc": [
+   [
+    "N",
+    "N"
+   ],
+   [
+    "N",
+    "N"
+   ],
+   [
+    "D",
+    "N"
+   ]
+  ],
+  "degree": 2,
+  "functions": "beltrami",
+  "states": "resultants"
+ },
+ "lower": "-0.4954477219",
+ "upper": "-0.4895735501",
+ "reference": "0.1.0-reference-3d",
+ "info": {
+  "example": "gravity3d",
+  "note": "column clamped at the bottom under its own weight, five free faces",
+  "seconds": 15.050441026687622,
+  "exact": null,
+  "solver": {
+   "method": "dense",
+   "rank": 1861,
+   "unknowns": 2048
+  }
+ }
+}
