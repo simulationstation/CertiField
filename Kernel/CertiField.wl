@@ -17,7 +17,7 @@ CertifiedVariationalBound::usage =
 LowerBound <= inf E <= UpperBound for the minimal energy of model over its admissible class, the upper bound \
 coming from candidate.\nCertifiedVariationalBound[model] uses the model's built-in reference candidate.\n\
 Options: \"GapTolerance\", \"Verbose\"; \"Resolution\" (SkyrmeDegreeOne); \"Nodes\", WorkingPrecision (one-dimensional \
-models); Method (ScalarFieldND), \"RefineCandidate\" (ScalarFieldND, LinearElasticity). CertiFieldModelInfo[name] \
+models); Method (ScalarFieldND, SkyrmeDegreeOne), \"RefineCandidate\" (ScalarFieldND, LinearElasticity). CertiFieldModelInfo[name] \
 lists the parameters of each model.";
 
 CertifiedBound::usage =
@@ -57,6 +57,7 @@ Get[FileNameJoin[{DirectoryName[$InputFileName], #}]] & /@ {
   "Minorants.wl",
   "SkyrmeLevelSet.wl",
   "SkyrmeHedgehog.wl",
+  "SkyrmeAnyMass.wl",
   "SkyrmeLevelSetDegree.wl",
   "ScalarField1D.wl",
   "ScalarFieldND.wl",

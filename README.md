@@ -91,6 +91,11 @@ Running the certificate end to end in CertiField (one core, Wolfram Engine 15.0)
 | 0.526 | Quick | 1.30142 ≤ inf E ≤ 1.30767 | 0.478% | 28 s |
 | 0 | Quick | 1.19174 ≤ inf E ≤ 1.23145 | 3.23% | 33 s |
 
+**Other pion masses.** `"PionMass"` accepts any rational μ with 0 ≤ μ < 2. For a mass without shipped data the grids of
+the lower bound and the hedgehog trial map are computed on request (about two minutes at Quick resolution), and the
+certificate stores them. `Method -> "Monotonicity"` instead uses the lower bound of the largest shipped mass below μ,
+which holds because the energy increases with the pion mass. Details: `docs/SKYRME_ANY_MASS.md`.
+
 **What is and is not claimed.** The lower bound is a theorem (analytic reduction plus certified computation). It does
 *not* prove that the hedgehog is the minimiser. It bounds how much better any competitor could possibly be. Every
 `CertifiedBound` carries a `"NotClaimed"` field saying exactly this.
@@ -407,7 +412,7 @@ VerifyCertificate[cert]
 | `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `ScalarFieldND`, `LinearElasticity`, `ThinFilmMagnet`, `SkyrmeDegreeOne`, `SkyrmeDegreeTwo` |
 
 Options: `"Resolution"` (`"Quick"`, `"Standard"`, `"Publication"` for Skyrme), `"GapTolerance"`, `"Nodes"`,
-`"Verbose"`, `WorkingPrecision`; for `ScalarFieldND` also `Method` (`Automatic`, `"Convex"`, `"Calibration"`) and
+`"Verbose"`, `WorkingPrecision`; `Method` (`"Monotonicity"`, `"GeneratedGrid"`) for `SkyrmeDegreeOne`; for `ScalarFieldND` also `Method` (`Automatic`, `"Convex"`, `"Calibration"`) and
 `"RefineCandidate"` (use the given candidate as the starting point of the package's own minimisation).
 `LinearElasticity` takes `"RefineCandidate"` (replace the given candidate by the finite-element solution).
 `CertiFieldModelInfo[name]` lists the parameters of each model.
