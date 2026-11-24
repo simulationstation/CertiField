@@ -155,7 +155,26 @@ grid that is not increasing; the monotonicity method; refused inputs.
 
 ## 9. Results
 
-To be filled in after the implementation.
+Quick resolution, E/12π², rounded in the safe direction; about 90 s per generated mass (one core).
+
+| μ | Certified lower bound for I₁ | Hedgehog trial map (upper bound) | Gap | Grid |
+|---|---|---|---|---|
+| 0 | 1.19174 | 1.23145 | 3.23 % | shipped |
+| 1/20 | 1.20030 | 1.23262 | 2.63 % | generated |
+| 1/10 | 1.20941 | 1.23580 | 2.14 % | generated |
+| 1/4 | 1.23948 | 1.25441 | 1.20 % | generated |
+| 2/5 | 1.27240 | 1.28146 | 0.71 % | generated |
+| 263/500 | 1.30142 | 1.30767 | 0.48 % | shipped |
+| 13/20 | 1.33062 | 1.33516 | 0.34 % | shipped |
+| 3/4 | 1.35440 | 1.35801 | 0.27 % | generated |
+| 9/10 | 1.39021 | 1.39286 | 0.19 % | generated |
+| 1 | 1.41402 | 1.41623 | 0.16 % | shipped |
+| 5/4 | 1.46936 | 1.47447 | 0.35 % | generated |
+| 3/2 | 1.53066 | 1.53180 | 0.074 % | generated |
+| 7/4 | 1.58693 | 1.58785 | 0.058 % | generated |
+| 19/10 | 1.61660 | 1.62080 | 0.26 % | generated |
+
+The lower bounds increase with μ, and each lies below the hedgehog bound at its own mass.
 
 ## 10. Supported range, and what is not claimed
 
