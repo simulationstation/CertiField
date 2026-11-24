@@ -303,11 +303,23 @@ Certified (`levelSetLowerBoundDegree`, Wolfram Engine 15.0, one core). Every map
 | μ | Grid | Certified lower bound | Float value R₂ | Levels | Transitions | Fallbacks | Time |
 |---|---|---|---|---|---|---|---|
 | 0 | Quick | 2.207981 | 2.208440 | 1011 | 4,643,316 | 1,401,645 | 51 s |
+| 1 | Quick | 2.572283 | 2.611114 (see below) | 887 | 5,081,334 | 66,696 | 77 s |
 
-(The rows for μ = 1 and for the Standard grids are added when those runs have finished; see the log.) The certified
-number is 0.02 % below the floating-point value of the relaxed problem, which is the loss of the Quick grid; for
-degree one the same grid resolution loses 0.03 %. It is 10.4 % above Faddeev's bound 2 and 7.4 % below twice the
-degree-one bound (2 × 1.191748).
+Both numbers are certified lower bounds and both passed the path test. The Standard grids exist but have not been
+run. For μ = 0 the certified number is 0.02 % below the floating-point value of the relaxed problem, which is the
+loss of the Quick grid (for degree one the same resolution loses 0.03 %); it is 10.4 % above Faddeev's bound 2
+and 7.4 % below twice the degree-one bound (2 × 1.191748).
+
+**Open point for μ = 1.** The certified number is 1.49 % below the cost 2.611114 of the extremal found by
+`relaxed.py`. It is not yet known whether the Quick grid loses this much at μ = 1, or whether the relaxed problem,
+which is not convex, has a cheaper admissible path than that extremal (the shooting finds one extremal, not
+necessarily the minimiser). The certified bound is valid in either case; what is unsettled is the value of the
+relaxed problem, and with it how much a finer grid can gain. Until this is settled, 2.611 must not be quoted as
+the value of the relaxed problem for μ = 1. See the log for the two runs that were started to decide it.
+
+Floating-point values of the relaxed problem for other degrees (μ = 0, extremals of `relaxed.py`, not certified):
+R_B = 1.19210, 2.20844, 3.21814, 4.22504, 8.24100 for B = 1, 2, 3, 4, 8, that is R_B/B = 1.192, 1.104, 1.073,
+1.056, 1.030. The bound per unit of degree tends to Faddeev's as B grows.
 
 For orientation (not results of this note): Faddeev's bound for degree two is 2; the degree-two note certifies
 I₂ ≤ 2.358835 (μ = 0) and I₂(1) ≤ 2.721257 with an axially symmetric trial map; the numerical value of
@@ -411,3 +423,37 @@ Faddeev's. The last one returned only Faddeev's bound and Harland's bound for ma
   **In progress:** the run that stores the claims for the two Quick grids (μ = 0 and μ = 1).
   **Not yet run:** `Tests/SkyrmeDegree.wlt` as a whole; the existing suites on this branch; the Standard grids.
   **Next:** fill the table of Section 6 and the README paragraph from the stored claims.
+* 23 November 2026, at the stop (work in progress).
+  **State of the audit: complete.** Every step of the degree-one argument has been read in the source and
+  classified in the table of Section 2: the pointwise lemma, the coarea step, the flux, the volume, the
+  isoperimetric step, the minorants (M1)–(M3), monotonicity in the volume, the three floors, the second-order
+  step bound, the backward induction, and the extension to finite-energy Sobolev maps with the degree formula.
+  The degree is used in the flux only. **Verdict: the theorem extends to every degree; no obstruction**
+  (Theorems 1 and 2, proved in Sections 3 and 4). Not re-derived: the facts (F1)–(F3), which are quoted. Of the
+  code, only the lines that contain the flux were compared with the proof; the rest is the degree-one function.
+  **Done since the last entry:** stored claims for the two Quick grids (`Data/SkyrmeDegree/claims.json`):
+  μ = 0: computed 2.207981318679515, claim 2.207981316; μ = 1: computed 2.572283249253187, claim 2.572283246;
+  path test passed for both (smallest slack 3.4×10⁻⁶ and 3.2×10⁻⁶ in units of 12π²). Standard grids generated for
+  both masses. Floating-point values for B = 3, 4, 8.
+  **Stopped unfinished:** two runs to settle the open point for μ = 1 (Section 6): the level-by-level comparison
+  of the certified function with the cost of the extremal (run `levelSetLowerBoundDegree` with `"Trace" -> True`
+  on `b2_mu1_quick` and print `ctg` minus the trace against the level, to see where the 1.49 % arise), and a
+  direct minimisation over discretised two-phase paths started from several initial paths.
+  **Not run at all:** `Tests/SkyrmeDegree.wlt` as a whole, and in particular `CertifiedVariationalBound` and
+  `VerifyCertificate` for the model `SkyrmeDegreeTwo` (the pieces run so far are `levelSetLowerBoundDegree` for
+  B = 1 on `Data/Skyrme/mu0_quick` and for B = 2 on the two Quick grids, and the claims tool with `--write`);
+  the existing suites (fast, `--nd`, `--skyrme`) on this branch after the edits to `Kernel/Models.wl` and
+  `Kernel/CertiField.wl`; the Standard grids. The static syntax check of all sources passes.
+  **Not written:** the README paragraph.
+  **Next, in this order:**
+  1. `wolframscript -file tools/run_tests.wls --skyrme-degree`, and repair what fails. One failure is expected:
+     the test `degree-two-mu1-below-and-near-the-relaxed-value` asks for the certified value within 0.002 of
+     2.6111 and the certified value is 2.5723; do not change the test before step 2 is decided.
+  2. Settle the open point for μ = 1: the trace by level; the Standard grid
+     (`tools/skyrme_degree_claims.wls --write b2_mu1_standard`); the direct minimisation. If a cheaper path
+     exists, `relaxed.py` needs the correct extremal for μ > 0 and the grids for μ = 1 must be regenerated around
+     it.
+  3. The existing suites: fast, `--nd`, `--skyrme`.
+  4. Claims for the Standard grids; in `tools/skyrme_degree_claims.wls` the numbers are printed inside
+     `NumberForm[…]` wrappers, which should be replaced by `ToString[…, InputForm]`.
+  5. Complete the table of Section 6, then the README paragraph (plain product text, numbers from `claims.json`).
