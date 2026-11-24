@@ -241,3 +241,65 @@ def belavin_polyakov(R, L, power=2):
         with np.errstate(divide='ignore'):
             return 2 * np.arctan2(R * chi, r)
     return theta
+
+
+def skyrmion_profile(model, L, n=3000):
+    """heuristic: the axisymmetric profile theta(r) with theta(0) = pi and theta(L) = 0 that minimises the radial
+    energy  2 pi int [A (theta'^2 + sin^2/r^2) + kappa (theta' + sin cos/r) + h (1 - cos) + K sin^2] r dr  (Newton on
+    a geometric grid).  Returns a function of r (linear interpolation, 0 for r >= L)."""
+    from scipy.linalg import solveh_banded
+    A, kappa, K, h = float(model.A), float(model.kappa), float(model.K), float(model.h)
+    stiff = max(h + 2 * K, 1e-3)
+    r = np.concatenate([[0.0], np.geomspace(min(1e-4, 1e-3 * L) / (1 + stiff), L, n)])
+    rm = 0.5 * (r[1:] + r[:-1])
+    dr = np.diff(r)
+    w = 2 * np.pi * rm * dr
+
+    def parts(th):
+        dth = np.diff(th) / dr
+        tm = 0.5 * (th[1:] + th[:-1])
+        s, c = np.sin(tm), np.cos(tm)
+        dens = A * (dth ** 2 + s ** 2 / rm ** 2) + kappa * (dth + s * c / rm) + h * (1 - c) + K * s * s
+        Ld = w * (2 * A * dth + kappa)
+        Lm = w * (A * 2 * s * c / rm ** 2 + kappa * (c * c - s * s) / rm + h * s + 2 * K * s * c)
+        Lmm = w * (2 * A * (c * c - s * s) / rm ** 2 - 4 * kappa * s * c / rm + h * c + 2 * K * (c * c - s * s))
+        return np.sum(w * dens), Ld, Lm, w * 2 * A, Lmm
+
+    R0 = (abs(kappa) + 1e-3) / (stiff * max(np.log(stiff + 2.0), 1.0))
+    th = 2 * np.arctan2(R0, r) * np.exp(-np.sqrt(stiff / (2 * A)) * r * 0.5)
+    th[0], th[-1] = np.pi, 0.0
+    lam = 1e-3
+    for it in range(500):
+        E, Ld, Lm, Ldd, Lmm = parts(th)
+        g = np.zeros_like(th)
+        g[1:] += Ld / dr + 0.5 * Lm
+        g[:-1] += -Ld / dr + 0.5 * Lm
+        d = np.zeros_like(th)
+        d[1:] += Ldd / dr ** 2 + 0.25 * Lmm
+        d[:-1] += Ldd / dr ** 2 + 0.25 * Lmm
+        o = -Ldd / dr ** 2 + 0.25 * Lmm
+        gi = g[1:-1]
+        if np.max(np.abs(gi)) < 1e-12 * (1 + abs(E)):
+            break
+        while lam < 1e12:
+            ab = np.zeros((2, th.size - 2))
+            ab[1] = d[1:-1] + lam * w.mean()
+            ab[0, 1:] = o[1:-1]
+            try:
+                step = solveh_banded(ab, -gi)
+            except np.linalg.LinAlgError:
+                lam *= 10
+                continue
+            tn = th.copy()
+            tn[1:-1] += step
+            if parts(tn)[0] <= E + 1e-4 * gi.dot(step):
+                th, lam = tn, max(lam / 5, 1e-12)
+                break
+            lam *= 10
+        if lam >= 1e12:
+            break
+
+    def theta(rr):
+        return np.interp(rr, r, th, right=0.0)
+    return theta
+
