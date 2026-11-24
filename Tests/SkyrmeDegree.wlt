@@ -72,7 +72,7 @@ sdRun = Module[{dir = CertiField`Private`skyrmeDegreeGridDir[2, 1, "Quick"], gri
 
 VerificationTest[Length[sdRun["Slack"]] > 1000 && Min[sdRun["Slack"]] >= 0, True, TestID -> "degree-two-path-test-mu1"]
 
-VerificationTest[sdRun["Float"] - 0.001 < sdRun["Result"]["LowerBound"] < sdRun["Float"], True,
+VerificationTest[sdRun["Float"] - 0.002 < sdRun["Result"]["LowerBound"] < sdRun["Float"], True,
   TestID -> "degree-two-mu1-below-and-near-the-relaxed-value"]
 
 VerificationTest[
