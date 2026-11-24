@@ -200,7 +200,7 @@ CertiFieldModelInfo["SkyrmeDegreeTwo"] := <|
   "NotClaimed" -> "that the bounds are close to the infimum: the interval is about 10% wide",
   "Status" -> "Supported"|>;
 
-skyrmeDegreeGridDir[deg_Integer, muq_, preset_String] :=FileNameJoin[{$CertiFieldDirectory, "Data", "SkyrmeDegree",
+skyrmeDegreeGridDir[deg_Integer, muq_, preset_String] := FileNameJoin[{$CertiFieldDirectory, "Data", "SkyrmeDegree",
   "b" <> ToString[deg] <> "_mu" <> $skyrmeDegreeMuNames[muq] <> "_" <> ToLowerCase[preset]}];
 
 skyrmeDegreeMu[params_] := Module[{mu = Lookup[params, "PionMass", 0]},
@@ -248,7 +248,7 @@ skyrmeDegreeTwoDescription[res_] := <|
     " has E(U)/(12\[Pi]^2) \[GreaterEqual] ", lowerString[res["LowerBound"], 8], ".  There is a map of degree two (two translated copies of a hedgehog trial map with disjoint supports) with E/(12\[Pi]^2) \[LessEqual] ",
     upperString[res["UpperBound"], 8], "."}],
   "AdmissibleClass" -> "all finite-energy maps \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 of degree \[PlusMinus]2 with U \[Minus] 1 \[Element] L^6 (no symmetry assumed)",
-  "LowerBoundMethod" -> Row[{"level-set bound with the flux of degree two (coarea, isoperimetry, convexified level energy), certified dynamic programme: ",
+  "LowerBoundMethod" -> Row[{"level-set bound with the flux of degree two (coarea, isoperimetry, affine minorants of the level energy), certified dynamic programme: ",
     res["LevelSet", "Levels"], " levels, ", res["LevelSet", "Pairs"], " transitions, outward-rounded arithmetic; the reported number is the computed one lowered by one part in 10^9"}],
   "UpperBoundMethod" -> Row[{"twice the certified energy of the hedgehog trial map (", res["Hedgehog", "Cells"], " cubic cells, rigorous quadrature); the trial map is the vacuum outside a ball, so two disjoint copies are one map of degree two"}],
   "TrustedBase" -> "IEEE-754 machine arithmetic (+, \[Minus], \[Times], \[Divide]), Wolfram Language Interval arithmetic, and the analytic reduction (docs/SKYRME_DEGREE_TWO.md, Theorems 1 and 2)",
