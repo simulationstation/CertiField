@@ -4,7 +4,8 @@
      wolframscript -file tools/run_tests.wls --skyrme   fast suite + Skyrme suite (a few minutes)
      wolframscript -file tools/run_tests.wls --nd       fast suite + ScalarFieldND suite (about two minutes)
      wolframscript -file tools/run_tests.wls --nd-slow  fast suite + the long ScalarFieldND runs (about ten minutes)
-     wolframscript -file tools/run_tests.wls --skyrme-degree   fast suite + Skyrme fields of degree two (about five minutes)   *)
+     wolframscript -file tools/run_tests.wls --elasticity  fast suite + LinearElasticity suite (under a minute)
+     wolframscript -file tools/run_tests.wls --skyrme-degree   fast suite + Skyrme fields of degree two (about six minutes)   *)
 
 root = DirectoryName[$InputFileName, 2];
 PacletDirectoryLoad[root];
@@ -12,6 +13,7 @@ files = {FileNameJoin[{root, "Tests", "CertiField.wlt"}]};
 If[MemberQ[$ScriptCommandLine, "--skyrme"], AppendTo[files, FileNameJoin[{root, "Tests", "Skyrme.wlt"}]]];
 If[MemberQ[$ScriptCommandLine, "--nd"], AppendTo[files, FileNameJoin[{root, "Tests", "ScalarFieldND.wlt"}]]];
 If[MemberQ[$ScriptCommandLine, "--nd-slow"], AppendTo[files, FileNameJoin[{root, "Tests", "ScalarFieldNDSlow.wlt"}]]];
+If[MemberQ[$ScriptCommandLine, "--elasticity"], AppendTo[files, FileNameJoin[{root, "Tests", "Elasticity.wlt"}]]];
 If[MemberQ[$ScriptCommandLine, "--skyrme-degree"], AppendTo[files, FileNameJoin[{root, "Tests", "SkyrmeDegree.wlt"}]]];
 
 failed = 0;

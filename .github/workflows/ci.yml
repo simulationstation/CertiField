@@ -40,6 +40,29 @@ jobs:
         working-directory: Reference/ScalarND
         run: python check_exact.py
 
+  python-reference-elasticity:
+    name: Elasticity Python reference
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install NumPy and SciPy
+        run: python -m pip install numpy scipy
+      # Recomputes both bounds of every stored certificate from its exact data, rebuilds the fields in exact rational
+      # arithmetic (static admissibility, both exact values inside the enclosures), and runs the known-answer and
+      # falsification tests.  Under a minute in all.
+      - name: Recompute the stored certificates
+        working-directory: Reference/Elasticity
+        run: python verify_all.py
+      - name: Exact cross-check of the rigorous evaluators
+        working-directory: Reference/Elasticity
+        run: python check_exact.py
+      - name: Known minima and falsification
+        working-directory: Reference/Elasticity
+        run: python check_theorem.py
+
   data-integrity:
     name: Shipped grid data
     runs-on: ubuntu-latest
