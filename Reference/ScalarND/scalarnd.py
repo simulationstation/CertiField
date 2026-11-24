@@ -33,10 +33,156 @@ from fractions import Fraction as Fr
 import numpy as np
 from scipy.optimize import minimize
 
-from ia import I, fr, horner, poly_deriv, dn, up, frac_enclosure
+from ia import I, fr, horner, poly_deriv, dn, up, frac_enclosure, xlnx, sqrt_up, pi_lower
 
 INF = np.inf
 __version__ = "0.3.0-reference"
+
+
+# ================================================================================================================
+# potentials (docs/SCALAR_ND_2.md, Section 1).  A list of ascending rational coefficients, as in version 0.3.0, is a
+# Poly on the whole line.
+# ================================================================================================================
+class Poly:
+    """W(t) = sum_j W[j] t^j with rational coefficients on the value range `domain` = (lo, hi), +infinity outside;
+    domain None is the whole line"""
+    kind = 'poly'
+
+    def __init__(self, W, domain=None):
+        self.W = [Fr(c) for c in W]
+        self.W1 = poly_deriv(self.W)
+        self.W2 = poly_deriv(self.W1)
+        self.Wf = np.array([float(c) for c in self.W])
+        self.W1f = np.array([float(c) for c in self.W1])
+        self.W2f = np.array([float(c) for c in self.W2])
+        self.domain = None if domain is None else (Fr(domain[0]), Fr(domain[1]))
+        self.c1 = self.c2 = Fr(0)
+        assert self.domain is None or self.domain[1] > self.domain[0]
+
+    # ---- floating point, for the heuristics only
+    def f(self, t):
+        return np.polynomial.polynomial.polyval(t, self.Wf)
+
+    def df(self, t):
+        return np.polynomial.polynomial.polyval(t, self.W1f)
+
+    def d2f(self, t):
+        return np.polynomial.polynomial.polyval(t, self.W2f)
+
+    # ---- rigorous
+    def enc(self, t):
+        """enclosure of W at the exact rational t"""
+        return fr(sum(c * t ** q for q, c in enumerate(self.W)))
+
+    def enc_iv(self, x):
+        """enclosure of W over the interval array x (inside the value range)"""
+        return horner(self.W, x)
+
+    def w2_iv(self, x):
+        """enclosure of W'' over the interval array x; the upper end is +inf where x touches a singular end"""
+        return horner(self.W2, x)
+
+    def sub_bound(self, a, b):
+        """For the subinterval [a, b] (exact rationals) of the value range: (h2, ca, cb) such that, for C convex and
+        D a quadratic polynomial,
+            sup_[a,b] (C + D - W) <= max(Phi(a) + ca, Phi(b) + cb) + (b - a)^2/8 (h2 - D'')^+
+        (Lemma 3 of docs/SCALAR_ND.md; Lemma 11 of docs/SCALAR_ND_2.md at a singular end).  h2 is an upper bound for
+        the second derivative of the part of W that is regular on [a, b]."""
+        return float(horner(self.W2, I(frac_enclosure(a)[0], frac_enclosure(b)[1])).hi), 0.0, 0.0
+
+    def spec(self):
+        return dict(kind=self.kind, W=[str(c) for c in self.W],
+                    domain=None if self.domain is None else [str(x) for x in self.domain])
+
+
+class PolyLog(Poly):
+    """W(t) = P(t) + c1 (t - lo) ln(t - lo) + c2 (hi - t) ln(hi - t) on [lo, hi], +infinity outside; c1, c2 >= 0.
+    The entropy terms are 0 at the ends.  (t ln t + (1 - t) ln(1 - t) + chi t (1 - t): PolyLog([0, chi, -chi], 1, 1,
+    (0, 1)).)"""
+    kind = 'polylog'
+
+    def __init__(self, W, c1, c2, domain):
+        super().__init__(W, domain)
+        assert self.domain is not None
+        self.c1, self.c2 = Fr(c1), Fr(c2)
+        assert self.c1 >= 0 and self.c2 >= 0
+        self._lo, self._hi, self._c1, self._c2 = (float(x) for x in (self.domain[0], self.domain[1], self.c1, self.c2))
+
+    @staticmethod
+    def _ent(s):
+        s = np.asarray(s, dtype=float)
+        return np.where(s > 0, s * np.log(np.where(s > 0, s, 1.0)), 0.0)
+
+    def f(self, t):
+        return super().f(t) + self._c1 * self._ent(t - self._lo) + self._c2 * self._ent(self._hi - t)
+
+    def df(self, t):
+        with np.errstate(divide='ignore', invalid='ignore'):
+            return super().df(t) + self._c1 * (np.log(t - self._lo) + 1.0) - self._c2 * (np.log(self._hi - t) + 1.0)
+
+    def d2f(self, t):
+        with np.errstate(divide='ignore', invalid='ignore'):
+            return super().d2f(t) + self._c1 / (t - self._lo) + self._c2 / (self._hi - t)
+
+    def enc(self, t):
+        lo, hi = self.domain
+        assert lo <= t <= hi
+        v = super().enc(t)
+        if self.c1:
+            v = v + xlnx(fr(t - lo)) * fr(self.c1)
+        if self.c2:
+            v = v + xlnx(fr(hi - t)) * fr(self.c2)
+        return v
+
+    def _dist(self, x):
+        """enclosures of x - lo and hi - x for x inside the value range (so both are >= 0)"""
+        lo, hi = self.domain
+        s1, s2 = x - fr(lo), fr(hi) - x
+        return (I(np.maximum(s1.lo, 0.0), np.maximum(s1.hi, 0.0)), I(np.maximum(s2.lo, 0.0), np.maximum(s2.hi, 0.0)))
+
+    def enc_iv(self, x):
+        v = horner(self.W, x)
+        s1, s2 = self._dist(x)
+        if self.c1:
+            v = v + xlnx(s1) * fr(self.c1)
+        if self.c2:
+            v = v + xlnx(s2) * fr(self.c2)
+        return v
+
+    def w2_iv(self, x):
+        v = horner(self.W2, x)
+        for c, s in zip((self.c1, self.c2), self._dist(x)):
+            if c:
+                pos = s.lo > 0                                       # c / s on [s.lo, s.hi]; unbounded above if s.lo = 0
+                t = I(np.where(pos, s.lo, 1.0), np.where(pos, s.hi, 1.0)).inv() * fr(c)
+                v = v + I(np.where(pos, t.lo, 0.0), np.where(pos, t.hi, INF))
+        return v
+
+    def sub_bound(self, a, b):
+        lo, hi = self.domain
+        assert lo <= a < b <= hi
+        w = b - a
+        ca = float(frac_enclosure(self.c1 * w)[1]) if a == lo else 0.0          # Lemma 11: the entropy term costs c w
+        cb = float(frac_enclosure(self.c2 * w)[1]) if b == hi else 0.0
+        x = I(frac_enclosure(a)[0], frac_enclosure(b)[1])
+        h2 = horner(self.W2, x)
+        if self.c1 and a != lo:
+            h2 = h2 + (x - fr(lo)).inv() * fr(self.c1)
+        if self.c2 and b != hi:
+            h2 = h2 + (fr(hi) - x).inv() * fr(self.c2)
+        return float(h2.hi), ca, cb
+
+    def spec(self):
+        return dict(super().spec(), c=[str(self.c1), str(self.c2)])
+
+
+def potential_from_spec(s):
+    dom = None if s.get('domain') is None else (Fr(s['domain'][0]), Fr(s['domain'][1]))
+    if s['kind'] == 'poly':
+        return Poly([Fr(c) for c in s['W']], dom)
+    if s['kind'] == 'polylog':
+        return PolyLog([Fr(c) for c in s['W']], Fr(s['c'][0]), Fr(s['c'][1]), dom)
+    raise ValueError("unknown kind of potential: %r" % (s['kind'],))
 
 
 # ================================================================================================================
@@ -47,20 +193,44 @@ class Problem:
     W: ascending polynomial coefficients (rationals);  bc[i] = (type at x_i = a_i, type at x_i = b_i), 'D' or 'N';
     g: function of the node coordinate arrays giving the Dirichlet nodal values (each float is taken as the exact
     binary number it is).  THE DIRICHLET DATUM OF THE CERTIFIED PROBLEM IS THE PIECEWISE MULTILINEAR INTERPOLANT OF
-    THESE NODAL VALUES on the boundary grid (equal to g itself when g is multilinear on each boundary face)."""
+    THESE NODAL VALUES on the boundary grid (equal to g itself when g is multilinear on each boundary face).
 
-    def __init__(self, box, N, k, W, bc, g=None, name='', gval=None):
+    Extensions (docs/SCALAR_ND_2.md).  W may also be a Poly or PolyLog object, or a list of them together with
+    mat, an integer array over the cells that says which one acts in each cell (they share one value range).
+    lin: the coefficient a of a term a(x) u in the energy density: a function of the node coordinate arrays or a node
+    array (a is then the continuous piecewise multilinear function with these nodal values) or an array over the cells
+    (a constant on each cell); every float is taken as the exact binary number it is.
+    mean: the prescribed mean of u (a rational), or None.
+    bc[i] = ('P', 'P'): direction i is periodic."""
+
+    def __init__(self, box, N, k, W, bc, g=None, name='', gval=None, lin=None, mean=None, mat=None):
         self.name = name
         self.box = [(Fr(a), Fr(b)) for a, b in box]
         self.N = tuple(int(x) for x in N)
         self.n = len(self.N)
         self.k = Fr(k)
-        self.W = [Fr(c) for c in W]
+        if isinstance(W, Poly):
+            self.pots = [W]
+        elif len(W) > 0 and isinstance(W[0], Poly):
+            self.pots = list(W)
+        else:
+            self.pots = [Poly(W)]
+        self.W = self.pots[0].W                    # as in version 0.3.0; it is the potential when there is only one
+        self.domain = self.pots[0].domain
+        assert all(p.domain == self.domain for p in self.pots), "the potentials must share one value range"
+        self.mat = None if mat is None else np.array(mat, dtype=int)
+        assert (self.mat is None and len(self.pots) == 1) or (self.mat is not None and self.mat.shape == self.N
+                                                                and self.mat.min() >= 0 and self.mat.max() < len(self.pots))
+        self.plain = len(self.pots) == 1 and type(self.pots[0]) is Poly and self.domain is None
         self.bc = [tuple(x) for x in bc]
+        assert all(set(b) <= {'D', 'N'} or b == ('P', 'P') for b in self.bc), "bc entries: 'D', 'N', or ('P', 'P')"
+        self.periodic = [b == ('P', 'P') for b in self.bc]
+        self.mean = None if mean is None else Fr(mean)
         assert len(self.box) == self.n == len(self.bc) and self.k > 0 and all(b > a for a, b in self.box)
         self.h = [(b - a) / Ni for (a, b), Ni in zip(self.box, self.N)]
         self.hf = [float(x) for x in self.h]
         self.cellvol = math.prod(self.h)                                   # exact
+        self.vol = self.cellvol * math.prod(self.N)                        # exact
         self.axes = [np.array([float(a + j * h) for j in range(Ni + 1)])
                      for (a, b), Ni, h in zip(self.box, self.N, self.h)]
         fixed = np.zeros([Ni + 1 for Ni in self.N], dtype=bool)
@@ -81,6 +251,7 @@ class Problem:
                 gv = np.asarray(g(*X), dtype=float) * np.ones(fixed.shape)
                 self.gval[fixed] = gv[fixed]
         self.gval[~fixed] = 0.0
+        self.gval = self.tie(self.gval)
         assert np.all(np.isfinite(self.gval))
         self.verts = list(itertools.product((0, 1), repeat=self.n))
         self.Wf = np.array([float(c) for c in self.W])
@@ -88,6 +259,69 @@ class Problem:
         self.W2 = poly_deriv(self.W1)
         self.W1f = np.array([float(c) for c in self.W1])
         self.W2f = np.array([float(c) for c in self.W2])
+        # the term a(x) u: av[v] = the value of a at the vertex v of every cell (an array over the cells)
+        self.lin_nodes = self.lin_cells = self.av = None
+        if lin is not None:
+            if callable(lin):
+                X = np.meshgrid(*self.axes, indexing='ij')
+                L = np.asarray(lin(*X), dtype=float) * np.ones(fixed.shape)
+            else:
+                L = np.array(lin, dtype=float)
+            assert np.all(np.isfinite(L))
+            if L.shape == fixed.shape:
+                self.lin_nodes = self.tie(L)
+                self.av = {v: self.lin_nodes[self.vslice(v)] for v in self.verts}
+            elif L.shape == self.N:
+                self.lin_cells = L
+                self.av = {v: L for v in self.verts}
+            else:
+                raise ValueError("lin must be an array over the nodes or over the cells")
+        Wtrim = list(self.W)
+        while len(Wtrim) > 1 and Wtrim[-1] == 0:
+            Wtrim.pop()
+        self.linear = self.plain and len(Wtrim) <= 2          # W = w0 + w1 t: Proposition 16 of docs/SCALAR_ND_2.md
+        self.affine_ok = self.linear or all(p.domain is None and is_superlinear(p.W) for p in self.pots)
+
+    def tie(self, A):
+        """in every periodic direction the last node (or face) is the first one: copy it there"""
+        for i in range(self.n):
+            if self.periodic[i]:
+                first = [slice(None)] * self.n
+                first[i] = 0
+                last = [slice(None)] * self.n
+                last[i] = -1
+                A[tuple(last)] = A[tuple(first)]
+        return A
+
+    def tied(self, A):
+        return all(not self.periodic[i] or np.array_equal(np.take(A, 0, axis=i), np.take(A, -1, axis=i))
+                   for i in range(self.n))
+
+    # ---- the potential of each cell.  One polynomial: scalars, exactly as in version 0.3.0.  Several: arrays over cells.
+    def _sel(self, vals):
+        if self.mat is None:
+            return vals[0]
+        if isinstance(vals[0], I):
+            return I(self._sel([v.lo for v in vals]), self._sel([v.hi for v in vals]))
+        out = np.broadcast_to(np.asarray(vals[0], dtype=float), self.N).copy()
+        for j in range(1, len(vals)):
+            out = np.where(self.mat == j, vals[j], out)
+        return out
+
+    def Wenc(self, t):
+        """enclosure of W_c at the exact rational t"""
+        return self._sel([p.enc(t) for p in self.pots])
+
+    def sub_bound(self, a, b):
+        r = [p.sub_bound(a, b) for p in self.pots]
+        return tuple(self._sel([x[q] for x in r]) for q in range(3))
+
+    def Wenc_cells(self, x):
+        """enclosure of W_c over the interval array x (one interval per cell)"""
+        return self._sel([p.enc_iv(x) for p in self.pots])
+
+    def W2rng_cells(self, x):
+        return self._sel([p.w2_iv(x) for p in self.pots])
 
     def vslice(self, v):
         """for every cell, its vertex v in {0,1}^n, from a node array"""
@@ -103,19 +337,30 @@ class Problem:
         return tuple(Ni + (1 if j == i else 0) for j, Ni in enumerate(self.N))
 
     def Wfloat(self, t):
-        return np.polynomial.polynomial.polyval(t, self.Wf)
+        if self.plain:
+            return np.polynomial.polynomial.polyval(t, self.Wf)
+        return self._sel([p.f(t) for p in self.pots])
 
     def dWfloat(self, t):
-        return np.polynomial.polynomial.polyval(t, self.W1f)
+        if self.plain:
+            return np.polynomial.polynomial.polyval(t, self.W1f)
+        return self._sel([p.df(t) for p in self.pots])
 
     def spec(self):
-        return dict(name=self.name, box=[[str(a), str(b)] for a, b in self.box], N=list(self.N), k=str(self.k),
-                    W=[str(c) for c in self.W], bc=[list(x) for x in self.bc])
+        s = dict(name=self.name, box=[[str(a), str(b)] for a, b in self.box], N=list(self.N), k=str(self.k),
+                 W=[str(c) for c in self.W], bc=[list(x) for x in self.bc])
+        if not self.plain:                                   # the arrays (mat, lin) are stored beside the spec
+            s['potentials'] = [p.spec() for p in self.pots]
+        if self.mean is not None:
+            s['mean'] = str(self.mean)
+        return s
 
     @staticmethod
-    def from_spec(s, gval):
-        return Problem(box=[(Fr(a), Fr(b)) for a, b in s['box']], N=s['N'], k=Fr(s['k']), W=[Fr(c) for c in s['W']],
-                       bc=s['bc'], name=s.get('name', ''), gval=gval)
+    def from_spec(s, gval, lin=None, mat=None):
+        W = [potential_from_spec(q) for q in s['potentials']] if 'potentials' in s else [Fr(c) for c in s['W']]
+        return Problem(box=[(Fr(a), Fr(b)) for a, b in s['box']], N=s['N'], k=Fr(s['k']), W=W, bc=s['bc'],
+                       name=s.get('name', ''), gval=gval, lin=lin, mat=mat,
+                       mean=(Fr(s['mean']) if s.get('mean') is not None else None))
 
 
 def is_superlinear(W):
@@ -208,13 +453,20 @@ def upper_bound(P, U):
     n = P.n
     assert U.shape == P.fixed.shape and np.all(np.isfinite(U))
     assert np.array_equal(U[P.fixed], P.gval[P.fixed]), "Dirichlet nodal values are not imposed exactly"
-    Uc = {v: I(U[P.vslice(v)]) for v in P.verts}
+    assert P.tied(U), "the nodal values on identified periodic nodes differ"
+    Ulo, Uhi = nodal_enclosure(P, U)
+    if P.domain is not None and not (Fr(float(Ulo.min())) >= P.domain[0] and Fr(float(Uhi.max())) <= P.domain[1]):
+        raise ValueError("the candidate leaves the value range of the potential: its energy is infinite")
+    Uc = {v: I(Ulo[P.vslice(v)], Uhi[P.vslice(v)]) for v in P.verts}
     invh = [fr(1 / h) for h in P.h]
     h2 = [fr(h * h) for h in P.h]
     umin = np.minimum.reduce([Uc[v].lo for v in P.verts])
     umax = np.maximum.reduce([Uc[v].hi for v in P.verts])
-    W2rng = horner(P.W2, I(umin, umax))
+    W2rng = P.W2rng_cells(I(umin, umax))
     W2pm = I(np.minimum(W2rng.lo, 0.0), np.maximum(W2rng.hi, 0.0))
+    if not P.plain:                               # W'' may be unbounded on a cell that touches a singular end
+        fin = np.isfinite(W2rng.lo) & np.isfinite(W2rng.hi) & np.ones(P.N, dtype=bool)
+        W2pm = I(np.where(fin, W2pm.lo, 0.0), np.where(fin, W2pm.hi, 0.0))
     kin = None
     rem_hi = np.zeros(P.N)
     rem_lo = np.zeros(P.N)
@@ -238,11 +490,59 @@ def upper_bound(P, U):
     uc = None
     for v in P.verts:
         uc = Uc[v] if uc is None else uc + Uc[v]
-    Wc = horner(P.W, uc * fr(Fr(1, 2 ** n)))
-    cell_hi = up(up(kin.hi + Wc.hi) + rem_hi)
-    cell_lo = dn(dn(kin.lo + Wc.lo) + rem_lo)
+    if P.plain:
+        Wc = horner(P.W, uc * fr(Fr(1, 2 ** n)))
+        cell_hi = up(up(kin.hi + Wc.hi) + rem_hi)
+        cell_lo = dn(dn(kin.lo + Wc.lo) + rem_lo)
+    else:                                          # Proposition 13.2 of docs/SCALAR_ND_2.md
+        Wc = P.Wenc_cells(uc * fr(Fr(1, 2 ** n)))
+        pot_hi = np.where(fin, up(Wc.hi + rem_hi), INF)                # midpoint rule where W'' is bounded on the cell
+        pot_lo = np.where(fin, dn(Wc.lo + rem_lo), -INF)
+        convex = (W2rng.lo >= 0) & np.ones(P.N, dtype=bool)            # vertex rule where W_c is convex on the range
+        if np.any(convex):
+            Wv = None
+            for v in P.verts:
+                t = P.Wenc_cells(Uc[v])
+                Wv = t if Wv is None else Wv + t
+            Wv = Wv * fr(Fr(1, 2 ** n))
+            pot_hi = np.where(convex, np.minimum(pot_hi, Wv.hi), pot_hi)
+            pot_lo = np.where(convex, np.maximum(pot_lo, Wc.lo), pot_lo)
+        cell_hi = up(kin.hi + pot_hi)
+        cell_lo = dn(kin.lo + pot_lo)
+    if P.av is not None:                           # the term a(x) u: Proposition 13.1
+        lin = None
+        for v in P.verts:
+            for v2 in P.verts:
+                w = math.prod((Fr(1, 3) if a == b else Fr(1, 6)) for a, b in zip(v, v2))
+                term = I(P.av[v]) * Uc[v2] * fr(w)
+                lin = term if lin is None else lin + term
+        cell_hi = up(cell_hi + lin.hi)
+        cell_lo = dn(cell_lo + lin.lo)
     tot = I(_fsum_dn(cell_lo), _fsum_up(cell_hi)) * fr(P.cellvol)
     return float(tot.lo), float(tot.hi)
+
+
+def nodal_enclosure(P, U):
+    """The nodal values of the competitor as intervals (lo, hi).  Without a prescribed mean they are U itself.  With
+    one, the competitor is u_h + delta phi_h, phi_h the Q1 function that is 1 at the nodes off the Dirichlet faces and
+    0 on them, and delta the number that makes the mean exact (Proposition 13.4 of docs/SCALAR_ND_2.md); delta is
+    enclosed, not computed exactly."""
+    if P.mean is None:
+        return U, U
+    free = ~P.fixed
+    phi = free.astype(float)
+
+    def integral(X):                               # of the Q1 function with nodal values X: |c| sum over cells of vertex means
+        acc = None
+        for v in P.verts:
+            acc = I(X[P.vslice(v)]) if acc is None else acc + I(X[P.vslice(v)])
+        return I(_fsum_dn(acc.lo), _fsum_up(acc.hi)) * fr(P.cellvol / 2 ** P.n)
+
+    Iphi = integral(phi)
+    if not float(Iphi.lo) > 0.0:
+        raise ValueError("the mean cannot be prescribed: every node lies on a Dirichlet face")
+    delta = (fr(P.mean * P.vol) - integral(U)) * Iphi.inv()
+    return (np.where(free, dn(U + float(delta.lo)), U), np.where(free, up(U + float(delta.hi)), U))
 
 
 # ================================================================================================================

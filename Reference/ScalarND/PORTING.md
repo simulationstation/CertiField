@@ -297,7 +297,19 @@ statements and proofs are in `docs/SCALAR_ND_2.md`; the statements of `docs/SCAL
   `pi_lower` (Machin). New functions only; nothing existing changed. `check_ia.py` compares each with exact
   rational arithmetic (607 + 303 + 3000 points): all enclosures hold, relative width of ln 4e-15.
 
-**In progress.** Step 2 below. `Kernel/ScalarFieldND.wl` is as in version 0.3.0.
+* `scalarnd.py`, first part of step 2. Potentials are objects (`Poly`, `PolyLog` with the entropy terms and the
+  rule of Lemma 11 in `sub_bound`); `Problem` takes `lin` (nodal or cell values of a), `mean`, `mat` (materials)
+  and `('P', 'P')` in `bc`, with `tie`/`tied` for periodic arrays and methods `Wenc`, `sub_bound`, `Wenc_cells`,
+  `W2rng_cells` that return scalars for one polynomial and arrays over the cells otherwise. `upper_bound` works on
+  nodal intervals (`nodal_enclosure`: the shift that makes the mean exact), adds the term a(x)u exactly, and for
+  potentials that are not plain polynomials takes the better of the midpoint rule and the vertex rule
+  (Proposition 13). `check_unchanged.py` (new) recomputes the five test vectors of version 0.3.0 and compares
+  bit for bit: identical. `verify_all.py`: all stored certificates verified.
+  **Not yet exercised by any test: every new branch of `upper_bound`** (linear term, mean, `PolyLog`, materials).
+  They are written from the propositions and have not been run.
+
+**In progress.** Step 2, second part: `lower_bound` (see the plan below) and `Calibration` (`lam`, tied faces).
+The table kind of potential is not written. `Kernel/ScalarFieldND.wl` is as in version 0.3.0.
 
 **Next, in this order.**
 1. (done, see above)
