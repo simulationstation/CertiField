@@ -55,7 +55,7 @@
  "info": {
   "example": "gravity",
   "note": "column clamped at the bottom under its own weight, three free faces",
-  "seconds": 0.25896430015563965,
+  "seconds": 0.1588752269744873,
   "exact": null
  }
 }

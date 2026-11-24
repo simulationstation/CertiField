@@ -55,7 +55,7 @@
  "info": {
   "example": "block_p1_16",
   "note": "block clamped on the left, pulled on the right, free sides",
-  "seconds": 0.11246252059936523,
+  "seconds": 0.07700181007385254,
   "exact": null
  }
 }

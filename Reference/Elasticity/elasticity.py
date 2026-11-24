@@ -569,7 +569,12 @@ def lower_bound(P, st, return_parts=False):
             continue
         kind = (k[0] % 2, k[1] % 2)
         if kind == (0, 0):
-            Dc[k] = Xc[k] - (a0 + a1 * fr((k[0] // 2) * P.h[0]) + a2 * fr((k[1] // 2) * P.h[1]))
+            # the value at the corner first: each subtraction is then rounded relative to a small number
+            Dc[k] = Xc[k] - a0
+            if k[0] // 2:
+                Dc[k] = Dc[k] - a1 * fr(P.h[0])
+            if k[1] // 2:
+                Dc[k] = Dc[k] - a2 * fr(P.h[1])
         elif kind == (1, 0):
             Dc[k] = Xc[k] - a1
         elif kind == (0, 1):
@@ -602,7 +607,7 @@ def lower_bound(P, st, return_parts=False):
         cA, cB, gn, gt = _face_data(P, X, i, side)
         # differences again: the second derivative annihilates the affine function through the value and the slope at
         # the lower end of the cell face, the first derivative the constant through the value there
-        dA = {2: cA[2] - (cA[0] + cA[1]), 3: cA[3] - cA[1]}
+        dA = {2: (cA[2] - cA[0]) - cA[1], 3: cA[3] - cA[1]}
         dB = {1: cB[1], 2: cB[2] - cB[0], 3: cB[3]}
         acc = None
         for qn in range(P.p + 1):
