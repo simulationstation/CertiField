@@ -5,7 +5,7 @@
 
 Begin["CertiField`Private`"];
 
-$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "SkyrmeDegreeOne", "SkyrmeRationalMap"};
+$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "LinearElasticity", "SkyrmeDegreeOne", "SkyrmeDegreeTwo", "SkyrmeRationalMap"};
 
 (* ---- model specifications ---- *)
 CertiFieldModel[name_String, rules___Rule] := CertiFieldModel[name, Association[rules]];
@@ -160,8 +160,10 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
   tolerance = OptionValue[CertifiedVariationalBound, opts, "GapTolerance"];
   raw = Which[
     name === "SkyrmeDegreeOne", certifySkyrme[params, cand, opts],
+    name === "SkyrmeDegreeTwo", certifySkyrmeDegreeTwo[params, cand, opts],
     name === "SkyrmeRationalMap", certifySkyrmeRationalMap[params, cand, opts],
     name === "ScalarFieldND", certifyScalarFieldND[params, cand, opts],
+    name === "LinearElasticity", certifyLinearElasticity[params, cand, opts],
     True, certifyScalarField1D[presetSpec[name, params], If[cand === Automatic && name =!= "ScalarField1D", presetCandidate[name, params], cand], opts]];
   If[! (NumericQ[raw["LowerBound"]] && NumericQ[raw["UpperBound"]]),
     Throw[failure["Inconclusive", "A bound could not be enclosed."], "CertiField"]];
@@ -170,8 +172,10 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
   If[res["LowerBound"] > res["UpperBound"], Throw[failure["Internal", "Lower bound exceeds upper bound."], "CertiField"]];
   base = Which[
     name === "SkyrmeDegreeOne", skyrmeDescription[res],
+    name === "SkyrmeDegreeTwo", skyrmeDegreeTwoDescription[res],
     name === "SkyrmeRationalMap", skyrmeRationalMapDescription[res],
     name === "ScalarFieldND", scalarNDDescription[params, res],
+    name === "LinearElasticity", elasticityDescription[params, res],
     True, scalarDescription[name, params, res]];
   rel = N[relGapOf[res]];
   status = If[tolerance === None || rel <= tolerance, "Certified", "Inconclusive"];
@@ -215,6 +219,8 @@ VerifyCertificate[CertifiedBound[a_Association]] := TrueQ[Catch[verifyCertificat
 
 verifyCertificate[a_Association] := Module[{c = a["Certificate"], name = a["Model"], lb, ub, spec, prec = 30},
   If[name === "ScalarFieldND", Return[verifyScalarFieldND[a]]];
+  If[name === "LinearElasticity", Return[verifyLinearElasticity[a]]];
+  If[name === "SkyrmeDegreeTwo", Return[verifySkyrmeDegreeTwo[a]]];
   If[name === "SkyrmeRationalMap", Return[verifySkyrmeRationalMap[a]]];
   Which[
     name === "SkyrmeDegreeOne",

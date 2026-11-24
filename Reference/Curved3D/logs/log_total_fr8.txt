@@ -1,0 +1,7 @@
+grid 8, frictionless grips: both bounds in exact rational arithmetic (depths 3 and 5)
+   strain: 20000/64941 boxes   229s
+   strain: 40000/64941 boxes   241s
+   strain: 60000/64941 boxes   252s
+   exact lower bound  1.689105784678506     interval result 1.689105784674822    exact - interval = 3.68e-12
+   exact upper bound  1.762080379392570     interval result 1.762080379443421    interval - exact = 5.09e-11
+EXACT TOTALS PASSED   292s
