@@ -49,11 +49,14 @@ percentString[g_] := Module[{p = 100 upperDecimal[g, 3], e},
       decimalString[upperDecimal[p, 3], Max[0, 2 - e]] <> "%",
       decimalString[upperDecimal[p, 3]/10^e, 2] <> "\[Times]10^" <> ToString[e] <> " %"]]];
 
+(* the bounded quantity: the minimal energy, unless the model names another one ("Quantity") *)
+quantityName[a_Association] := Lookup[a, "Quantity", "inf E"];
+
 boundsString[a_Association] := With[{d = displayDigits[a]},
-  lowerString[a["LowerBound"], d] <> " \[LessEqual] inf E \[LessEqual] " <> upperString[a["UpperBound"], d]];
+  lowerString[a["LowerBound"], d] <> " \[LessEqual] " <> quantityName[a] <> " \[LessEqual] " <> upperString[a["UpperBound"], d]];
 
 boundsDisplay[a_Association] := If[NumericQ[a["LowerBound"]] && NumericQ[a["UpperBound"]],
-  boundsString[a], Row[{a["LowerBound"], " \[LessEqual] inf E \[LessEqual] ", a["UpperBound"]}]];
+  boundsString[a], Row[{a["LowerBound"], " \[LessEqual] " <> quantityName[a] <> " \[LessEqual] ", a["UpperBound"]}]];
 
 gapDisplay[a_Association] := With[{g = relGapOf[a]}, If[NumericQ[g], percentString[g], "\[LongDash]"]];
 
@@ -106,7 +109,7 @@ certReport[a_Association] := Grid[
 
 certSummaryString[a_Association] := With[{d = displayDigits[a]}, StringJoin[
   a["Model"], ": ", a["Status"], "  ",
-  lowerString[a["LowerBound"], d], " <= inf E <= ", upperString[a["UpperBound"], d],
+  lowerString[a["LowerBound"], d], " <= " <> quantityName[a] <> " <= ", upperString[a["UpperBound"], d],
   If[NumericQ[relGapOf[a]], "  (relative gap <= " <> StringReplace[percentString[relGapOf[a]], {"\[Times]" -> "x"}] <> ")", ""]]];
 
 End[];

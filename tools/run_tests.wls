@@ -7,7 +7,8 @@
      wolframscript -file tools/run_tests.wls --nd-slow  fast suite + the long ScalarFieldND runs (about ten minutes)
      wolframscript -file tools/run_tests.wls --magnet   fast suite + ThinFilmMagnet suite (about two minutes)
      wolframscript -file tools/run_tests.wls --elasticity  fast suite + LinearElasticity suite (under a minute)
-     wolframscript -file tools/run_tests.wls --skyrme-degree   fast suite + Skyrme fields of degree two (about six minutes)   *)
+     wolframscript -file tools/run_tests.wls --skyrme-degree   fast suite + Skyrme fields of degree two (about six minutes)
+     wolframscript -file tools/run_tests.wls --curved3d   fast suite + ElasticCavity3D suite (about three minutes)   *)
 
 root = DirectoryName[$InputFileName, 2];
 PacletDirectoryLoad[root];
@@ -19,6 +20,7 @@ If[MemberQ[$ScriptCommandLine, "--nd-slow"], AppendTo[files, FileNameJoin[{root,
 If[MemberQ[$ScriptCommandLine, "--magnet"], AppendTo[files, FileNameJoin[{root, "Tests", "ThinFilmMagnet.wlt"}]]];
 If[MemberQ[$ScriptCommandLine, "--elasticity"], AppendTo[files, FileNameJoin[{root, "Tests", "Elasticity.wlt"}]]];
 If[MemberQ[$ScriptCommandLine, "--skyrme-degree"], AppendTo[files, FileNameJoin[{root, "Tests", "SkyrmeDegree.wlt"}]]];
+If[MemberQ[$ScriptCommandLine, "--curved3d"], AppendTo[files, FileNameJoin[{root, "Tests", "Curved3D.wlt"}]]];
 
 failed = 0;
 Do[

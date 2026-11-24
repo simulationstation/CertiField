@@ -5,7 +5,7 @@
 
 Begin["CertiField`Private`"];
 
-$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "LinearElasticity", "ThinFilmMagnet", "SkyrmeDegreeOne", "SkyrmeDegreeTwo"};
+$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "LinearElasticity", "ElasticCavity3D", "ThinFilmMagnet", "SkyrmeDegreeOne", "SkyrmeDegreeTwo"};
 
 (* ---- model specifications ---- *)
 CertiFieldModel[name_String, rules___Rule] := CertiFieldModel[name, Association[rules]];
@@ -182,6 +182,7 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
     name === "ScalarFieldND", certifyScalarFieldND[params, cand, opts],
     name === "ThinFilmMagnet", certifyThinFilmMagnet[params, cand, opts],
     name === "LinearElasticity", certifyLinearElasticity[params, cand, opts],
+    name === "ElasticCavity3D", certifyElasticCavity3D[params, cand, opts],
     True, certifyScalarField1D[presetSpec[name, params], If[cand === Automatic && name =!= "ScalarField1D", presetCandidate[name, params], cand], opts]];
   If[! (NumericQ[raw["LowerBound"]] && NumericQ[raw["UpperBound"]]),
     Throw[failure["Inconclusive", "A bound could not be enclosed."], "CertiField"]];
@@ -194,6 +195,7 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
     name === "ScalarFieldND", scalarNDDescription[params, res],
     name === "ThinFilmMagnet", tfmDescription[params, res],
     name === "LinearElasticity", elasticityDescription[params, res],
+    name === "ElasticCavity3D", elasticCavityDescription[params, res],
     True, scalarDescription[name, params, res]];
   rel = N[relGapOf[res]];
   status = If[tolerance === None || rel <= tolerance, "Certified", "Inconclusive"];
@@ -241,6 +243,7 @@ verifyCertificate[a_Association] := Module[{c = a["Certificate"], name = a["Mode
   If[name === "ScalarFieldND", Return[verifyScalarFieldND[a]]];
   If[name === "ThinFilmMagnet", Return[TrueQ[verifyThinFilmMagnet[a]]]];
   If[name === "LinearElasticity", Return[verifyLinearElasticity[a]]];
+  If[name === "ElasticCavity3D", Return[verifyElasticCavity3D[a]]];
   If[name === "SkyrmeDegreeTwo", Return[verifySkyrmeDegreeTwo[a]]];
   Which[
     name === "SkyrmeDegreeOne",

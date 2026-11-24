@@ -313,6 +313,24 @@ equilibrium finite elements), and no novelty is claimed for them; what the packa
 certificate that can be re-checked. The proofs in `docs/ELASTICITY.md` and `docs/ELASTICITY_3D.md` have been checked by their author only. Rectangles
 and boxes, constant stiffness and body force only; no prescribed tractions, no roller conditions.
 
+**A curved free surface.** `ElasticCavity3D` bounds the stiffness K of the block (−1,1)³ with a spherical cavity of
+radius 1/2 at its centre (isotropic, Young's modulus 1, Poisson ratio 3/10), pulled apart by rigid grips on the faces
+x = ±1 while all other surfaces, the sphere included, are free; K is defined by min E = K δ²/2 for the grip separation
+δ. The stress field τ_p + inc(ρ²Ψ) (a Beltrami potential with a weight ρ that vanishes on the sphere) is free of
+traction on the sphere exactly, and both integrals run over octree boxes that cover the body, with exact Gauss rules
+and outward-rounded arithmetic.
+
+```wolfram
+cert = CertifiedVariationalBound["ElasticCavity3D", "Grips" -> "Clamped", "Cells" -> 8];
+cert["Summary"]    (* "ElasticCavity3D: Certified  1.75199 <= K <= 1.83912  (relative gap <= 4.74%)" *)
+```
+
+`"Grips"` is `"Clamped"` or `"Frictionless"`, `"Cells"` the number of spline cells per half-edge (a multiple of 4),
+`"Depths"` the octree depths {stress solve, stress certificate, displacement solve, displacement certificate}
+(default {2, 3, 3, 5}), and `"Cavity" -> False` gives the solid block, whose stiffness between frictionless grips is 2.
+Fields computed by the Python reference in `Reference/Curved3D` are certified as they are: pass its `.npz` file as the
+candidate and as `"Field"`.
+
 ## Unit-vector fields: magnetic skyrmions in thin films
 
 `ThinFilmMagnet` certifies the minimal energy of a magnetisation m : Ω → S² on a rectangle,
@@ -409,7 +427,7 @@ VerifyCertificate[cert]
 | `CertifiedBound[...]["prop"]` | `"LowerBound"`, `"UpperBound"`, `"RelativeGap"`, `"Status"`, `"Theorem"`, `"AdmissibleClass"`, `"TrustedBase"`, `"NotClaimed"`, `"Report"`, ... |
 | `VerifyCertificate[cert]` | recomputes every rigorous step from the recorded inputs |
 | `CertiFieldModelInfo[name]` | energy, parameters, admissible class and methods of a model |
-| `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `ScalarFieldND`, `LinearElasticity`, `ThinFilmMagnet`, `SkyrmeDegreeOne`, `SkyrmeDegreeTwo` |
+| `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `ScalarFieldND`, `LinearElasticity`, `ElasticCavity3D`, `ThinFilmMagnet`, `SkyrmeDegreeOne`, `SkyrmeDegreeTwo` |
 
 Options: `"Resolution"` (`"Quick"`, `"Standard"`, `"Publication"` for Skyrme), `"GapTolerance"`, `"Nodes"`,
 `"Verbose"`, `WorkingPrecision`; `Method` (`"Monotonicity"`, `"GeneratedGrid"`) for `SkyrmeDegreeOne`; for `ScalarFieldND` also `Method` (`Automatic`, `"Convex"`, `"Calibration"`) and
@@ -450,7 +468,7 @@ takes 1 to 7 s for convex energies up to 48³ cells and 39 s to 18 min for the n
   `Failure` objects, never numbers.
 * The test suite is in `Tests/` (`wolframscript -file tools/run_tests.wls`; add `--skyrme` for the Skyrme suite,
   `--nd` for the two- and three-dimensional suite, `--nd-slow` for its long runs, `--elasticity` for linear
-  elasticity, `--magnet` for `ThinFilmMagnet`).
+  elasticity, `--magnet` for `ThinFilmMagnet`, `--curved3d` for `ElasticCavity3D`).
 
 ## Roadmap
 
@@ -473,11 +491,13 @@ Kernel/          the paclet (CertiField.wl loads the modules below)
   ScalarFieldND.wl        2D/3D scalar fields: calibration-field lower bound, Q1 competitor, convex and calibration modes
   Elasticity.wl           2D linear elasticity: complementary-energy lower bound from an Airy stress function, Q_p competitor
   Elasticity3D.wl         3D linear elasticity: the same bound with Beltrami stress functions, Q_p competitor
+  Curved3D.wl             ElasticCavity3D: stiffness of a block with a spherical cavity (weighted Beltrami potential, octree boxes)
   CertifiedBound.wl       the result object, safe decimal display, reports
   Models.wl               model registry, public entry points, VerifyCertificate
 Data/Skyrme/     grids for 4 pion masses x 3 resolutions (heuristic inputs: they affect tightness, never validity)
 Reference/ScalarND/  the Python reference of ScalarFieldND: implementation, checks, test vectors, stored certificates
 Reference/Elasticity/  the Python reference of LinearElasticity: implementation, checks, test vectors, stored certificates
+Reference/Curved3D/  the Python reference of ElasticCavity3D: implementation, exact check, stored certificates, NDSolve comparison
 Tests/           VerificationTest suites
 tools/           test runner and syntax checks
 docs/            architecture (ARCHITECTURE.md), the statements and proofs behind ScalarFieldND (SCALAR_ND.md) and

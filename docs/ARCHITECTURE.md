@@ -12,6 +12,7 @@ Models.wl              public API: CertifiedVariationalBound, VerifyCertificate,
   |-- ScalarField1D.wl     1D: calibration lower bound, admissible competitor, exact / Taylor-model energy
   |-- ScalarFieldND.wl     2D/3D scalar fields on boxes: calibration-field lower bound, Q1 competitor, the two modes
   |-- Elasticity.wl        2D linear elasticity: complementary-energy lower bound (Airy stress function), Q_p competitor
+  |-- Curved3D.wl          ElasticCavity3D: block with a spherical cavity, weighted Beltrami stress, octree boxes
   |-- SkyrmeLevelSet.wl    Skyrme lower bound: the level-set dynamic programme
   |-- SkyrmeHedgehog.wl    Skyrme upper bound: hedgehog trial maps and their certified energy
   |-- SkyrmeLevelSetDegree.wl  Skyrme lower bound for degree B (the level-set programme with B times the flux)
