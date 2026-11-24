@@ -11,9 +11,10 @@
 (*    E = 4 Pi Integrate[ r^2 f'^2 + 2 B (f'^2 + 1) Sin[f]^2 + II Sin[f]^4/r^2 + 2 mu^2 r^2 (1 - Cos[f]), {r, 0, Infinity} ],*)
 (*    II = (1/(4 Pi)) Integrate[ J^4 dA over the sphere ],   J = (1 + |z|^2) |R'(z)| / (1 + |R(z)|^2).*)
 (*Rigorous in this file:*)
-(*  rationalMapIntegral   an enclosure of II: midpoint rule on dyadic cells with the remainder bounded through*)
-(*                        enclosures of the second derivatives (interval arithmetic on second-order Taylor data,*)
-(*                        outward-rounded machine arithmetic of RigorousArithmetic.wl), exact sums;*)
+(*  rationalMapIntegral   an enclosure of II: on dyadic cells, the midpoint rule with its second-order correction*)
+(*                        (derivatives at the centre) and the fourth-order remainder (enclosures of the fourth*)
+(*                        derivatives over the cell); interval arithmetic on Taylor data (jets), outward-rounded*)
+(*                        machine arithmetic of RigorousArithmetic.wl; exact sums;*)
 (*  rationalMapUpperBound the radial integral for a piecewise cubic profile with rational data, as in*)
 (*                        SkyrmeHedgehog.wl, with B and an upper bound of II in the two places where the hedgehog has 1.*)
 (*Heuristic: the choice of the map (rationalMapOfDegree) and of the profile (rationalMapProfile, rationalMapTrialData).*)
@@ -21,51 +22,52 @@
 Begin["CertiField`Private`"];
 
 (* ------------------------------------------------------------------------------------------------ *)
-(* interval arithmetic on second-order Taylor data in two variables                                  *)
+(* interval arithmetic on Taylor data (jets) in two variables                                       *)
 (* ------------------------------------------------------------------------------------------------ *)
-(* An interval is {lo, hi} with lo, hi packed arrays of the same length.  A jet is a list of six intervals
-   {f, f_1, f_2, f_11, f_12, f_22}: enclosures of a function and of its partial derivatives over a box.  The functions
-   below act on intervals (Length 2) and on jets (Length 6) alike, so the same code evaluates a function at the
-   centres of the cells and encloses its second derivatives over the cells. *)
+(* An interval is {lo, hi} with lo, hi packed arrays of the same length (one entry per cell).  A jet is a list of
+   intervals, one for each multi-index k = {k1, k2} of a set K that contains, with every k, all multi-indices below it:
+   enclosures of the partial derivatives d1^k1 d2^k2 f over a box (or at a point, for degenerate intervals).  The
+   product rule (f g)_k = Sum_{a <= k} Binomial[k, a] f_a g_(k-a) and the recursion for 1/s that follows from it hold
+   pointwise, so evaluating them in interval arithmetic gives enclosures.  $rmTab holds the terms of the product rule
+   for the set K in use (rmTables); it is set with Block by the caller. *)
+
+$rmK2 = {{0, 0}, {1, 0}, {0, 1}, {2, 0}, {0, 2}};
+$rmK4 = {{0, 0}, {1, 0}, {0, 1}, {2, 0}, {1, 1}, {0, 2}, {3, 0}, {2, 1}, {1, 2}, {0, 3}, {4, 0}, {2, 2}, {0, 4}};
+
+(* for every k of K (sorted by total degree): the list of {position of a, position of k - a, Binomial[k, a]}, a = 0 first *)
+rmTables[kk_List] := rmTables[kk] = Module[{pos = AssociationThread[kk -> Range[Length[kk]]]},
+  Table[With[{k = kk[[n]]},
+    Flatten[Table[{pos[{a1, a2}], pos[k - {a1, a2}], Binomial[k[[1]], a1] Binomial[k[[2]], a2]}, {a1, 0, k[[1]]}, {a2, 0, k[[2]]}], 1]],
+    {n, Length[kk]}]];
 
 rmNegIv[{lo_, hi_}] := {-hi, -lo};
-rmTwice[{lo_, hi_}] := {2. lo, 2. hi};                      (* exact *)
-rmJetQ[a_] := Length[a] == 6;
+rmTerm[a_, b_, {i_, j_, c_}] := With[{p = ivMul[a[[i]], b[[j]]]}, If[c == 1, p, ivMul[{N[c], N[c]}, p]]];
 
-rmAdd[a_, b_] := If[rmJetQ[a], MapThread[ivAdd, {a, b}], ivAdd[a, b]];
-rmSub[a_, b_] := If[rmJetQ[a], MapThread[ivSub, {a, b}], ivSub[a, b]];
-rmNeg[a_] := If[rmJetQ[a], rmNegIv /@ a, rmNegIv[a]];
+rmAdd[a_, b_] := MapThread[ivAdd, {a, b}];
+rmSub[a_, b_] := MapThread[ivSub, {a, b}];
+rmNeg[a_] := rmNegIv /@ a;
 (* multiplication by a scalar interval c = {clo, chi} *)
-rmScale[c_, a_] := If[rmJetQ[a], ivMul[c, #] & /@ a, ivMul[c, a]];
-(* the product rule up to second order *)
-rmMul[a_, b_] := If[! rmJetQ[a], ivMul[a, b],
-  {ivMul[a[[1]], b[[1]]],
-   ivAdd[ivMul[a[[2]], b[[1]]], ivMul[a[[1]], b[[2]]]],
-   ivAdd[ivMul[a[[3]], b[[1]]], ivMul[a[[1]], b[[3]]]],
-   ivAdd[ivAdd[ivMul[a[[4]], b[[1]]], ivMul[a[[1]], b[[4]]]], rmTwice[ivMul[a[[2]], b[[2]]]]],
-   ivAdd[ivAdd[ivMul[a[[5]], b[[1]]], ivMul[a[[1]], b[[5]]]], ivAdd[ivMul[a[[2]], b[[3]]], ivMul[a[[3]], b[[2]]]]],
-   ivAdd[ivAdd[ivMul[a[[6]], b[[1]]], ivMul[a[[1]], b[[6]]]], rmTwice[ivMul[a[[3]], b[[3]]]]]}];
+rmScale[c_, a_] := ivMul[c, #] & /@ a;
+rmMul[a_, b_] := Fold[ivAdd, rmTerm[a, b, #] & /@ #] & /@ $rmTab;
 
-(* a constant with the shape of the element `like` *)
-rmConst[c_, like_] := If[rmJetQ[like],
-  With[{n = Length[like[[1, 1]]]}, With[{z = ConstantArray[0., n]},
-    {{ConstantArray[c[[1]], n], ConstantArray[c[[2]], n]}, {z, z}, {z, z}, {z, z}, {z, z}, {z, z}}]],
-  With[{n = Length[like[[1]]]}, {ConstantArray[c[[1]], n], ConstantArray[c[[2]], n]}]];
+(* a constant with the shape of the jet `like` *)
+rmConst[c_, like_] := With[{n = Length[like[[1, 1]]]}, With[{z = ConstantArray[0., n]},
+  Prepend[ConstantArray[{z, z}, Length[like] - 1], {ConstantArray[c[[1]], n], ConstantArray[c[[2]], n]}]]];
 
-(* 1/s for s with positive lower end.  Returns {1/s, ok}: ok is the 0/1 mask of the entries where the enclosure of s
-   is positive; elsewhere s is replaced by 1 and the caller must discard the entry. *)
-rmRecip[s_] := Module[{v = If[rmJetQ[s], s[[1]], s], ok, safe, r, rr, rrr},
-  ok = gtMask[v[[1]], 0.];
+(* the jet of a coordinate: value iv, derivative 1 in direction dir (positions 2 and 3 of K are {1, 0} and {0, 1}) *)
+rmVarJet[iv : {lo_, hi_}, dir_, len_] := With[{z = 0. lo, o = 0. lo + 1.},
+  Join[{iv}, Table[If[k == dir + 1, {o, o}, {z, z}], {k, 2, len}]]];
+
+(* 1/s for s whose value has positive lower end.  Returns {1/s, ok}: ok is the 0/1 mask of the entries where the
+   enclosure of s is above 10^-6; elsewhere s is replaced by 1 and the caller must discard the entry. *)
+rmRecip[s_] := Module[{v = s[[1]], ok, safe, r0, r, acc},
+  ok = gtMask[v[[1]], 1.*^-6];
   safe = {vWhere[ok, v[[1]], 1.], vWhere[ok, v[[2]], 1.]};
-  r = ivDivPos[{1., 1.}, safe];
-  If[! rmJetQ[s], Return[{r, ok}, Module]];
-  rr = ivMul[r, r]; rrr = ivMul[rr, r];
-  {{r,
-    rmNegIv[ivMul[s[[2]], rr]],
-    rmNegIv[ivMul[s[[3]], rr]],
-    ivSub[rmTwice[ivMul[ivMul[s[[2]], s[[2]]], rrr]], ivMul[s[[4]], rr]],
-    ivSub[rmTwice[ivMul[ivMul[s[[2]], s[[3]]], rrr]], ivMul[s[[5]], rr]],
-    ivSub[rmTwice[ivMul[ivMul[s[[3]], s[[3]]], rrr]], ivMul[s[[6]], rr]]}, ok}];
+  r0 = ivDivPos[{1., 1.}, safe];
+  r = ConstantArray[None, Length[s]]; r[[1]] = r0;
+  Do[acc = Fold[ivAdd, rmTerm[s, r, #] & /@ Rest[$rmTab[[k]]]];
+    r[[k]] = rmNegIv[ivMul[acc, r0]], {k, 2, Length[s]}];
+  {r, ok}];
 
 (* complex numbers are pairs {re, im} of elements; a complex scalar coefficient is {cr, ci} with cr, ci scalar
    intervals or the exact symbol 0 *)
@@ -88,9 +90,8 @@ rmHorner[coef_List, a_, cpow_List, like_] := Module[{deg = Length[coef] - 1, acc
     {k, deg - 1, 0, -1}];
   acc];
 
-(* G(rho, t) = 2 rho (1 + rho^2)^2 (1 + t^2)^3 |W|^4 / (|P|^2 + |Q|^2)^4 for the elements rho, t (both intervals or
-   both jets), where P = Sum_k a_k A^k C^(B - k), A = rho (1 + I t), C = 1 - I t, and likewise Q and W.
-   Returns {G, ok}. *)
+(* G(rho, t) = 2 rho (1 + rho^2)^2 (1 + t^2)^3 |W|^4 / (|P|^2 + |Q|^2)^4 for the jets rho, t, where
+   P = Sum_k a_k A^k C^(B - k), A = rho (1 + I t), C = 1 - I t, and likewise Q and W.  Returns {G, ok}. *)
 rmEvalG[{pc_, qc_, wc_}, rho_, t_] := Module[{one, a, c, cpow, pp, qq, ww, s, m, a1, a2, pref, num, rec, ok, rec2},
   one = rmConst[{1., 1.}, rho];
   a = {rho, rmMul[rho, t]};
@@ -112,32 +113,35 @@ rmEvalG[{pc_, qc_, wc_}, rho_, t_] := Module[{one, a, c, cpow, pp, qq, ww, s, m,
 
 rmExactTotal[x_] := Total[SetPrecision[x, Infinity]];
 
-(* Enclosure {lo, hi} (exact rationals) of the integral of G over [0, 1] x [-1, 1] for one piece: adaptive midpoint
-   rule.  On a cell with centre m and sides h1, h2 the integral lies in
-       h1 h2 (G(m) + h1^2/24 [G_11] + h2^2/24 [G_22]),     [.] the enclosure over the cell
-   (docs/SKYRME_RATIONAL_MAPS.md, Lemma 3).  A cell is accepted when the width of its enclosure is below its share of
-   the tolerance, and bisected in both directions otherwise.  Corners and centres are dyadic, hence exact. *)
+(* Enclosure {lo, hi} (exact rationals) of the integral of G over [0, 1] x [-1, 1] for one piece.  On a cell with
+   centre m and sides h1, h2 the integral lies in
+       h1 h2 (G(m) + h1^2/24 G_11(m) + h2^2/24 G_22(m) + h1^4/1920 [G_1111] + h1^2 h2^2/576 [G_1122] + h2^4/1920 [G_2222]),
+   [.] the enclosure over the cell (docs/SKYRME_RATIONAL_MAPS.md, Lemma 3).  A cell is accepted when the width of its
+   enclosure is below its share of the tolerance, and bisected in both directions otherwise.  Corners and centres are
+   dyadic, hence exact. *)
 rmPieceBound[piece_, tol_, maxLevel_] := Module[
-  {n1 = 8, n2 = 16, rlo, rhi, tlo, thi, accLo = 0, accHi = 0, est = None, cells = 0, n, h1, h2, rm, tm, g0, ok0, gj, ok2,
-   one, zero, c1, c2, cell, ok, w, acc, rej, level = 0},
+  {n1 = 8, n2 = 16, rlo, rhi, tlo, thi, accLo = 0, accHi = 0, est = None, cells = 0, n, h1, h2, rm, tm, gp, okp, gc, okc,
+   q2a, q2b, q4a, q4b, q22, cell, ok, w, acc, rej, level = 0, iv},
   {rlo, tlo} = Transpose[Tuples[{N[Range[0, n1 - 1]/n1], N[-1 + 2 Range[0, n2 - 1]/n2]}]];
   rhi = rlo + 1./n1; thi = tlo + 2./n2;
+  iv[x_] := {x, x};
   While[Length[rlo] > 0,
     n = Length[rlo]; cells += n;
     h1 = rhi - rlo; h2 = thi - tlo; rm = 0.5 (rlo + rhi); tm = 0.5 (tlo + thi);
-    {g0, ok0} = rmEvalG[piece, {rm, rm}, {tm, tm}];
-    one = ConstantArray[1., n]; zero = ConstantArray[0., n];
-    {gj, ok2} = rmEvalG[piece,
-      {{rlo, rhi}, {one, one}, {zero, zero}, {zero, zero}, {zero, zero}, {zero, zero}},
-      {{tlo, thi}, {zero, zero}, {one, one}, {zero, zero}, {zero, zero}, {zero, zero}}];
-    c1 = ivDivPos[{h1 h1, h1 h1}, {24., 24.}]; c2 = ivDivPos[{h2 h2, h2 h2}, {24., 24.}];
-    cell = ivMul[{h1 h2, h1 h2}, ivAdd[g0, ivAdd[ivMul[c1, gj[[4]]], ivMul[c2, gj[[6]]]]]];
-    ok = ok0 ok2;
+    {gp, okp} = Block[{$rmTab = rmTables[$rmK2]}, rmEvalG[piece, rmVarJet[{rm, rm}, 1, 5], rmVarJet[{tm, tm}, 2, 5]]];
+    {gc, okc} = Block[{$rmTab = rmTables[$rmK4]}, rmEvalG[piece, rmVarJet[{rlo, rhi}, 1, 13], rmVarJet[{tlo, thi}, 2, 13]]];
+    q2a = ivDivPos[iv[h1 h1], {24., 24.}]; q2b = ivDivPos[iv[h2 h2], {24., 24.}];
+    q4a = ivDivPos[iv[(h1 h1) (h1 h1)], {1920., 1920.}]; q4b = ivDivPos[iv[(h2 h2) (h2 h2)], {1920., 1920.}];
+    q22 = ivDivPos[iv[(h1 h1) (h2 h2)], {576., 576.}];
+    (* positions: G, G_11, G_22 at 1, 4, 5 of $rmK2; G_1111, G_1122, G_2222 at 11, 12, 13 of $rmK4 *)
+    cell = ivMul[iv[h1 h2], ivAdd[ivAdd[gp[[1]], ivAdd[ivMul[q2a, gp[[4]]], ivMul[q2b, gp[[5]]]]],
+      ivAdd[ivAdd[ivMul[q4a, gc[[11]]], ivMul[q22, gc[[12]]]], ivMul[q4b, gc[[13]]]]]];
+    ok = okp okc;
     If[! (VectorQ[cell[[1]], Developer`MachineRealQ] && VectorQ[cell[[2]], Developer`MachineRealQ] && Max[Abs[cell[[2]]]] < $big),
       Throw[failure["Inconclusive", "The enclosure of the angular integral overflowed."], "CertiField"]];
-    If[est === None, est = Max[Total[ok0 Abs[ivMul[{h1 h2, h1 h2}, g0][[2]]]], $MinMachineNumber]];
+    If[est === None, est = Max[Total[okp Abs[ivMul[iv[h1 h2], gp[[1]]][[2]]]], $MinMachineNumber]];
     w = cell[[2]] - cell[[1]];
-    acc = Unitize[ok If[level >= maxLevel, one, leMask[w, 0.5 tol est h1 h2]]];
+    acc = Unitize[ok If[level >= maxLevel, ConstantArray[1, n], leMask[w, 0.5 tol est h1 h2]]];
     If[level >= maxLevel && Total[ok] < n,
       Throw[failure["Inconclusive", "The denominator of the angular integrand could not be shown to be positive."], "CertiField"]];
     accLo += rmExactTotal[Pick[cell[[1]], acc, 1]]; accHi += rmExactTotal[Pick[cell[[2]], acc, 1]];

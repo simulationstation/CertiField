@@ -97,22 +97,26 @@ and the other half-disk is its image under z ↦ −z. Hence
 where a_k, w_k are the coefficients of p and W. (P = (1 − it)^B p(z), |1 − it|² = 1 + t², |z| = ρ.) G is a
 quotient of polynomials in (ρ, t) whose denominator is positive on 𝒬.
 
-**Lemma 3 (midpoint rule with remainder).** Let G be C² on a rectangle c with centre m and sides h₁, h₂. Then
+**Lemma 3 (midpoint rule with correction and remainder).** Let G be C⁴ on a rectangle c with centre m and sides
+h₁, h₂; subscripts denote partial derivatives (1 = ρ, 2 = t). Then ∫_c G lies in
 
-    h₁h₂ [G(m) + (h₁²/24) inf_c ∂₁₁G + (h₂²/24) inf_c ∂₂₂G] ≤ ∫_c G ≤ h₁h₂ [G(m) + (h₁²/24) sup_c ∂₁₁G + (h₂²/24) sup_c ∂₂₂G].
+    h₁h₂ [ G(m) + (h₁²/24) G₁₁(m) + (h₂²/24) G₂₂(m) + (h₁⁴/1920) [G₁₁₁₁] + (h₁²h₂²/576) [G₁₁₂₂] + (h₂⁴/1920) [G₂₂₂₂] ],
 
-*Proof.* For a C² function φ on an interval of length h with midpoint m, φ(s) − φ(m) − φ′(m)(s − m) lies between
-½(s − m)² inf φ″ and ½(s − m)² sup φ″; integrating, ∫φ − hφ(m) lies between (h³/24) inf φ″ and (h³/24) sup φ″.
-Apply this to ρ ↦ G(ρ, t) for each t and then to t ↦ G(m₁, t). ∎
+where [·] is any interval that contains the values of the derivative on c.
 
-**How ℐ is enclosed.** 𝒬 is divided into cells with dyadic corners. On each cell the value of G at the centre and
-enclosures of ∂_ρρG and ∂_ttG over the cell are computed by evaluating the expression for G in interval arithmetic
-on second-order Taylor data (value, two first and three second derivatives, each an interval): sums and products
-by the Leibniz rule, and one reciprocal of the enclosure of |P|² + |Q|², which must be positive on the cell (if the
-enclosure is not positive the cell is refined, and the computation fails if it cannot be made positive). The
-coefficients of p and q are Gaussian rationals, enclosed by machine intervals. Lemma 3 then gives an upper and a
-lower bound on each cell; the cell bounds are added exactly (as rationals) and divided by a rational lower or
-upper bound of π. Only the upper bound enters a certificate.
+*Proof.* For a C⁴ function φ on an interval of length h with midpoint m, Taylor's formula to third order with the
+remainder φ⁗(ξ)(s − m)⁴/24 and integration (the odd terms vanish) give ∫φ = hφ(m) + (h³/24)φ″(m) + R with R between
+(h⁵/1920) inf φ⁗ and (h⁵/1920) sup φ⁗. Apply this to ρ ↦ G(ρ, t) for each t; then to t ↦ G(m₁, t); and to
+t ↦ G₁₁(m₁, t) the second-order version ∫ψ = hψ(m) + R′, R′ between (h³/24) inf ψ″ and (h³/24) sup ψ″. ∎
+
+**How ℐ is enclosed.** 𝒬 is divided into cells with dyadic corners. For each cell, G, G₁₁ and G₂₂ at the centre,
+and enclosures of G₁₁₁₁, G₁₁₂₂ and G₂₂₂₂ over the cell, are computed by evaluating the expression for G in interval
+arithmetic on Taylor data (jets: enclosures of the partial derivatives up to the needed order): sums, products by
+the Leibniz rule, and the reciprocal of |P|² + |Q|² by the recursion that follows from s · (1/s) = 1. The enclosure
+of |P|² + |Q|² must be above 10⁻⁶ on the cell; otherwise the cell is refined, and the computation fails if this
+cannot be achieved. The coefficients of p and q are Gaussian rationals, enclosed by machine intervals. Lemma 3 then
+gives an upper and a lower bound on each cell; the cell bounds are added exactly (as rationals) and divided by a
+rational lower or upper bound of π. Only the upper bound enters a certificate.
 
 **Degree.** That p and q have no common zero and that max(deg p, deg q) = B is decided exactly: the resultant of p
 and q, a Gaussian rational, is not zero.

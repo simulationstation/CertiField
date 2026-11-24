@@ -5,20 +5,30 @@
 
 Needs["CertiField`"];
 
-(* the interval arithmetic on second-order Taylor data encloses the exact derivatives of the angular integrand *)
+(* the interval arithmetic on Taylor data encloses the exact derivatives of the angular integrand: at the centre of a
+   small cell (G, G_11, G_22) and over the cell (G, G_11, G_22, G_1111, G_1122, G_2222), at 25 sample points *)
 VerificationTest[
-  Module[{z = \[FormalZ], p, q, rho, t, zz, P, Q, W, WW, g, ex, jet},
+  Module[{z = \[FormalZ], p, q, rho, t, zz, P, Q, W, WW, g, ders, at, pk, jetP, jetC, pt, samples, inQ},
     p = z^2 - I z/3; q = 1 + z/2;
     zz = rho (1 + I t)/(1 - I t);
     W = Expand[D[p, z] q - p D[q, z]];
     P = Together[(1 - I t)^2 (p /. z -> zz)]; Q = Together[(1 - I t)^2 (q /. z -> zz)]; WW = Together[(1 - I t)^2 (W /. z -> zz)];
     g = 2 rho (1 + rho^2)^2 (1 + t^2)^3 ComplexExpand[WW Conjugate[WW]]^2/ComplexExpand[P Conjugate[P] + Q Conjugate[Q]]^4;
-    ex = Flatten[Table[{g, D[g, {rho, 2}], D[g, {t, 2}]} /. {rho -> 3/8 + i/256, t -> 1/4 + j/256}, {i, 0, 4}, {j, 0, 4}], 1];
-    jet = First[CertiField`Private`rmEvalG[CertiField`Private`rmPieces[p, q, z, 2][[1]],
-      {{{0.375}, {0.390625}}, {{1.}, {1.}}, {{0.}, {0.}}, {{0.}, {0.}}, {{0.}, {0.}}, {{0.}, {0.}}},
-      {{{0.25}, {0.265625}}, {{0.}, {0.}}, {{1.}, {1.}}, {{0.}, {0.}}, {{0.}, {0.}}, {{0.}, {0.}}}]];
-    And @@ Flatten[Table[SetPrecision[jet[[k, 1, 1]], Infinity] <= e[[i]] <= SetPrecision[jet[[k, 2, 1]], Infinity], {e, ex}, {i, 3}, {k, {{1, 4, 6}[[i]]}}]]],
-  True, TestID -> "rational-map-jets-enclose-exact-derivatives"]
+    ders = {g, D[g, {rho, 2}], D[g, {t, 2}], D[g, {rho, 4}], D[g, {rho, 2}, {t, 2}], D[g, {t, 4}]};
+    at[r_, s_] := ders /. {rho -> r, t -> s};
+    pk = CertiField`Private`rmPieces[p, q, z, 2][[1]];
+    jetP = Quiet[First[Block[{CertiField`Private`$rmTab = CertiField`Private`rmTables[CertiField`Private`$rmK2]},
+      CertiField`Private`rmEvalG[pk, CertiField`Private`rmVarJet[Developer`ToPackedArray[{{0.3828125}, {0.3828125}}], 1, 5],
+        CertiField`Private`rmVarJet[Developer`ToPackedArray[{{0.2578125}, {0.2578125}}], 2, 5]]]], General::munfl];
+    jetC = Quiet[First[Block[{CertiField`Private`$rmTab = CertiField`Private`rmTables[CertiField`Private`$rmK4]},
+      CertiField`Private`rmEvalG[pk, CertiField`Private`rmVarJet[Developer`ToPackedArray[{{0.375}, {0.390625}}], 1, 13],
+        CertiField`Private`rmVarJet[Developer`ToPackedArray[{{0.25}, {0.265625}}], 2, 13]]]], General::munfl];
+    inQ[iv_, x_] := SetPrecision[iv[[1, 1]], Infinity] <= x <= SetPrecision[iv[[2, 1]], Infinity];
+    pt = at[49/128, 33/128];
+    samples = Flatten[Table[at[3/8 + i/256, 1/4 + j/256], {i, 0, 4}, {j, 0, 4}], 1];
+    {And @@ MapThread[inQ, {jetP[[{1, 4, 5}]], pt[[1 ;; 3]]}],
+     And @@ Flatten[Table[MapThread[inQ, {jetC[[{1, 4, 6, 11, 12, 13}]], sm}], {sm, samples}]]}],
+  {True, True}, TestID -> "rational-map-jets-enclose-exact-derivatives"]
 
 (* known angular integrals: 1 for R = z, Pi + 8/3 for R = z^2 (Houghton, Manton, Sutcliffe) *)
 VerificationTest[
