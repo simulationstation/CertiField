@@ -5,7 +5,7 @@
 
 Begin["CertiField`Private`"];
 
-$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "SkyrmeDegreeOne"};
+$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "ThinFilmMagnet", "SkyrmeDegreeOne"};
 
 (* ---- model specifications ---- *)
 CertiFieldModel[name_String, rules___Rule] := CertiFieldModel[name, Association[rules]];
@@ -71,6 +71,20 @@ CertiFieldModelInfo["ScalarFieldND"] := <|
   "LowerBound" -> "E \[GreaterEqual] \[Integral] S(x,g)\[CenterDot]\[Nu] - \[Integral] sup_t (div S + |\[PartialD]_t S|^2/(4k) - W) for any Raviart\[Dash]Thomas/B-spline field S, evaluated with outward-rounded arithmetic. Convex mode: the flux of a finite-volume solve (seconds, tight for convex W). Calibration mode: a field found by a multilevel optimiser (minutes, for W that is not convex)",
   "UpperBound" -> "energy of the piecewise multilinear function through the candidate's nodal values (rigorous enclosure)",
   "Reference" -> "docs/SCALAR_ND.md",
+  "Status" -> "Supported"|>;
+CertiFieldModelInfo["ThinFilmMagnet"] := <|
+  "Name" -> "ThinFilmMagnet",
+  "Energy" -> "E[m] = \[Integral] A |\[Del]m|^2 + \[Kappa] m\[CenterDot](\[Del]\[Times]m) + K (1 - m3^2) + h (1 - m3) dx over a rectangle, m with values in S^2",
+  "Parameters" -> <|"A" -> "exchange stiffness > 0 (default 1/2)", "DMI" -> "\[Kappa] >= 0, bulk Dzyaloshinskii\[Dash]Moriya constant (default 0)",
+    "K" -> "uniaxial anisotropy (default 0; may be negative)", "Field" -> "h >= 0, Zeeman field along e3 (default 0)", "Degree" -> "Q, an integer (default -1)",
+    "Domain" -> "{{a1, b1}, {a2, b2}} with dyadic rational corners", "Cells" -> "cells per direction of the competitor's graded grid, even (default 200)",
+    "Grading" -> "Automatic or \[Beta] >= 0 (sinh grading towards the centre)",
+    "DualField" -> "Automatic (the shipped certificates in Data/Magnetisation and closed forms; the best that passes the exact check), a file written by the Python reference, or <|\"Mesh\", \"Phi\", \"U\", \"Gamma\"|>"|>,
+  "Candidate" -> "Automatic (axisymmetric skyrmion of degree -1 from a radial Newton solve), a profile Function[r, \[Theta]] (\[Theta](0) = \[Pi]), or a field Function[{x, y}, {m1, m2, m3}]",
+  "AdmissibleClass" -> "all m in H^1 of the rectangle with |m| = 1, m = e3 on the boundary and degree Q",
+  "LowerBound" -> "E \[GreaterEqual] 2\[Pi]Q (\[Integral] u dt - 4A) - \[CapitalGamma] |\[CapitalOmega]| for a dual field (\[Phi], u, \[CapitalGamma]) of piecewise polynomials in t = m3 satisfying the conditions of Proposition 5 of docs/MAGNETISATION.md, checked in exact rational arithmetic",
+  "UpperBound" -> "energy of the normalised bilinear interpolant of the candidate (outward-rounded enclosure) with certified degree",
+  "Reference" -> "docs/MAGNETISATION.md",
   "Status" -> "Supported"|>;
 CertiFieldModelInfo["SkyrmeDegreeOne"] := <|
   "Name" -> "SkyrmeDegreeOne",
@@ -161,6 +175,7 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
   raw = Which[
     name === "SkyrmeDegreeOne", certifySkyrme[params, cand, opts],
     name === "ScalarFieldND", certifyScalarFieldND[params, cand, opts],
+    name === "ThinFilmMagnet", certifyThinFilmMagnet[params, cand, opts],
     True, certifyScalarField1D[presetSpec[name, params], If[cand === Automatic && name =!= "ScalarField1D", presetCandidate[name, params], cand], opts]];
   If[! (NumericQ[raw["LowerBound"]] && NumericQ[raw["UpperBound"]]),
     Throw[failure["Inconclusive", "A bound could not be enclosed."], "CertiField"]];
@@ -170,6 +185,7 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
   base = Which[
     name === "SkyrmeDegreeOne", skyrmeDescription[res],
     name === "ScalarFieldND", scalarNDDescription[params, res],
+    name === "ThinFilmMagnet", tfmDescription[params, res],
     True, scalarDescription[name, params, res]];
   rel = N[relGapOf[res]];
   status = If[tolerance === None || rel <= tolerance, "Certified", "Inconclusive"];
@@ -213,6 +229,7 @@ VerifyCertificate[CertifiedBound[a_Association]] := TrueQ[Catch[verifyCertificat
 
 verifyCertificate[a_Association] := Module[{c = a["Certificate"], name = a["Model"], lb, ub, spec, prec = 30},
   If[name === "ScalarFieldND", Return[verifyScalarFieldND[a]]];
+  If[name === "ThinFilmMagnet", Return[TrueQ[verifyThinFilmMagnet[a]]]];
   Which[
     name === "SkyrmeDegreeOne",
       lb = levelSetLowerBound[c["Mu"], loadSkyrmeGrid[skyrmeGridDir[c["Mu"], c["Preset"]]], minorantTable[$skyrmePresets[c["Preset"], "Table"]]]["LowerBound"];
