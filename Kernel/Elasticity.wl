@@ -125,8 +125,7 @@ elComponents[v_, mm_List] := If[ArrayQ[v, 3] && Dimensions[v] === Append[mm, 2],
 linearElasticitySpec[params_Association] := Module[
   {dom, cells, lame, dmat, b, p, nat, dir, h, mm, uaxes, vnodes, ind, fixed, natural, g, gval},
   dom = exactify[Lookup[params, "Domain", Missing[]]];
-  If[MatchQ[dom, {{_, _}, {_, _}, {_, _}}],
-    Throw[failure["NotImplemented", "LinearElasticity supports rectangles in this version (two dimensions, plane strain); a three-dimensional domain was given."], "CertiField"]];
+  If[MatchQ[dom, {{_, _}, {_, _}, {_, _}}], Return[linearElasticitySpec3D[params], Module]];   (* Kernel/Elasticity3D.wl *)
   If[! (MatchQ[dom, {{_, _}, {_, _}}] && AllTrue[Flatten[dom], MatchQ[#, _Integer | _Rational] &] && AllTrue[dom, #[[1]] < #[[2]] &]),
     Throw[failure["BadModel", "\"Domain\" must be {{a1, b1}, {a2, b2}} with rational a < b."], "CertiField"]];
   lame = Lookup[params, "Lame", Missing[]]; dmat = Lookup[params, "StiffnessMatrix", Missing[]];
@@ -569,6 +568,7 @@ elVerifyReferenceCertificate[stem_String] := Module[{c = elImportCertificate[ste
 
 certifyLinearElasticity[params_Association, cand_, opts_List] := Module[
   {spec, t0 = AbsoluteTime[], verbose, refine, given, u, ub, field, lb, lo, hi, margin},
+  If[el3DomainQ[params], Return[certifyLinearElasticity3D[params, cand, opts], Module]];      (* Kernel/Elasticity3D.wl *)
   spec = linearElasticitySpec[KeyDrop[params, "StressField"]];
   verbose = TrueQ[OptionValue[CertifiedVariationalBound, opts, "Verbose"]];
   refine = TrueQ[OptionValue[CertifiedVariationalBound, opts, "RefineCandidate"]];
@@ -593,6 +593,7 @@ certifyLinearElasticity[params_Association, cand_, opts_List] := Module[
 elFaceString[dom_, {i_, side_}] := "x" <> ToString[i] <> " = " <> exactString[dom[[i, If[side === "Lower", 1, 2]]]];
 
 elasticityDescription[params_, res_] := Module[{sp = res["Spec"], d = Max[displayDigits[res], 8], nat, grid, datum, free},
+  If[sp["n"] === 3, Return[elasticityDescription3D[params, res], Module]];
   nat = Flatten[Table[If[sp["Dirichlet"][[i, s]], Nothing, {i, If[s == 1, "Lower", "Upper"]}], {i, 2}, {s, 2}], 1];
   grid = ndGridString[sp["Cells"]];
   datum = "the continuous piecewise polynomial of degree " <> ToString[sp["p"]] <> " through the nodal boundary values on the " <> grid <>
@@ -615,6 +616,7 @@ elasticityDescription[params_, res_] := Module[{sp = res["Spec"], d = Max[displa
    datum is the one stored in the certificate (exact machine numbers); it must agree with the boundary data of the
    model to rounding, because a function of the coordinates need not evaluate to the same last bits on another machine. *)
 verifyLinearElasticity[a_Association] := Module[{c = a["Certificate"], spec, g, lb, ub},
+  If[el3DomainQ[a["Parameters"]], Return[verifyLinearElasticity3D[a], Module]];
   spec = linearElasticitySpec[KeyDrop[a["Parameters"], "StressField"]];
   g = ndRealArray[Lookup[c, "BoundaryNodalValues", $Failed], Prepend[spec["M"], 2]];
   If[g === $Failed || Max[Abs[(1 - spec["Fixed"]) g[[1]]]] != 0. || Max[Abs[(1 - spec["Fixed"]) g[[2]]]] != 0. ||
@@ -626,16 +628,16 @@ verifyLinearElasticity[a_Association] := Module[{c = a["Certificate"], spec, g, 
 
 CertiFieldModelInfo["LinearElasticity"] := <|
   "Name" -> "LinearElasticity",
-  "Energy" -> "E[u] = \[Integral] (e(u).D.e(u)/2 \[Minus] b.u) dx over a rectangle (plane strain), e(u) = (\[PartialD]1 u1, \[PartialD]2 u2, \[PartialD]1 u2 + \[PartialD]2 u1)",
-  "Parameters" -> <|"Lame" -> "{lambda, mu}, rational: isotropic material, D = {{lambda + 2 mu, lambda, 0}, {lambda, lambda + 2 mu, 0}, {0, 0, mu}}",
-    "StiffnessMatrix" -> "instead of \"Lame\": a symmetric positive definite 3x3 matrix D with rational entries",
-    "BodyForce" -> "{b1, b2}, rational, constant (default {0, 0})",
-    "Domain" -> "{{a1, b1}, {a2, b2}}, rational",
-    "Cells" -> "grid, an integer or one integer per direction (default 32)",
+  "Energy" -> "E[u] = \[Integral] (e(u).D.e(u)/2 \[Minus] b.u) dx over a rectangle (plane strain), e(u) = (\[PartialD]1 u1, \[PartialD]2 u2, \[PartialD]1 u2 + \[PartialD]2 u1), or over a box in three dimensions, e(u) = (\[PartialD]1 u1, \[PartialD]2 u2, \[PartialD]3 u3, \[PartialD]2 u3 + \[PartialD]3 u2, \[PartialD]1 u3 + \[PartialD]3 u1, \[PartialD]1 u2 + \[PartialD]2 u1)",
+  "Parameters" -> <|"Lame" -> "{lambda, mu}, rational: isotropic material; in two dimensions D = {{lambda + 2 mu, lambda, 0}, {lambda, lambda + 2 mu, 0}, {0, 0, mu}}, in three dimensions the 6x6 analogue",
+    "StiffnessMatrix" -> "instead of \"Lame\": a symmetric positive definite 3x3 (two dimensions) or 6x6 (three dimensions) matrix D with rational entries",
+    "BodyForce" -> "{b1, b2} or {b1, b2, b3}, rational, constant (default zero)",
+    "Domain" -> "{{a1, b1}, {a2, b2}} or {{a1, b1}, {a2, b2}, {a3, b3}}, rational; three intervals select the three-dimensional model (docs/ELASTICITY_3D.md)",
+    "Cells" -> "grid, an integer or one integer per direction (default 32 in two dimensions, 4 in three)",
     "Degree" -> "1 or 2: the degree p of the displacement and of the datum in each variable (default 1)",
-    "BoundaryData" -> "a pair of numbers, a function of the coordinates returning a pair, or nodal arrays of dimensions {2, p N1 + 1, p N2 + 1}; the certified datum is the piecewise polynomial of degree p through the nodal values on the boundary grid",
+    "BoundaryData" -> "numbers (one per component), a function of the coordinates returning them, or nodal arrays of dimensions {2, p N1 + 1, p N2 + 1} or {3, p N1 + 1, p N2 + 1, p N3 + 1}; the certified datum is the piecewise polynomial of degree p through the nodal values on the boundary grid",
     "TractionFreeFaces" -> "list of {direction, \"Lower\" | \"Upper\"}: faces with no traction (default: none; at least one face must remain a Dirichlet face)",
-    "StressField" -> "optional: a stress field to certify, <|\"X\" -> nodal values of the Airy function, \"Parameters\" -> ...|> or a directory written by the Python reference; it replaces the package's own choice"|>,
+    "StressField" -> "optional: a stress field to certify, <|\"X\" -> nodal values of the stress functions, \"Parameters\" -> ...|> or a directory written by the Python reference; it replaces the package's own choice"|>,
   "Options" -> <|"RefineCandidate" -> "True: the given candidate is replaced by the finite-element solution on the grid (default False: it is certified as given)",
     "Verbose" -> "True prints the two bounds as they are computed"|>,
   "AdmissibleClass" -> "all u in H^1 of the rectangle with values in \[DoubleStruckCapitalR]^2 and the given trace on the Dirichlet faces",

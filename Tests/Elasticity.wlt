@@ -422,10 +422,6 @@ VerificationTest[
    elFails[Append[elBase, "StressField" -> <|"X" -> ConstantArray[0., {4, 5, 5}], "Parameters" -> {1.}|>]],
    elFails[Append[elBase, "StressField" -> "no such directory"]]},
   {True, True, True, True, True, True}, TestID -> "el-bad-candidate-or-stress-field-refused"]
-VerificationTest[
-  With[{f = CertifiedVariationalBound[CertiFieldModel["LinearElasticity", <|"Lame" -> {1, 1}, "Domain" -> {{0, 1}, {0, 1}, {0, 1}}, "Cells" -> 4|>]]},
-    {FailureQ[f], f["Tag"], StringContainsQ[f["MessageTemplate"], "three-dimensional"]}],
-  {True, "NotImplemented", True}, TestID -> "el-three-dimensional-domain-refused-with-a-clear-message"]
 (* machine overflow in the certified evaluation is detected, not rounded away *)
 VerificationTest[
   With[{f = CertifiedVariationalBound[CertiFieldModel["LinearElasticity", Append[elBase, "BoundaryData" -> Function[{x, y}, {10.^200 x, 0}]]]]},
@@ -436,3 +432,71 @@ VerificationTest[
     x = ConstantArray[0., {4, 5, 5}]; x[[1, 3, 3]] = 10.^160;
     Catch[CertiField`Private`elLowerBound[spec, <|"X" -> x, "Parameters" -> {}|>], "CertiField"]["Tag"]],
   "Inconclusive", TestID -> "el-overflow-in-the-lower-bound-is-inconclusive"]
+
+(* ---------- three dimensions (Kernel/Elasticity3D.wl, docs/ELASTICITY_3D.md) ---------- *)
+
+el3TV = FileNameJoin[{elRef, "testvectors3d"}];
+el3Index = Import[FileNameJoin[{el3TV, "index.json"}], "RawJSON"];
+el3Case[name_String] := el3Case[name] = Module[{dir = FileNameJoin[{el3TV, name}], spec, g},
+  spec = CertiField`Private`linearElasticitySpec[ToExpression[el3Index[name, "wolfram_model"]]];
+  g = CertiField`Private`el3ImportArray[spec, dir, "gval.f64"];
+  <|"SameData" -> Max[Abs[g - spec["G"]]] <= 10.^-14,
+    "Spec" -> Append[spec, "G" -> g],
+    "Field" -> CertiField`Private`el3PackField[spec, CertiField`Private`el3ImportField[spec, dir]],
+    "U" -> CertiField`Private`el3ImportArray[spec, dir, "U.f64"],
+    "Expected" -> el3Index[name, "expected"]|>];
+
+(* the rigorous evaluators and the states of the traction-free faces against the Python reference, on identical inputs
+   (the reference is checked against an exact rational evaluation in Reference/Elasticity/check_exact3d.py) *)
+Do[
+  With[{name = nm},
+    VerificationTest[
+      Module[{c = el3Case[name], st, ub, lb},
+        st = CertiField`Private`el3States[c["Spec"]];
+        ub = CertiField`Private`el3UpperBound[c["Spec"], c["U"]];
+        lb = CertiField`Private`el3LowerBound[c["Spec"], c["Field"]];
+        {c["SameData"], Length[st["T"]] == c["Expected", "parameters"], Length[st["Positions"]] == c["Expected", "prescribed"],
+         elClose[N[ub[[1]]], c["Expected", "upper_enclosure"][[1]], 10^-9], elClose[N[ub[[2]]], c["Expected", "upper_enclosure"][[2]], 10^-9],
+         elClose[N[lb["Lower"]], c["Expected", "lower"], 10^-9]}],
+      ConstantArray[True, 6], TestID -> "el3-" <> name <> "-test-vector"]],
+  {nm, {"dirichlet_p1", "bodyforce_p2", "block_p1", "ring_aniso", "corner", "cup_random"}}]
+
+(* a known minimum: pure bending of a bar with four traction-free faces; the exact stress and displacement lie in the
+   two spaces, so both bounds reach 1/32 = S11/12 (lambda = 2, mu = 1: S11 = 3/8, S12 = -1/8) *)
+VerificationTest[
+  With[{c = CertifiedVariationalBound[CertiFieldModel["LinearElasticity", <|"Lame" -> {2, 1}, "Domain" -> {{0, 2}, {-1/2, 1/2}, {-1/2, 1/2}},
+      "Cells" -> 2, "Degree" -> 2, "TractionFreeFaces" -> {{2, "Lower"}, {2, "Upper"}, {3, "Lower"}, {3, "Upper"}},
+      "BoundaryData" -> Function[{x, y, z}, {3/8 x y, -3/16 x^2 - (y^2 - z^2)/16, -y z/8}]|>]]},
+    {c["Status"], c["LowerBound"] <= 1/32 <= c["UpperBound"], c["UpperBound"] - c["LowerBound"] < 10^-9, VerifyCertificate[c]}],
+  {"Certified", True, True, True}, TestID -> "el3-pure-bending-known-minimum"]
+
+(* E-T4 in three dimensions: the unit cube clamped on one face, pulled on the opposite one, free elsewhere *)
+el3Block = Module[{t, c},
+  {t, c} = AbsoluteTiming[CertifiedVariationalBound[CertiFieldModel["LinearElasticity", <|"Lame" -> {3/2, 1}, "Domain" -> {{0, 1}, {0, 1}, {0, 1}},
+    "Cells" -> 5, "Degree" -> 2, "TractionFreeFaces" -> {{2, "Lower"}, {2, "Upper"}, {3, "Lower"}, {3, "Upper"}},
+    "BoundaryData" -> Function[{x, y, z}, {x/10, 0, 0}]|>]]];
+  <|"Seconds" -> t, "Certificate" -> c|>];
+
+VerificationTest[
+  With[{c = el3Block["Certificate"]},
+    {c["Status"], c["RelativeGap"] < 0.01, el3Block["Seconds"] < 600, c["LowerBound"] > 0.01375, c["UpperBound"] < 0.013880}],
+  {"Certified", True, True, True, True}, TestID -> "el3-cube-gap-below-one-percent-in-under-ten-minutes"]
+
+VerificationTest[VerifyCertificate[el3Block["Certificate"]], True, TestID -> "el3-verify-genuine-certificate"]
+VerificationTest[VerifyCertificate[CertifiedBound[Append[el3Block["Certificate"]["Association"], "LowerBound" -> 0.0138]]], False,
+  TestID -> "el3-verify-rejects-tampered-lower-bound"]
+VerificationTest[
+  With[{a = el3Block["Certificate"]["Association"]},
+    VerifyCertificate[CertifiedBound[Append[a, "Certificate" -> Append[a["Certificate"],
+      "StressField" -> Append[a["Certificate"]["StressField"], "X" -> 1.001 a["Certificate"]["StressField"]["X"]]]]]]],
+  False, TestID -> "el3-verify-rejects-tampered-stress-field"]
+
+VerificationTest[
+  {elFails[<|"Lame" -> {1, 1}, "Domain" -> {{0, 1}, {0, 1}, {0, 1}}, "Cells" -> 2, "StiffnessMatrix" -> IdentityMatrix[6]|>],
+   elFails[<|"StiffnessMatrix" -> IdentityMatrix[3], "Domain" -> {{0, 1}, {0, 1}, {0, 1}}, "Cells" -> 2|>],
+   elFails[<|"Lame" -> {-1, 1}, "Domain" -> {{0, 1}, {0, 1}, {0, 1}}, "Cells" -> 2|>],
+   elFails[<|"Lame" -> {1, 1}, "Domain" -> {{0, 1}, {0, 1}, {0, 1}}, "Cells" -> 2, "BodyForce" -> {0, 1}|>],
+   elFails[<|"Lame" -> {1, 1}, "Domain" -> {{0, 1}, {0, 1}, {0, 1}}, "Cells" -> 2,
+     "TractionFreeFaces" -> {{1, "Lower"}, {1, "Upper"}, {2, "Lower"}, {2, "Upper"}, {3, "Lower"}, {3, "Upper"}}|>],
+   elFails[<|"Lame" -> {1, 1}, "Domain" -> {{0, 1}, {0, 1}, {0, 1}}, "Cells" -> 2, "BoundaryData" -> Function[{x, y}, {x, y}]|>]},
+  ConstantArray[True, 6], TestID -> "el3-malformed-three-dimensional-model-refused"]
