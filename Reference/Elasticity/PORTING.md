@@ -8,12 +8,13 @@ of fields and certificates written by the reference, the certificate and its re-
 `Kernel/Models.wl`; `Tests/Elasticity.wlt` (90 tests, `tools/run_tests.wls --elasticity`).
 
 The reference evaluates on differences as well (Section 6); its certificates and test vectors were regenerated.
+Documentation: `docs/ELASTICITY.md`, `docs/ARCHITECTURE.md`, `README.md`, `Reference/Elasticity/README.md`,
+`Examples/Elasticity.wls`, the build smoke test and a CI job for the checks of the reference.
 
-**In progress.** Documentation: the results table of the Wolfram Language model in `docs/ELASTICITY.md`,
-`docs/ARCHITECTURE.md`, `README.md`, `Reference/Elasticity/README.md`, the example, the build smoke test and the
-CI step.
+**In progress.** The results table of the Wolfram Language model in `docs/ELASTICITY.md` (Section 8.2) and the
+measured rounding slack; final runs of the existing suites (fast, `--nd`, `--skyrme`).
 
-**Next.** Final runs of the existing suites (fast, `--nd`, `--skyrme`).
+**Next.** Nothing further in two dimensions. Three dimensions are a separate piece of work.
 
 **Not part of this port.** Three dimensions: `linearElasticitySpec` refuses a three-dimensional domain with a clear
 message.
@@ -112,6 +113,12 @@ The port reproduces `upper_enclosure`, `boundary`, `intQ` and `lower` to better 
   expected values changed in the last digits).
 * 23 November 2026. All stored certificates of the reference are recomputed in the Wolfram Language with bounds at
   least as strong as their claims. Test suite written: 90 tests pass.
+* 23 November 2026. Order of the subtractions, in both: the difference of a nodal value from the affine function
+  is formed as ((X − a₀) − a₁h₁) − a₂h₂, the value at the corner first, so that every subtraction is rounded
+  relative to a small number (the outward rounding is relative to the result of an operation). Forming the affine
+  value first and subtracting it left a relative error of about 2⁻⁴⁹(L/h)² in the differences: measured against
+  exact rational arithmetic, 1.2×10⁻¹¹ of the bound on the 16×16 block and 1.8×10⁻¹⁰ on the 64×64 block.
+  Certificates and test vectors regenerated once more; all checks and the 90 tests pass.
 
 ## 7. Observations
 
