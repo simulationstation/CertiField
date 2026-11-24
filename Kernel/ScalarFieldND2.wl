@@ -16,7 +16,7 @@
 
 Begin["CertiField`Private`"];
 
-$nd2Keys = {"Source", "Mean", "PeriodicDirections", "ValueRange", "DataTerm"};
+$nd2Keys = {"Source", "Mean", "PeriodicDirections", "ValueRange", "DataTerm", "StiffnessMatrix"};
 nd2ParamsQ[params_Association] := AnyTrue[$nd2Keys, KeyExistsQ[params, #] &];
 nd2ParamsQ[_] := False;
 
@@ -95,11 +95,19 @@ nd2XLogMach[s_] := With[{p = Ramp[s]}, p Log[p + (1 - Unitize[p])]];
 
 nd2Spec[params_Association] := Module[
   {dom, n, per, nat, vr, V, s, l1, l2, vexpr, logs, e2, c1 = 0, c2 = 0, P, base, cells, verts, tab, tm = 0, src, lin = None,
-   linNodal = False, av = None, mean, g, kind, gf},
+   linNodal = False, av = None, mean, g, kind, gf, km, kmat},
   dom = exactify[Lookup[params, "Domain", Missing[]]];
   If[! (MatchQ[dom, {{_, _} ..}] && 2 <= Length[dom] <= 3),
     Throw[failure["BadModel", "\"Domain\" must be {{a1, b1}, {a2, b2}} or {{a1, b1}, {a2, b2}, {a3, b3}} with rational a < b."], "CertiField"]];
   n = Length[dom];
+  (* the stiffness: "Stiffness" -> k (K = k I) or "StiffnessMatrix" -> K, constant, symmetric, positive definite *)
+  km = Lookup[params, "StiffnessMatrix", None];
+  If[km =!= None,
+    If[KeyExistsQ[params, "Stiffness"], Throw[failure["BadModel", "Give \"Stiffness\" or \"StiffnessMatrix\", not both."], "CertiField"]];
+    km = exactify[km];
+    If[! (MatrixQ[km, MatchQ[#, _Integer | _Rational] &] && Dimensions[km] === {n, n} && km === Transpose[km] &&
+        AllTrue[Range[n], Det[km[[;; #, ;; #]]] > 0 &]),
+      Throw[failure["BadModel", "\"StiffnessMatrix\" must be a symmetric positive definite matrix of the dimension of the domain, with rational entries."], "CertiField"]]];
   per = Lookup[params, "PeriodicDirections", {}];
   If[! (VectorQ[per, IntegerQ] && DuplicateFreeQ[per] && AllTrue[per, 1 <= # <= n &]),
     Throw[failure["BadModel", "\"PeriodicDirections\" must be a list of distinct directions between 1 and the dimension."], "CertiField"]];
@@ -135,7 +143,9 @@ nd2Spec[params_Association] := Module[
   (* grid, Dirichlet faces and data from the base model; periodic faces are passed to it as natural faces *)
   base = scalarFieldNDSpec[Join[KeyDrop[params, Join[$nd2Keys, {"Field"}]],
     <|"Potential" -> Function @@ {\[FormalU], P . \[FormalU]^Range[0, Length[P] - 1]},
-      "NaturalFaces" -> Join[nat, Flatten[Table[{{i, "Lower"}, {i, "Upper"}}, {i, per}], 1]]|>]];
+      "NaturalFaces" -> Join[nat, Flatten[Table[{{i, "Lower"}, {i, "Upper"}}, {i, per}], 1]]|>,
+    If[km === None, <||>, <|"Stiffness" -> km[[1, 1]]|>]]];
+  kmat = If[km === None, base["k"] IdentityMatrix[n], km];
   cells = base["Cells"];
   verts = Tuples[{0, 1}, n];
   tab = Lookup[params, "DataTerm", None];
@@ -178,7 +188,20 @@ nd2Spec[params_Association] := Module[
     Throw[failure["BadModel", "With a potential that is at most linear in u, the energy is bounded below only with a Dirichlet face or a prescribed mean."], "CertiField"]];
   Join[base, <|"G" -> g, "P" -> P, "VR" -> vr, "C1" -> c1, "C2" -> c2, "TableMat" -> tab, "TM" -> tm, "Lin" -> lin,
     "LinNodal" -> linNodal, "Av" -> av, "Mean" -> mean, "Periodic" -> Table[MemberQ[per, i], {i, n}], "Kind" -> kind,
-    "Linear" -> (kind === "Line" && Length[P] <= 2), "Volume" -> Times @@ (dom[[All, 2]] - dom[[All, 1]]), "ND2" -> True|>]];
+    "Linear" -> (kind === "Line" && Length[P] <= 2), "Volume" -> Times @@ (dom[[All, 2]] - dom[[All, 1]]), "ND2" -> True,
+    "KM" -> kmat, "KInv" -> Inverse[kmat], "KDiag" -> (kmat === DiagonalMatrix[Diagonal[kmat]]), "KGiven" -> (km =!= None)|>]];
+
+(* 1/4 q . K^-1 q over interval vectors q = {q_1, ..., q_n} (each an interval array) *)
+nd2QuadForm[spec_, q_List] := Module[{ki = spec["KInv"], n = Length[q]},
+  ivK[ivSum[Join[Table[ivK[ivSqr[q[[i]]], ki[[i, i]]], {i, n}],
+    Join @@ Table[If[ki[[i, j]] == 0, Nothing, ivK[ndMul[q[[i]], q[[j]]], 2 ki[[i, j]]]], {i, n}, {j, i + 1, n}]]], 1/4]];
+
+(* an exact rational mu with 0 < mu <= the smallest eigenvalue of K (exact check of positive definiteness of K - mu I) *)
+nd2LamMinLower[km_] := nd2LamMinLower[km] = Module[{n = Length[km], mu},
+  If[km === DiagonalMatrix[Diagonal[km]], Return[Min[Diagonal[km]]]];
+  mu = Rationalize[0.999999 Min[Eigenvalues[N[km]]], 0];
+  While[! AllTrue[Range[n], Det[(km - mu IdentityMatrix[n])[[;; #, ;; #]]] > 0 &], mu = mu/2];
+  mu];
 
 nd2Tie[spec_, u0_] := Module[{u = u0, n = spec["n"]},
   Do[If[spec["Periodic"][[i]], u[[slab[n, i, -1]]] = u[[slab[n, i, 1]]]], {i, n}];
@@ -272,7 +295,7 @@ nd2NodalEnclosure[spec_, u_] := Module[{n = spec["n"], verts, phi, iu, iphi, del
 
 (* RIGOROUS enclosure {lo, hi} (exact rationals) of the energy of the competitor (Propositions 7 and 13) *)
 nd2UpperBound[spec_, u0_] := ndQuiet@Module[
-  {n = spec["n"], vr = spec["VR"], u, verts, lohi, uc, invh, h2, umin, umax, corners, d, acc, kin = None, dmax2, ri, w2, fin, w2pm,
+  {n = spec["n"], vr = spec["VR"], u, verts, lohi, uc, invh, h2, umin, umax, corners, d, dAll, acc, kin = None, dmax2, ri, w2, fin, w2pm,
    remLo, remHi, mean, mid, cvx, vtx, potLo, potHi, tab, lin, cellLo, cellHi},
   verts = Tuples[{0, 1}, n];
   u = ndRealArray[u0, spec["Cells"] + 1];
@@ -292,17 +315,26 @@ nd2UpperBound[spec_, u0_] := ndQuiet@Module[
   w2pm = {vWhere[fin, vMin[w2[[1]], 0.], 0. umin], vWhere[fin, vMax[w2[[2]], 0.], 0. umin]};
   corners = Tuples[{0, 1}, n - 1];
   remLo = 0. umin; remHi = 0. umin;
+  dAll = Table[None, {n}];
   Do[
     d = Association[# -> ndMul[ndSub[uc[Insert[#, 1, i]], uc[Insert[#, 0, i]]], invh[[i]]] & /@ corners];
+    dAll[[i]] = d;
     acc = ivSum[Flatten[Table[
       ivK[If[e === e2, ivSqr[d[e]], ndMul[d[e], d[e2]]], Times @@ MapThread[If[#1 == #2, 1/3, 1/6] &, {e, e2}]],
       {e, corners}, {e2, corners}], 1]];
-    kin = If[kin === None, acc, ndAdd[kin, acc]];
+    kin = If[kin === None, ivK[acc, spec["KM"][[i, i]]], ndAdd[kin, ivK[acc, spec["KM"][[i, i]]]]];
     dmax2 = Fold[vMax, ivSqr[d[#]][[2]] & /@ corners];
     ri = ivK[ndMul[ndMul[w2pm, {0. dmax2, dmax2}], h2[[i]]], 1/24];
     remLo = ndDn[remLo + ri[[1]]]; remHi = ndUp[remHi + ri[[2]]],
     {i, n}];
-  kin = ivK[kin, spec["k"]];
+  (* the terms 2 K_ij d_i u d_j u, i < j: (1/|c|) Integral = 1/4 Sum d^i_e d^j_e' Prod_{l other} m(e_l, e'_l) *)
+  Do[
+    If[spec["KM"][[i, j]] != 0,
+      kin = ndAdd[kin, ivK[ivSum[Flatten[Table[
+        ivK[ndMul[dAll[[i]][e], dAll[[j]][e2]],
+          Times @@ Table[If[l == i || l == j, 1, If[e[[l - Boole[l > i]]] == e2[[l - Boole[l > j]]], 1/3, 1/6]], {l, n}]],
+        {e, corners}, {e2, corners}], 1]], spec["KM"][[i, j]]/2]]],
+    {i, n}, {j, i + 1, n}];
   mean = ivK[ivSum[uc /@ verts], 1/2^n];
   If[vr === None,
     mid = ivHornerQ[spec["P"], mean];
@@ -365,7 +397,10 @@ nd2LowerBoundRaw[spec_, f0_, qs_] := Module[
   If[spec["Linear"],
     If[kk != 0, Throw[failure["BadField", "A potential that is at most linear in u needs a field with K = 0."], "CertiField"]];
     Return[nd2PoissonLower[spec, f]]];
-  If[kk == 0, Throw[failure["NotImplemented", "With these model keys the lower bound needs a calibration field (K > 0) unless the potential is at most linear."], "CertiField"]];
+  If[kk == 0,
+    If[vr =!= None || ! superlinearQ[spec["P"]] || ! f["Affine"] || t0 != t1,
+      Throw[failure["BadField", "A field with K = 0 needs a potential of even degree with positive leading coefficient on the whole line."], "CertiField"]];
+    Return[nd2ConvexLower[spec, f]]];
   If[vr =!= None && {t0, t1} =!= vr, Throw[failure["BadField", "With a value range the t-range of the field must be the value range."], "CertiField"]];
   If[vr =!= None && kk qs < 2, Throw[failure["BadOption", "Need at least two subintervals in the value range."], "CertiField"]];
   If[! f["Affine"] && Max[Abs[Flatten[f["S0"]]]] != 0., Throw[failure["BadField", "A field without affine part must have S0 = 0."], "CertiField"]];
@@ -378,7 +413,8 @@ nd2LowerBoundRaw[spec_, f0_, qs_] := Module[
   inv4k = ivC[1/(4 spec["k"])];
   s0 = ivPt /@ f["S0"];
   d0 = ivSum[Table[ndMul[ndSub[ivHi[s0[[i]], n, i], ivLo[s0[[i]], n, i]], invh[[i]]], {i, n}]];
-  a0 = Table[With[{q = ndMul[ivSqr[s0[[i]]], inv4k]}, {ivLo[q, n, i], ivHi[q, n, i]}], {i, n}];
+  (* 1/4 sigma0 . K^-1 sigma0 at the vertices (used outside the t-range) *)
+  a0 = Association[# -> nd2QuadForm[spec, Table[If[#[[i]] == 0, ivLo[s0[[i]], n, i], ivHi[s0[[i]], n, i]], {i, n}]] & /@ verts];
   (* the factor of t at the vertex v of every cell: lam - a_v (Proposition 10, Corollary 9) *)
   tilt = Association[# -> If[spec["Av"] === None, {lam + 0. d0[[1]], lam + 0. d0[[1]]}, ndSub[{lam, lam}, ivPt[spec["Av"][#]]]] & /@ verts];
   If[vr === None,
@@ -407,9 +443,9 @@ nd2LowerBoundRaw[spec_, f0_, qs_] := Module[
         With[{s = ivSum[{ivK[c[[i, 1]], n0], ivK[c[[i, 2]], n1], ivK[c[[i, 3]], n2]}]},
           ndMul[ndSub[ivHi[s, n, i], ivLo[s, n, i]], invh[[i]]]], {i, n}]];
       aa = Table[
-        With[{q = ndMul[ivSqr[ivK[ndAdd[ivK[d01[[i]], w0], ivK[d12[[i]], w1]], 1/dl]], inv4k]}, {ivLo[q, n, i], ivHi[q, n, i]}], {i, n}];
+        With[{q = ivK[ndAdd[ivK[d01[[i]], w0], ivK[d12[[i]], w1]], 1/dl]}, {ivLo[q, n, i], ivHi[q, n, i]}], {i, n}];
       base = ndSub[dv, nd2WAtQ[spec, tt]];
-      cur = Association[# -> ivSum[Join[{base, ndMul[tilt[#], ivC[tt]]}, Table[aa[[i, #[[i]] + 1]], {i, n}]]][[2]] & /@ verts];
+      cur = Association[# -> ivSum[{base, ndMul[tilt[#], ivC[tt]], nd2QuadForm[spec, Table[aa[[i, #[[i]] + 1]], {i, n}]]}][[2]] & /@ verts];
       If[prev =!= None,
         ta = t0 + (kap - 1 + (j - 1)/qs) dl;
         {h2, ca, cb} = nd2SubBound[spec, ta, tt];
@@ -427,12 +463,35 @@ nd2LowerBoundRaw[spec_, f0_, qs_] := Module[
           ndMul[ndSub[ivHi[ev, n, i], ivLo[ev, n, i]], invh[[i]]]], {i, n}]],
       {m0, {1, kk + 1}}];
     Do[
-      With[{v = verts[[vi]], av = ivSum[Table[a0[[i, verts[[vi, i]] + 1]], {i, n}]]},
-        mup[v] = vMax[mup[v], ivSum[{dend[[1]], av, ivPt[tl[[vi]]]}][[2]]];
-        mup[v] = vMax[mup[v], ivSum[{dend[[2]], av, ivPt[th[[vi]]]}][[2]]]],
+      With[{v = verts[[vi]]},
+        mup[v] = vMax[mup[v], ivSum[{dend[[1]], a0[v], ivPt[tl[[vi]]]}][[2]]];
+        mup[v] = vMax[mup[v], ivSum[{dend[[2]], a0[v], ivPt[th[[vi]]]}][[2]]]],
       {vi, Length[verts]}]];
   intM = spec["CellVolume"]/2^n exactTotal[ndChk1 /@ Values[mup]];
   flux - intM + If[spec["Mean"] === None, 0, exactNumber[lam] spec["Mean"] spec["Volume"]]];
+
+(* (1/|c|) Integral over each cell of 1/4 sigma0 . K^-1 sigma0 for a Raviart-Thomas field, enclosed: component i is affine
+   in x_i and constant in the others, so the diagonal terms are (lo^2 + lo hi + hi^2)/3 and the others products of means *)
+nd2SigmaNorm[spec_, s0_] := Module[{n = spec["n"], ki = spec["KInv"], lo, hi},
+  lo = Table[ivLo[s0[[i]], n, i], {i, n}]; hi = Table[ivHi[s0[[i]], n, i], {i, n}];
+  ivK[ivSum[Join[
+    Table[ivK[ivSum[{ivSqr[lo[[i]]], ndMul[lo[[i]], hi[[i]]], ivSqr[hi[[i]]]}], ki[[i, i]]/3], {i, n}],
+    Join @@ Table[If[ki[[i, j]] == 0, Nothing, ivK[ndMul[ndAdd[lo[[i]], hi[[i]]], ndAdd[lo[[j]], hi[[j]]]], ki[[i, j]]/2]], {i, n}, {j, i + 1, n}]]], 1/4]];
+
+(* RIGOROUS: the affine field alone (convex mode) for a potential of superlinear growth on the whole line, with the term
+   (lam - a) t: Proposition 6 with Proposition 10, the conjugate at the shifted arguments averaged over the vertices *)
+nd2ConvexLower[spec_, f_] := Module[{n = spec["n"], verts, invh, s0, d0, tilt, args, tl, th, ws, lam = f["Lambda"], t0 = f["TRange"][[1]], mc},
+  verts = Tuples[{0, 1}, n];
+  invh = ivC[1/#] & /@ spec["h"];
+  s0 = ivPt /@ f["S0"];
+  d0 = ivSum[Table[ndMul[ndSub[ivHi[s0[[i]], n, i], ivLo[s0[[i]], n, i]], invh[[i]]], {i, n}]];
+  tilt = If[spec["Av"] === None, {lam + 0. d0[[1]], lam + 0. d0[[1]]}, ndSub[{lam, lam}, ivPt[spec["Av"][#]]]] & /@ verts;
+  args = Developer`ToPackedArray /@ Transpose[ndAdd[d0, #] & /@ tilt];
+  tl = conjCells[spec["P"], args, t0, -1]; th = conjCells[spec["P"], args, t0, +1];
+  ws = ivK[ivSum[ivPt[vMax[tl[[#]], th[[#]]]] & /@ Range[Length[verts]]], 1/2^n];
+  mc = nd2SigmaNorm[spec, s0];
+  ndFluxLower[spec, f] - spec["CellVolume"] exactTotal[ndUp[mc[[2]] + ws[[2]]]] +
+    If[spec["Mean"] === None, 0, exactNumber[lam] spec["Mean"] spec["Volume"]]];
 
 (* RIGOROUS: Proposition 16, a potential at most linear in u, W = w0 + (w1 + a(x)) t, for any Raviart-Thomas field *)
 nd2PoissonLower[spec_, f_] := Module[
@@ -443,8 +502,7 @@ nd2PoissonLower[spec_, f_] := Module[
   invh = ivC[1/#] & /@ spec["h"];
   s0 = ivPt /@ f["S0"];
   d0 = ivSum[Table[ndMul[ndSub[ivHi[s0[[i]], n, i], ivLo[s0[[i]], n, i]], invh[[i]]], {i, n}]];
-  sig2 = ivSum[Table[With[{lo = ivLo[s0[[i]], n, i], hi = ivHi[s0[[i]], n, i]},
-    ivK[ivSum[{ivSqr[lo], ndMul[lo, hi], ivSqr[hi]}], 1/3]], {i, n}]];
+  sig2 = ivK[nd2SigmaNorm[spec, s0], 4];                         (* (1/|c|) Integral sigma0 . K^-1 sigma0 *)
   abar = If[spec["Av"] === None, {0. d0[[1]], 0. d0[[1]]}, ivK[ivSum[ivPt[spec["Av"][#]] & /@ verts], 1/2^n]];
   rho = ndSub[ndSub[d0, abar], ndSub[ivC[w1], {lam, lam}]];
   r1sq = If[spec["Av"] === None || ! spec["LinNodal"], 0,
@@ -467,8 +525,9 @@ nd2PoissonLower[spec_, f_] := Module[
     c2 = nd2SqrtUp[fHi[(spec["Domain"][[li, 2]] - spec["Domain"][[li, 1]])^2/2]];
     gmax = Max[Abs[sliceAt[spec["G"], n, li, If[side == 1, 1, -1]]]];
     c0 = exactNumber[rUp[rUp[srho nd2SqrtUp[fHi[spec["Volume"]]]] gmax]]];
-  bigB = rUp[rUp[ssig + rUp[rUp[fHi[Max[spec["h"]]] ipi] sr]] + rUp[c2 srho]];
-  pen = rUp[rUp[bigB bigB] fHi[1/(4 spec["k"])]];
+  (* with E - w0 |Omega| = Y^2 + Integral A u, Y = |K^(1/2) grad u|: |grad u| <= Y/Sqrt[lambda_min(K)] *)
+  bigB = rUp[ssig + rUp[rUp[rUp[rUp[fHi[Max[spec["h"]]] ipi] sr] + rUp[c2 srho]] nd2SqrtUp[fHi[1/nd2LamMinLower[spec["KM"]]]]]];
+  pen = rUp[rUp[bigB bigB]/4];
   cst + flux - exactNumber[pen] - c0];
 
 (* ------------------------------------------------------------------------------------------------ *)
@@ -502,7 +561,10 @@ nd2MixedField[spec_] := Module[
     keep = Flatten[Position[uu, _?Positive]];
     If[keep === {}, SparseArray[{}, {nc, nu}], SparseArray[Transpose[{keep, uu[[keep]]}] -> 1., {nc, nu}]]];
   plo = Table[sel[i, lo], {i, n}]; phi = Table[sel[i, hi], {i, n}];
-  mm = cv Sum[(Transpose[plo[[i]]] . plo[[i]] + Transpose[phi[[i]]] . phi[[i]])/3. + (Transpose[plo[[i]]] . phi[[i]] + Transpose[phi[[i]]] . plo[[i]])/6., {i, n}];
+  (* Integral sigma . K^-1 sigma as a quadratic form in the face values *)
+  mm = cv (Sum[N[spec["KInv"][[i, i]]] ((Transpose[plo[[i]]] . plo[[i]] + Transpose[phi[[i]]] . phi[[i]])/3. +
+        (Transpose[plo[[i]]] . phi[[i]] + Transpose[phi[[i]]] . plo[[i]])/6.), {i, n}] +
+      Sum[If[i == j || spec["KInv"][[i, j]] == 0, 0., N[spec["KInv"][[i, j]]] Transpose[plo[[i]] + phi[[i]]] . (plo[[j]] + phi[[j]])/4.], {i, n}, {j, n}]);
   bb = Sum[(phi[[i]] - plo[[i]])/hf[[i]], {i, n}];
   fl = ConstantArray[0., nu];
   Do[
@@ -513,10 +575,10 @@ nd2MixedField[spec_] := Module[
   w1 = N[PadRight[spec["P"], 2][[2]]];
   avec = w1 + If[spec["Av"] === None, ConstantArray[0., nc], Flatten[Mean[Values[spec["Av"]]]]];
   If[spec["Mean"] === None,
-    kkt = ArrayFlatten[{{mm/(2 k), cv Transpose[bb]}, {cv bb, SparseArray[{}, {nc, nc}]}}];
+    kkt = ArrayFlatten[{{mm/2, cv Transpose[bb]}, {cv bb, SparseArray[{}, {nc, nc}]}}];
     rhs = Join[fl, cv avec],
     col = SparseArray[Table[{j, 1} -> cv, {j, nc}], {nc, 1}];
-    kkt = ArrayFlatten[{{mm/(2 k), cv Transpose[bb], SparseArray[{}, {nu, 1}]}, {cv bb, SparseArray[{}, {nc, nc}], col},
+    kkt = ArrayFlatten[{{mm/2, cv Transpose[bb], SparseArray[{}, {nu, 1}]}, {cv bb, SparseArray[{}, {nc, nc}], col},
       {SparseArray[{}, {1, nu}], Transpose[col], SparseArray[{}, {1, 1}]}}];
     rhs = Join[fl, cv avec, {N[spec["Mean"] spec["Volume"]]}]];
   sol = Quiet@Check[LinearSolve[kkt, rhs], $Failed];
@@ -524,6 +586,104 @@ nd2MixedField[spec_] := Module[
   If[spec["Mean"] =!= None, lam = sol[[-1]]];
   <|"TRange" -> {0, 0}, "K" -> 0, "Affine" -> True, "C" -> ConstantArray[{}, n], "Lambda" -> lam,
     "S0" -> Table[Developer`ToPackedArray[ArrayReshape[With[{m = map[[i]]}, (Unitize[m] sol[[Clip[m, {1, nu}]]])], fs[[i]]]], {i, n}]|>];
+
+(* ------------------------------------------------------------------------------------------------ *)
+(* heuristic: convex mode (the affine field from a cell-centred finite-volume solve)                 *)
+(* ------------------------------------------------------------------------------------------------ *)
+
+(* 1D finite-volume matrix of direction i with the coefficient kii: as fvMatrix1D, circulant in a periodic direction *)
+nd2FVMatrix1D[spec_, i_, kii_] := Module[{m = spec["Cells"][[i]], c = N[2 kii/spec["h"][[i]]^2], diag},
+  If[spec["Periodic"][[i]],
+    Which[
+      m == 1, SparseArray[{}, {1, 1}],
+      m == 2, SparseArray[{{1, 1} -> 2 c, {2, 2} -> 2 c, {1, 2} -> -2 c, {2, 1} -> -2 c}, {2, 2}],
+      True, SparseArray[{{1, m} -> -c, {m, 1} -> -c, Band[{1, 1}] -> 2 c, Band[{1, 2}] -> -c, Band[{2, 1}] -> -c}, {m, m}]],
+    diag = ConstantArray[2 c, m];
+    diag[[1]] = c; diag[[m]] = c; If[m == 1, diag[[1]] = 0.];
+    If[spec["Dirichlet"][[i, 1]], diag[[1]] += 2 c];
+    If[spec["Dirichlet"][[i, 2]], diag[[m]] += 2 c];
+    If[m == 1, SparseArray[{{1, 1} -> diag[[1]]}, {1, 1}],
+      SparseArray[{Band[{1, 1}] -> diag, Band[{1, 2}] -> -c, Band[{2, 1}] -> -c}, {m, m}]]]];
+
+(* minimise  Sum_faces K_ii |c| (dp/h_i)^2 + Dirichlet faces 2 K_ii |c| ((g - p)/h_i)^2 + Sum |c| (W_c(p) + a_c p)  over cell
+   values p (the mean fixed when it is prescribed) by damped Newton steps with the positive part of W''.  Returns {p, lam},
+   lam the multiplier of the mean.  Any p gives a valid field. *)
+nd2FVSolve[spec_, p0_] := Module[
+  {n = spec["n"], dims = spec["Cells"], nc, cg, lap, b, a, p, mean = spec["Mean"], vr = spec["VR"], lo, hi, eps = 0., en, grad, hess, dp, t, pn,
+   it = 0, e0, e1, slope, wv, tmax, ones, lam = 0.},
+  nc = Times @@ dims; cg = Range[nc]; ones = ConstantArray[1., nc];
+  lap = Total[Table[KroneckerProduct @@ Table[If[j == i, nd2FVMatrix1D[spec, i, spec["KM"][[i, i]]], IdentityMatrix[dims[[j]], SparseArray]], {j, n}], {i, n}]];
+  b = ConstantArray[0., dims];
+  Do[
+    If[spec["Dirichlet"][[i, side]],
+      b += ArrayPad[asSlab[N[4 spec["KM"][[i, i]]/spec["h"][[i]]^2] faceMeans[spec, i, side], i],
+        ReplacePart[ConstantArray[{0, 0}, n], i -> If[side == 1, {0, dims[[i]] - 1}, {dims[[i]] - 1, 0}]]]],
+    {i, n}, {side, 2}];
+  b = Flatten[b];
+  a = If[spec["Av"] === None, ConstantArray[0., nc], Flatten[Mean[Values[spec["Av"]]]]];
+  p = Flatten[N[p0]];
+  If[vr =!= None,
+    If[spec["C1"] != 0 || spec["C2"] != 0, eps = 10.^-9 N[vr[[2]] - vr[[1]]]];
+    {lo, hi} = N[vr] + {eps, -eps}; p = Clip[p, {lo, hi}]];
+  If[mean =!= None, p = p + (N[mean] - Mean[p]); If[vr =!= None, p = Clip[p, {lo, hi}]]];
+  en[q_] := 0.5 q . (lap . q) - b . q + Total[nd2WMach[spec, q, cg][[1]]] + a . q;
+  e0 = en[p];
+  While[it++ < 100,
+    wv = nd2WMach[spec, p, cg];
+    grad = lap . p - b + wv[[2]] + a;
+    hess = lap + DiagonalMatrix[SparseArray[Ramp[wv[[3]]] + 10.^-12 (1. + Max[Abs[wv[[3]]]])]];
+    dp = If[mean === None, ndSolveSparse[hess, -grad], nd2KKTSolve[hess, ones, -grad]];
+    If[dp === $Failed, Break[]];
+    slope = grad . dp;
+    If[! (slope < 0.) || Max[Abs[dp]] <= 10.^-13 (1. + Max[Abs[p]]), Break[]];
+    tmax = 1.;
+    If[vr =!= None,
+      tmax = Min[1., 0.99 Min[Join[{2.}, Pick[hi - p, Positive[dp]]/Pick[dp, Positive[dp]], Pick[lo - p, Negative[dp]]/Pick[dp, Negative[dp]]]]]];
+    If[! (tmax > 0.), Break[]];
+    t = tmax; e1 = en[pn = p + t dp];
+    While[! (e1 <= e0 + 10.^-4 t slope) && t > 10.^-10 tmax, t *= 0.5; e1 = en[pn = p + t dp]];
+    If[! (e1 < e0), Break[]];
+    p = pn;
+    If[e0 - e1 <= 10.^-15 Abs[e0], Break[]];
+    e0 = e1];
+  If[mean =!= None, lam = Mean[lap . p - b + nd2WMach[spec, p, cg][[2]] + a]];
+  {ArrayReshape[p, dims], lam}];
+
+(* the two-point flux field of cell values p: 2 K_ii (p_R - p_L)/h_i on interior and periodic faces, 4 K_ii (g - p)/h_i
+   on Dirichlet faces (outward), 0 on natural faces.  Without a value range a field with K = 0; with one, the same field
+   with kc knot intervals of zero spline coefficients on the value range *)
+nd2ConvexField[spec_, p_, lam_, kc_] := Module[{n = spec["n"], hf = N[spec["h"]], vr = spec["VR"], s0},
+  s0 = Table[
+    Module[{kii = N[spec["KM"][[i, i]]], first, last, wrap},
+      wrap = (2 kii/hf[[i]]) (sliceAt[p, n, i, 1] - sliceAt[p, n, i, -1]);
+      first = Which[spec["Periodic"][[i]], wrap, spec["Dirichlet"][[i, 1]], -(4 kii/hf[[i]]) (faceMeans[spec, i, 1] - sliceAt[p, n, i, 1]), True, 0. sliceAt[p, n, i, 1]];
+      last = Which[spec["Periodic"][[i]], wrap, spec["Dirichlet"][[i, 2]], (4 kii/hf[[i]]) (faceMeans[spec, i, 2] - sliceAt[p, n, i, -1]), True, 0. sliceAt[p, n, i, -1]];
+      Developer`ToPackedArray[N[Join[asSlab[first, i], (2 kii/hf[[i]]) (hiFace[p, n, i] - loFace[p, n, i]), asSlab[last, i], i]]]],
+    {i, n}];
+  If[vr === None,
+    <|"TRange" -> {0, 0}, "K" -> 0, "Affine" -> True, "S0" -> s0, "C" -> ConstantArray[{}, n], "Lambda" -> lam|>,
+    <|"TRange" -> vr, "K" -> kc, "Affine" -> True, "S0" -> s0, "C" -> Table[ConstantArray[0., Append[faceShape[spec, i], kc + 2]], {i, n}], "Lambda" -> lam|>]];
+
+(* the same field as a spline alone (no affine part): t sigma0 = Sum sigma0 xi_m b_m(t) on the t-range, xi_m the Greville
+   abscissae; exact on the value range, so for potentials with a value range it is the same field *)
+nd2AsSpline[spec_, f_, kk_] := Module[{t0, t1, dl, xi},
+  {t0, t1} = f["TRange"]; dl = (t1 - t0)/kk;
+  xi = N[t0 + (Range[0, kk + 1] - 1/2) dl];
+  <|"TRange" -> f["TRange"], "K" -> kk, "Affine" -> False, "S0" -> (0. # & /@ f["S0"]),
+    "C" -> Table[Developer`ToPackedArray[Outer[Times, f["S0"][[i]], xi]], {i, spec["n"]}], "Lambda" -> f["Lambda"]|>];
+
+nd2ConvexFieldFor[spec_, u_, kc_] := Module[{n = spec["n"], p0, res},
+  p0 = If[u === None, ConstantArray[If[spec["Mean"] =!= None, N[spec["Mean"]], If[spec["VR"] === None, 0., N[Mean[spec["VR"]]]]], spec["Cells"]],
+    Mean[vertexPart[u, n, #] & /@ Tuples[{0, 1}, n]]];
+  res = nd2FVSolve[spec, p0];
+  nd2ConvexField[spec, res[[1]], res[[2]], kc]];
+
+(* the potential is convex: decided exactly (P'' (t - lo)(hi - t) + c1 (hi - t) + c2 (t - lo) >= 0 on the range; every slope
+   of every table non-decreasing) *)
+nd2ConvexQ[spec_] := Module[{t, vr = spec["VR"], p2 = polyAt[spec["W2"], t], tb = spec["TableMat"]},
+  If[vr === None, Return[TrueQ[spec["Convex"]] && superlinearQ[spec["P"]]]];
+  TrueQ[Quiet@Resolve[ForAll[t, vr[[1]] <= t <= vr[[2]], p2 (t - vr[[1]]) (vr[[2]] - t) + spec["C1"] (vr[[2]] - t) + spec["C2"] (t - vr[[1]]) >= 0], Reals]] &&
+    (tb === None || With[{x = SetPrecision[tb, Infinity]}, Min[x[[All, 3 ;;]] - 2 x[[All, 2 ;; -2]] + x[[All, ;; -3]]] >= 0])];
 
 (* ------------------------------------------------------------------------------------------------ *)
 (* heuristic: the candidate                                                                          *)
@@ -582,7 +742,7 @@ nd2SolveCandidate[spec_, u0_] := Module[
   mats = Table[ndGauss1D[spec, i], {i, n}];
   pg = KroneckerProduct @@ mats[[All, 1]];
   gm = Table[KroneckerProduct @@ ReplacePart[mats[[All, 1]], i -> mats[[i, 2]]], {i, n}];
-  stiff = 2 k wq Total[Transpose[#] . # & /@ gm];
+  stiff = 2 wq Sum[If[spec["KM"][[i, j]] == 0, 0., N[spec["KM"][[i, j]]] Transpose[gm[[i]]] . gm[[j]]], {i, n}, {j, n}];
   cg = nd2GaussCells[cells];
   ag = Which[spec["Av"] === None, 0., spec["LinNodal"], pg . Flatten[-spec["Lin"]], True, Flatten[-spec["Lin"]][[cg]]];
   {rr, fixedR, gR} = nd2NodeMap[spec];
@@ -691,7 +851,7 @@ nd2CalSetup[spec_, trange_, kk_, qo_, lam0_] := Module[
       nd2TailFloat[N[spec["P"]], N[trange[[2]]], +1, {Min[sa] - pad, Max[sa] + pad}]}];
   Join[st, <|"Mask" -> mask, "Ties" -> ties, "TQ" -> Developer`ToPackedArray[tq],
     "VqM" -> Developer`ToPackedArray[ConstantArray[vq - endAdd, nc] + tabM], "W2maxM" -> ConstantArray[Developer`ToPackedArray[N[w2max]], nc],
-    "Tilt" -> tilt, "Tails" -> tails, "MeanVol" -> If[spec["Mean"] === None, None, N[spec["Mean"] spec["Volume"]]]|>]];
+    "Tilt" -> tilt, "Tails" -> tails, "MeanVol" -> If[spec["Mean"] === None, None, N[spec["Mean"] spec["Volume"]]], "KInvN" -> N[spec["KInv"]]|>]];
 
 nd2CalUnpack[st_, x_] := Module[{n = st["n"], cm},
   cm = Table[ArrayReshape[x[[st["Off"][[i]] + 1 ;; st["Off"][[i + 1]]]], {st["NF"][[i]], st["K"] + 2}] st["Mask"][[i]], {i, n}];
@@ -701,20 +861,23 @@ nd2CalUnpack[st_, x_] := Module[{n = st["n"], cm},
 (* minus the smoothed functional and its gradient (ndCalValueGradient with the term (lam - a_v) t at the vertices, the
    tails at shifted arguments or no tails, a multiplier, and tied periodic faces) *)
 nd2CalValueGradient[st_, x_, tau_] := Module[
-  {n = st["n"], kk = st["K"], q = st["Q"], hf = st["h"], k = st["k"], wv = st["wv"], nc = st["NC"], verts = st["Verts"], it = 1./tau, cw = st["cw"],
-   tq = st["TQ"], tails = st["Tails"], cm, lam, dc, d2, ds, aa, pos, base, obj = 0., gtl, gth, glam = 0., exs, sv, ex, mx, sm, wgt, tl, dtl, th, dth,
-   tlv, thv, etl, eth, ga, gd, g2, gdc, grads, gi, gw},
+  {n = st["n"], kk = st["K"], q = st["Q"], hf = st["h"], ki = st["KInvN"], wv = st["wv"], nc = st["NC"], verts = st["Verts"], it = 1./tau, cw = st["cw"],
+   tq = st["TQ"], tails = st["Tails"], cm, lam, dc, d2, ds, dsv, qd, lin, pos, base, obj = 0., gtl, gth, glam = 0., exs, sv, ex, mx, sm, wgt, tl, dtl, th, dth,
+   tlv, thv, etl, eth, ga, gd, gD, g2, gdc, grads, gi, gw},
   {cm, lam} = nd2CalUnpack[st, x];
   dc = Sum[(cm[[i, st["Hi"][[i]]]] - cm[[i, st["Lo"][[i]]]])/hf[[i]], {i, n}];
   d2 = dc . st["B2T"];
   ds = Table[cm[[i]] . st["DBT"], {i, n}];
-  aa = Table[With[{sq = ds[[i]]^2 (it/(4 k))}, {sq[[st["Lo"][[i]]]], sq[[st["Hi"][[i]]]]}], {i, n}];
+  dsv = Table[{ds[[i]][[st["Lo"][[i]]]], ds[[i]][[st["Hi"][[i]]]]}, {i, n}];        (* d/dt of the normal components, by side of the cell *)
+  gD = Table[ConstantArray[0., {nc, q}], {n}, {2}];
   pos = Ramp[st["W2maxM"] - d2[[All, st["Kq"]]]];
   base = (dc . st["BT"] + cw pos - st["VqM"]) it;
   gtl = ConstantArray[0., nc]; gth = gtl;
   exs = Table[
     sv = lam + st["Tilt"][v];
-    ex = base + Sum[aa[[i, v[[i]] + 1]], {i, n}] + Outer[Times, sv, tq] it;
+    qd = Table[dsv[[i, v[[i]] + 1]], {i, n}];
+    lin = Table[Sum[If[ki[[i, j]] == 0., 0., ki[[i, j]] qd[[j]]], {j, n}], {i, n}];         (* K^-1 q *)
+    ex = base + (Sum[qd[[i]] lin[[i]], {i, n}] (it/4)) + Outer[Times, sv, tq] it;
     If[tails === None,
       mx = Max /@ ex;
       ex = Exp[ex - mx]; sm = Total[ex, {2}];
@@ -732,6 +895,7 @@ nd2CalValueGradient[st_, x_, tau_] := Module[
       ex = ex wgt;
       gtl += etl wgt; gth += eth wgt;
       glam += Total[ex . tq] + (etl wgt) . dtl + (eth wgt) . dth];
+    Do[gD[[i, v[[i]] + 1]] += ex lin[[i]]/2, {i, n}];
     ex,
     {v, verts}];
   ga = Table[Total[Pick[exs, verts[[All, i]], side]], {i, n}, {side, {0, 1}}];
@@ -744,9 +908,9 @@ nd2CalValueGradient[st_, x_, tau_] := Module[
     gi = ConstantArray[0., {st["NF"][[i]], kk + 2}];
     gi[[st["Hi"][[i]]]] = gdc/hf[[i]]; gi[[st["Lo"][[i]]]] -= gdc/hf[[i]];
     gw = ConstantArray[0., {st["NF"][[i]], q}];
-    gw[[st["Lo"][[i]]]] = ga[[i, 1]]; gw[[st["Hi"][[i]]]] += ga[[i, 2]];
+    gw[[st["Lo"][[i]]]] = gD[[i, 1]]; gw[[st["Hi"][[i]]]] += gD[[i, 2]];
     obj += Total[st["FWC"][[i]] cm[[i]], 2];
-    gi = (gi + ((gw ds[[i]]) . st["DB"])/(2 k) + st["FWC"][[i]]) st["Mask"][[i]];
+    gi = (gi + gw . st["DB"] + st["FWC"][[i]]) st["Mask"][[i]];
     If[st["Ties"][[i]] =!= None,
       gi[[st["Ties"][[i, 1]]]] += gi[[st["Ties"][[i, 2]]]]; gi[[st["Ties"][[i, 2]]]] = 0. gi[[st["Ties"][[i, 2]]]]];
     Flatten[gi],
@@ -779,13 +943,14 @@ nd2ParamsOnGrid[params_, cells_List, cellsFine_List] := Module[{p, r = cellsFine
     p["DataTerm"] = Transpose[Table[block[tab[[Sequence @@ ConstantArray[All, n], j]]], {j, Last[Dimensions[tab]]}], Prepend[Range[n], n + 1]]];
   p];
 
-nd2Calibrate[params_, levels_List, trange_, lam0_, qo_, qs_, scale_, sched_, monitor_] := Module[
+nd2Calibrate[params_, levels_List, trange_, lam0_, qo_, qs_, scale_, sched_, monitor_, init_ : None] := Module[
   {cellsFine = levels[[-1, 1]], spec, prev = None, field = None, best, bestLB, lb, st, stages, rows = {}, t0 = AbsoluteTime[], res},
   Do[
     With[{cells = levels[[li, 1]], kk = levels[[li, 2]]},
       spec = nd2Spec[nd2ParamsOnGrid[params, cells, cellsFine]];
       If[field === None,
-        field = Append[ndZeroField[spec, trange, kk], "Lambda" -> lam0],
+        (* the zero field, or the field of convex mode written as a spline (exact on a value range) *)
+        field = If[init === None, Append[ndZeroField[spec, trange, kk], "Lambda" -> lam0], init[spec, kk]],
         If[cells =!= prev["Cells"], field = nd2ProlongX[field, spec]];
         If[kk =!= field["K"], field = Append[ndRefineT[field], "Lambda" -> field["Lambda"]]]];
       best = field; bestLB = nd2LowerBound[spec, field, "Subintervals" -> qs];
@@ -832,16 +997,14 @@ nd2Lambda0[spec_, u_] := Module[{n = spec["n"], nc = Times @@ spec["Cells"], ub,
 (* ------------------------------------------------------------------------------------------------ *)
 
 certifyScalarFieldND2[params_Association, cand_, opts_List] := Module[
-  {spec, t0 = AbsoluteTime[], mname, sub, verbose, refine, gfun, given, mode, u, ub, fields = {}, lbs, best, lo, hi, margin, qs = 16,
-   trange, kfin, levels, scale, cal, rows = {}, known = <||>, lam0 = 0., vr},
+  {spec, t0 = AbsoluteTime[], mname, sub, verbose, refine, gfun, given, mode, u, ub, fields = {}, modes = {}, lbs, best, lo, hi, margin, qs = 16,
+   trange, kfin, levels, scale, cal, rows = {}, known = <||>, lam0 = 0., vr, kc},
   spec = nd2Spec[KeyDrop[params, "Field"]];
   vr = spec["VR"];
   {mname, sub} = ndMethod[OptionValue[CertifiedVariationalBound, opts, Method]];
   verbose = TrueQ[OptionValue[CertifiedVariationalBound, opts, "Verbose"]];
   refine = TrueQ[OptionValue[CertifiedVariationalBound, opts, "RefineCandidate"]];
-  If[mname === "Convex",
-    Throw[failure["NotImplemented", "Convex mode is not available with \"Source\", \"Mean\", \"PeriodicDirections\", \"ValueRange\" or \"DataTerm\"; use Method -> Automatic or \"Calibration\"."], "CertiField"]];
-  If[spec["Linear"] && mname === "Calibration",
+  If[spec["Linear"] && mname =!= Automatic,
     Throw[failure["BadOption", "A potential that is at most linear in u is certified with an equilibrated flux: use Method -> Automatic."], "CertiField"]];
   If[! spec["Linear"] && vr === None && ! superlinearQ[spec["P"]],
     Throw[failure["Inconclusive", "The potential must be at most linear in u, have even degree with a positive leading coefficient, or have a value range."], "CertiField"]];
@@ -849,16 +1012,21 @@ certifyScalarFieldND2[params_Association, cand_, opts_List] := Module[
   If[given =!= None,
     given = nd2PackField[spec, given];
     If[given === $Failed, Throw[failure["BadField", "\"Field\" must be a field on the grid of the model."], "CertiField"]]];
-  mode = If[spec["Linear"], "Equilibrated", "Calibration"];
+  (* convex mode for convex potentials, calibration mode otherwise; a supplied field replaces the optimiser *)
+  mode = Which[spec["Linear"], "Equilibrated", mname =!= Automatic, mname, AssociationQ[given], "Given", nd2ConvexQ[spec], "Convex", True, "Calibration"];
+  qs = sub["Subintervals"];
+  kc = If[spec["TableMat"] === None, 8, spec["TM"] Ceiling[8/spec["TM"]]];
   gfun = With[{g = Lookup[params, "BoundaryData", 0]}, If[NumericQ[g] || ArrayQ[g, spec["n"]], None, g]];
-  If[verbose, Print["  ScalarFieldND: ", ndGridString[spec["Cells"]], " cells, ", ToLowerCase[mode], " field"]];
+  If[verbose, Print["  ScalarFieldND: ", ndGridString[spec["Cells"]], " cells, ", If[mode === "Given", "supplied field", ToLowerCase[mode] <> " mode"]]];
   u = nd2Competitor[spec, cand, refine, gfun];
   ub = nd2UpperBound[spec, u];
   If[verbose, Print["  candidate: E <= ", ndNum[ub[[2]]], "   (", ndSec[AbsoluteTime[] - t0], " s)"]];
-  If[AssociationQ[given], AppendTo[fields, given]];
-  If[mode === "Equilibrated", AppendTo[fields, nd2MixedField[spec]]];
-  If[mode === "Calibration" && (! AssociationQ[given] || mname === "Calibration"),
-    qs = sub["Subintervals"];
+  If[AssociationQ[given], AppendTo[fields, given]; AppendTo[modes, "Given"]];
+  If[mode === "Equilibrated", AppendTo[fields, nd2MixedField[spec]]; AppendTo[modes, "Equilibrated"]];
+  (* the field of convex mode: one finite-volume solve; in calibration mode it is one more field to compare *)
+  If[MemberQ[{"Convex", "Calibration"}, mode],
+    AppendTo[fields, nd2ConvexFieldFor[spec, u, kc]]; AppendTo[modes, "Convex"]];
+  If[mode === "Calibration",
     If[vr =!= None,
       If[sub["TRange"] =!= Automatic && exactify[sub["TRange"]] =!= vr,
         Throw[failure["BadOption", "With a value range the t-range is the value range."], "CertiField"]];
@@ -879,9 +1047,11 @@ certifyScalarFieldND2[params_Association, cand_, opts_List] := Module[
     cal = nd2Calibrate[KeyDrop[params, "Field"], levels, trange, lam0, sub["Samples"], qs, scale,
       If[AssociationQ[sub["Schedule"]], Join[$ndSchedule, sub["Schedule"]], $ndSchedule],
       If[verbose, Function[s, Print["  level ", s["Level"], "/", s["Levels"], "  ", ndGridString[s["Cells"]], "  K ", s["K"], "  tau ", ToString[s["Tau"], InputForm],
-        "  iterations ", s["Iterations"], "  certified lower bound ", ndNum[s["Best"]], "   (", ndSec[s["Seconds"]], " s)"]], None]];
+        "  iterations ", s["Iterations"], "  certified lower bound ", ndNum[s["Best"]], "   (", ndSec[s["Seconds"]], " s)"]], None],
+      (* with a value range the calibration starts from the field of convex mode *)
+      If[vr === None, None, Function[{sp, kk}, nd2AsSpline[sp, nd2ConvexFieldFor[sp, None, kk], kk]]]];
     rows = cal[[3]];
-    AppendTo[fields, cal[[2]]];
+    AppendTo[fields, cal[[2]]]; AppendTo[modes, "Calibration"];
     known[Length[fields]] = cal[[4]]];
   If[fields === {}, Throw[failure["Inconclusive", "No lower bound is available."], "CertiField"]];
   lbs = Table[Lookup[known, j, nd2LowerBound[spec, fields[[j]], "Subintervals" -> qs]], {j, Length[fields]}];
@@ -890,7 +1060,7 @@ certifyScalarFieldND2[params_Association, cand_, opts_List] := Module[
   margin = Max[Abs[lo], Abs[hi]]/10^9;
   <|"LowerBound" -> lo - margin, "UpperBound" -> hi + margin, "Seconds" -> AbsoluteTime[] - t0, "Field" -> fields[[best]],
     "Nodal" -> u, "BoundaryNodalValues" -> spec["G"], "SourceValues" -> spec["Lin"], "Subintervals" -> qs,
-    "Mode" -> If[fields[[best]]["K"] == 0, "Equilibrated", "Calibration"], "Levels" -> rows, "Spec" -> spec|>];
+    "Mode" -> modes[[best]], "Levels" -> rows, "Spec" -> spec|>];
 
 (* re-verification from the stored nodal values, boundary data, source values and field *)
 verifyScalarFieldND2[a_Association] := Module[{c = a["Certificate"], spec, g, s, n, lb, ub},
@@ -931,15 +1101,20 @@ nd2Description[params_, res_] := Module[{sp = res["Spec"], d = Max[displayDigits
     "Theorem" -> Row[{"Every u in H^1 of the box ", exactString[sp["Domain"]], If[per === {}, "", ", periodic in the directions " <> exactString[per]],
       ", whose trace on the Dirichlet faces is the piecewise multilinear interpolant of the nodal boundary values on the ", grid, " grid",
       If[sp["Mean"] === None, "", " and whose mean is " <> exactString[sp["Mean"]]],
-      ", has E[u] \[GreaterEqual] ", lowerString[res["LowerBound"], d], ", where E[u] = \[Integral] (", exactString[sp["k"]], " |\[Del]u|^2 + W(x, u)) dx and W(x, t) = ",
+      ", has E[u] \[GreaterEqual] ", lowerString[res["LowerBound"], d], ", where E[u] = \[Integral] (",
+      If[TrueQ[sp["KGiven"]], "\[Del]u . K \[Del]u, K = " <> exactString[sp["KM"]] <> ",", exactString[sp["k"]] <> " |\[Del]u|^2"], " + W(x, u)) dx and W(x, t) = ",
       wtext, "; the competitor has E \[LessEqual] ", upperString[res["UpperBound"], d], "."}],
     "AdmissibleClass" -> Row[{"all u in H^1 of the box ", exactString[sp["Domain"]], If[per === {}, "", ", periodic in the directions " <> exactString[per]],
       ", whose trace on the Dirichlet faces is the piecewise multilinear interpolant of the nodal boundary values (machine numbers, stored in the certificate) on the ",
       grid, " grid", If[sp["Mean"] === None, "", "; mean " <> exactString[sp["Mean"]]], If[nat === {}, "", Row[{"; natural (free) faces: ", nat}]]}],
-    "LowerBoundMethod" -> If[res["Mode"] === "Equilibrated",
-      "equilibrated Raviart\[Dash]Thomas flux and the Poincar\[EAcute] inequality on boxes (docs/SCALAR_ND_2.md, Proposition 16); outward-rounded arithmetic",
-      Row[{"calibration field (Raviart\[Dash]Thomas in x, quadratic B-splines in u, ", res["Field"]["K"], " knot intervals on ", exactString[res["Field"]["TRange"]],
-        If[sp["Mean"] === None, "", ", a multiplier for the mean"], "); outward-rounded arithmetic"}]],
+    "LowerBoundMethod" -> Which[
+      res["Mode"] === "Equilibrated",
+        "equilibrated Raviart\[Dash]Thomas flux and the Poincar\[EAcute] inequality on boxes (docs/SCALAR_ND_2.md, Proposition 16); outward-rounded arithmetic",
+      res["Mode"] === "Convex",
+        "complementary-energy bound with a Raviart\[Dash]Thomas flux from a cell-centred finite-volume solve" <> If[sp["Mean"] === None, "", " and a multiplier for the mean"] <> "; outward-rounded arithmetic",
+      True,
+        Row[{"calibration field (Raviart\[Dash]Thomas in x, quadratic B-splines in u, ", res["Field"]["K"], " knot intervals on ", exactString[res["Field"]["TRange"]],
+          If[sp["Mean"] === None, "", ", a multiplier for the mean"], "); outward-rounded arithmetic"}]],
     "UpperBoundMethod" -> "energy of the piecewise multilinear function through the candidate's nodal values" <>
       If[sp["Mean"] === None, "", ", shifted to the exact mean"] <> " (exact gradient term, midpoint and vertex rules with remainders)",
     "TrustedBase" -> "IEEE-754 machine arithmetic (+, \[Minus], \[Times], \[Divide]), Wolfram Language exact rational arithmetic, and docs/SCALAR_ND.md and docs/SCALAR_ND_2.md (proofs checked by one author only); logarithms are enclosed from series with remainder bounds",

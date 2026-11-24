@@ -148,6 +148,37 @@ VerificationTest[
    VerifyCertificate[CertifiedBound[Append[nd2Phase[[1]], "UpperBound" -> nd2Phase["UpperBound"] - 10^-3]]]},
   {False, False}, TestID -> "nd2-verify-rejects-tampered-certificates"]
 
+(* ---------- a stiffness matrix, and convex mode with the new keys ---------- *)
+
+(* E = Integrate[grad u . K grad u - f u], K with off-diagonal entries, u = 0 on x1 = 0 and x1 = 1, periodic in x2, f = 4 K11:
+   u* = x1 (1 - x1), min E = -K11/3 per unit cross-section *)
+VerificationTest[
+  With[{c = CertifiedVariationalBound[nd2Model[<|"Potential" -> Function[u, 0], "StiffnessMatrix" -> {{1, 1/4}, {1/4, 1/2}}, "Domain" -> {{0, 1}, {0, 1/4}},
+      "Cells" -> {16, 4}, "Source" -> 4, "PeriodicDirections" -> {2}|>]]},
+    {c["LowerBound"] <= -1/12 <= c["UpperBound"], c["RelativeGap"] < 0.02, VerifyCertificate[c]}],
+  {True, True, True}, TestID -> "nd2-stiffness-matrix-source"]
+
+(* K = diag(1/2, 1/8) on (0, 1) x (0, 1/2) is the isotropic problem with k = 1/2 on the unit square scaled by y -> y/2: the
+   minimum is half the sine-series value -0.016025058075473 (convex mode) *)
+VerificationTest[
+  With[{c = CertifiedVariationalBound[nd2Model[<|"Potential" -> Function[u, u^2 - u], "StiffnessMatrix" -> {{1/2, 0}, {0, 1/8}}, "Domain" -> {{0, 1}, {0, 1/2}},
+      "Cells" -> {32, 16}, "BoundaryData" -> 0|>]]},
+    {c["Certificate", "Mode"], c["LowerBound"] <= -0.0080125290377365 <= c["UpperBound"], c["RelativeGap"] < 0.01, VerifyCertificate[c]}],
+  {"Convex", True, True, True}, TestID -> "nd2-stiffness-matrix-convex-mode"]
+
+(* convex potentials with a prescribed mean and no Dirichlet face: min E = |Omega| W(m), by Jensen *)
+VerificationTest[
+  With[{c = CertifiedVariationalBound[nd2Model[<|"Potential" -> Function[u, u^4/4 + u^2/2], "Mean" -> 1/3, "Domain" -> {{0, 1}, {0, 1}}, "Cells" -> {4, 4},
+      "PeriodicDirections" -> {1, 2}|>]]},
+    {c["Certificate", "Mode"], c["LowerBound"] <= 19/324 <= c["UpperBound"], 19/324 - c["LowerBound"] < 10^-6}],
+  {"Convex", True, True}, TestID -> "nd2-convex-mode-mean-periodic"]
+
+VerificationTest[
+  With[{c = CertifiedVariationalBound[nd2Model[<|"Potential" -> Function[u, u Log[u] + (1 - u) Log[1 - u]], "ValueRange" -> {0, 1}, "Mean" -> 1/3,
+      "Domain" -> {{0, 1}, {0, 1}}, "Cells" -> {4, 4}, "NaturalFaces" -> {{1, "Lower"}, {1, "Upper"}, {2, "Lower"}, {2, "Upper"}}|>]], w = 2/3 Log[2] - Log[3]},
+    {c["Certificate", "Mode"], c["LowerBound"] <= w <= c["UpperBound"], w - c["LowerBound"] < 10^-4, VerifyCertificate[c]}],
+  {"Convex", True, True, True}, TestID -> "nd2-convex-mode-logarithmic"]
+
 (* ---------- refusals ---------- *)
 
 VerificationTest[FailureQ[CertifiedVariationalBound[nd2Model[<|"Potential" -> Function[u, 0], "Domain" -> {{0, 1}, {0, 1}}, "Source" -> 1,
