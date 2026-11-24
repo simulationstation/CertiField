@@ -113,3 +113,66 @@ that depend on x can only gain through the boundary; this has not been quantifie
 
   The energy of the axisymmetric skyrmion on the plane is 4π · 0.672755 [FLOAT], so the lower bound is within
   0.07 % of it. The simple bound is 4π · 0.5. The certified upper bound on a square is still to be computed.
+
+### Stop of the session, 23 November 2026 (work paused here)
+
+**Done and committed.**
+
+* Note `docs/MAGNETISATION.md`: Sections 1 to 6 with complete proofs (Lemma 1 degree and weighted degree formula,
+  Lemma 2 divergences, Lemma 3 supremum over the gradient, Theorem 4, Proposition 5 with the three checks against
+  known results, Lemma 6 and Proposition 7 for the strip, Lemma 8 for the cube, Section 5 formulas for the
+  competitor). Sections 7 (checks) and 8 (results) are placeholders.
+* `magnet.py`: exact checker (`Certificate.check`, Bernstein coefficients with bisection in rational arithmetic),
+  exact bound, `wall_bound`. `check_dual.py` passes (output in the entry above). `pointwise.py`: the independent
+  exact test.
+* `dual_opt.py`, `run_dual.py`: heuristic search and stored certificates. Certified lower bounds, Zeeman model
+  (A = 1/2, κ = 1, K = 0), degree −1, valid on every bounded Lipschitz domain; each passed the exact check (0.2 s)
+  and the independent pointwise test:
+
+  | h | certified: E ≥ | in units of 4π | skyrmion on the plane [FLOAT] | simple bound | file |
+  |---|---|---|---|---|---|
+  | 3/2 | 6.697023218 | 0.532932 | 0.533166 | 0.333333 | `results/zeeman_h3o2.json` |
+  | 2 | 8.448613244 | 0.672319 | 0.672755 | 0.500000 | `results/zeeman_h2.json` |
+  | 3 | 10.079480953 | 0.802100 | 0.802490 | 0.666667 | `results/zeeman_h3.json` |
+
+  The lower bounds are within 0.04 % to 0.07 % of the floating-point skyrmion energy. The runs for h = 5 and
+  h = 10 were stopped before they finished.
+
+**Half-written (exact state).**
+
+* `competitor.py` (`upper_bound`, `degree`, `graded_axis`, `radial_field`, `belavin_polyakov`) is written from
+  Section 5 of the note and HAS NOT BEEN RUN: its first test (cut-off Belavin–Polyakov maps for exchange only and
+  for the critical family, which must give energies just above 4π and just above 2π with degree −1 or +1) was
+  stopped before it printed anything. Treat every line as untested. Things to check first: the Bernstein
+  coefficients of |M_h|² (`_D_coefficients`), the tables `G2`, `T2`, `G12`, the sign of the
+  Dzyaloshinskii–Moriya term and the helicity convention of `radial_field` (the skyrmion of the note is
+  (sin θ e^{i(ψ+π/2)}, cos θ) with θ(0) = π; its degree is −1), the orientation in `degree`.
+* No test has been written for the competitor, no certified upper bound exists yet, hence no certified interval
+  and no gap for M1 yet: the percentages above compare with a floating-point number.
+
+**Tests of the prompt.**
+
+* M-T1 (cube): proved in the note (Lemma 8); the enclosure of 48AJ by rigorous quadrature is not written.
+* M-T2 (exchange only): the lower bound 8πA|Q| is reproduced exactly (`check_dual.py`); the competitors from
+  above wait for `competitor.py`.
+* M-T3 (strip): proved in the note (Proposition 7); `wall_bound` gives 4√(AK)w exactly; the competitor and the
+  comparison with `MagneticDomainWall` are not done.
+* M-T4 (falsification): done for the lower bound (random certificates, lowered u, random Γ, independent
+  pointwise test); the pairing with competitors is not done.
+* Extra known answer found: the critical family with exact infimum 4π(1 − 2r²), reproduced exactly.
+
+**Next steps, in order.**
+
+1. Run and debug `competitor.py` on the two known cases (exchange only; critical family r = 1/2 with a
+   Belavin–Polyakov map of radius 1); add an independent high-accuracy quadrature of the same normalised
+   interpolant as a cross-check; then `check_competitor.py`.
+2. M1: skyrmion profile by Newton on the radial energy with θ(L) = 0 (code in `explore_reduced_dual.py`,
+   `skyrmion`), nodal values on a graded grid, certified upper bound and degree on a square of half-width about
+   6/√(2h); certified intervals at h = 2 or 3 (moderate) and h = 10 or 20 (large). Gate G2 is then a matter of
+   the competitor's accuracy; the lower bounds are already within 0.1 %.
+3. M-T3 competitor and cross-check with the one-dimensional model (needs the Wolfram kernel once); M-T1
+   enclosure of J; falsification with competitors; `verify_all.py`; Sections 7 and 8 of the note.
+4. Make the search robust: lower fields (h ≤ κ²/(2A), where φ ≡ κ is not feasible), K ≠ 0, degree Q > 0, and a
+   faster optimiser (analytic gradients; the numerical-gradient L-BFGS takes about a minute).
+5. Then the paclet model `ThinFilmMagnet` (exact check with rational arithmetic in the Wolfram Language,
+   competitor with the paclet's interval helpers).
