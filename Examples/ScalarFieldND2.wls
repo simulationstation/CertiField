@@ -8,12 +8,15 @@ Needs["CertiField`"];
 
 show[name_, c_] := Print[name, "\n    ", c["Summary"], "\n    ", Round[c["Seconds"], 0.1], " s, certificate re-verified: ", VerifyCertificate[c], "\n"];
 
-(* 1. Phase separation of a binary mixture: regular-solution free energy with chi = 3 on [0, 1], mean composition 1/2,
-      composition 1/10 held on the face x1 = 0, the face x1 = 4 free, periodic in x2. *)
+(* 1. Phase separation of a binary mixture: regular-solution free energy with chi = 3 on [0, 1], compositions 1/10 and
+      9/10 (near the two phases) held on the faces x1 = 0 and x1 = 4, mean composition 1/2, periodic in x2.  The
+      multiplier of the mean is a single number (Corollary 9 of docs/SCALAR_ND_2.md); when the mean alone forces the
+      phases to separate, for example with free ends, that bound stays below the minimum by about the energy of the
+      interface. *)
 show["Phase separation (regular-solution free energy, prescribed mean)",
   CertifiedVariationalBound[CertiFieldModel["ScalarFieldND", <|
     "Potential" -> Function[u, u Log[u] + (1 - u) Log[1 - u] + 3 u (1 - u)], "ValueRange" -> {0, 1}, "Mean" -> 1/2,
-    "Domain" -> {{0, 4}, {0, 1/2}}, "Cells" -> {32, 4}, "BoundaryData" -> 1/10, "NaturalFaces" -> {{1, "Upper"}}, "PeriodicDirections" -> {2}|>]]];
+    "Domain" -> {{0, 4}, {0, 1/2}}, "Cells" -> {32, 4}, "BoundaryData" -> Function[{x, y}, If[x < 2, 1/10, 9/10]], "PeriodicDirections" -> {2}|>]]];
 
 (* 2. Image restoration with quadratic smoothing and a robust data term tabulated per pixel: a 16 x 16 image of a
       bright square on a dark background with noise and a few outliers; labels 0, 1/8, ..., 1; cost

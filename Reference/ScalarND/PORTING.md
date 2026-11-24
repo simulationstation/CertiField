@@ -370,3 +370,9 @@ statements and proofs are in `docs/SCALAR_ND_2.md`; the statements of `docs/SCAL
 
 **Checks that must keep passing after every step:** `verify_all.py`, `check_exact.py`, `check_theorem.py`, and
 `tools/run_tests.wls --nd` with `Tests/ScalarFieldND.wlt` byte-identical.
+
+### 24 November 2026
+
+Wolfram Language implementation done: `Kernel/ScalarFieldND2.wl` (model keys "Source", "Mean", "PeriodicDirections",
+"ValueRange", "DataTerm"), `Tests/ScalarFieldND2.wlt` (`--nd2`), `Examples/ScalarFieldND2.wls`. The Python reference was
+not extended further; the exact cross-check of the new lower bound is in the Wolfram Language tests.

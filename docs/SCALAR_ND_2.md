@@ -80,6 +80,13 @@ The right-hand side is concave in (S, λ) jointly (the flux is linear, M_λ is a
 convex in S and affine in λ), so λ can be handed to the optimiser as one more unknown. A constant λ is the term
 a(x)t with a ≡ −λ: nothing new has to be evaluated.
 
+*Limitation.* The bound cannot exceed sup_λ ( λm|Ω| + inf of the unconstrained problem with W − λt ), and the
+unconstrained problem has no reason to contain an interface. When the mean alone forces two phases to coexist
+(free or periodic faces, m where W is not convex), the bound therefore stays below the minimum by about the
+interface energy, and with all faces natural or periodic it is at most |Ω| W**(m), W** the convex envelope. It is
+tight when the minimiser of the constrained problem also nearly minimises the unconstrained one for some λ, for
+example when the data on Dirichlet faces already fix both phases.
+
 ## 3. Rigorous evaluation of the lower bound
 
 The discrete fields are those of Section 3 of part 1. With a periodic direction the face values on the two
@@ -269,7 +276,9 @@ All are elementary; the proofs are one line each.
 3. *Convex potential with a prescribed mean*, natural or periodic faces: min E = |Ω| W(m) (Jensen).
 4. *Non-convex potential with a prescribed mean on a small box.* If W″ ≥ −2κ on 𝕀, all faces are natural or
    periodic and k ≥ κ (L_max/π)², then u ≡ m is a minimiser and min E = |Ω| W(m): W(t) + κ(t − m)² is convex, and
-   κ∫(u − m)² ≤ k∫|∇u|² by Lemma 14. For the regular-solution energy, W″ ≥ 4 − 2χ, so κ = χ − 2.
+   κ∫(u − m)² ≤ k∫|∇u|² by Lemma 14. For the regular-solution energy, W″ ≥ 4 − 2χ, so κ = χ − 2. (By the
+   limitation after Corollary 9 the method cannot reach this value when W is not convex at m; it is a reference
+   for falsification only.)
 5. *A table that is the same in every cell*, natural faces: min E = |Ω| min W_c.
 6. *One-dimensional minimisers*: a strip with data that do not depend on x₂ and periodic or natural faces in x₂
    has the energy of the one-dimensional problem times the width, to be compared with `ScalarField1D` or with a

@@ -568,7 +568,7 @@ nd2NodeMap[spec_] := Module[{n = spec["n"], dims = spec["Cells"] + 1, per = spec
   rr = SparseArray[Transpose[{Range[nfull], red}] -> 1., {nfull, nred}];
   fx = N[Flatten[spec["Fixed"]]];
   cnt = Transpose[rr] . fx;
-  {rr, Unitize[cnt], (Transpose[rr] . (fx Flatten[spec["G"]]))/Max[1., #] & /@ cnt}];
+  {rr, Unitize[cnt], (Transpose[rr] . (fx Flatten[spec["G"]]))/(Max[1., #] & /@ cnt)}];
 
 nd2KKTSolve[h_, w_, r_] := Module[{m = Length[r], sol},
   sol = Quiet@Check[LinearSolve[ArrayFlatten[{{h, SparseArray[Transpose[{w}]]}, {SparseArray[{w}], SparseArray[{}, {1, 1}]}}], Append[r, 0.]], $Failed];
