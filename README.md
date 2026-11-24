@@ -303,16 +303,16 @@ the axisymmetric skyrmion, or of any field you supply.
 In[15]:= sk = CertiFieldModel["ThinFilmMagnet", <|"A" -> 1/2, "DMI" -> 1, "Field" -> 2, "Degree" -> -1,
             "Domain" -> {{-4, 4}, {-4, 4}}, "Cells" -> 240|>];
          CertifiedVariationalBound[sk]["Summary"]
-Out[15]= SUMMARY_PLACEHOLDER
+Out[15]= "ThinFilmMagnet: Certified  8.44861 <= inf E <= 8.45567  (relative gap <= 0.0835%)"
 ```
 
 For the model of Li and Melcher (A = 1/2, κ = 1, K = 0, degree −1):
 
-| Field h | Square | Certified bounds | Gap |
-|---|---|---|---|
-| 2 | (−4, 4)² | 8.448613 ≤ inf E ≤ 8.455824 | 0.085 % |
-| 10 | (−2, 2)² | 12.014250 ≤ inf E ≤ 12.016675 | 0.020 % |
-| 20 | (−3/2, 3/2)² | 12.332262 ≤ inf E ≤ 12.333557 | 0.010 % |
+| Field h | Square | Grid | Certified bounds | Gap | Time |
+|---|---|---|---|---|---|
+| 2 | (−4, 4)² | 240×240 | 8.448613 ≤ inf E ≤ 8.455669 | 0.0835 % | 4 s |
+| 10 | (−2, 2)² | 400×400 | 12.014250 ≤ inf E ≤ 12.016743 | 0.0208 % | 30 s |
+| 20 | (−3/2, 3/2)² | 400×400 | 12.332262 ≤ inf E ≤ 12.333540 | 0.0104 % | 29 s |
 
 Dual fields for h = 3/2, 2, 3, 5, 10 and 20 ship with the paclet; for other parameters closed-form ones are used,
 which are exact at critical coupling and weaker elsewhere, and `Reference/Magnetisation` computes a dual field for

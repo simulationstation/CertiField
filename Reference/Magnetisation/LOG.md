@@ -178,3 +178,5 @@ that depend on x can only gain through the boundary; this has not been quantifie
    faster optimiser (analytic gradients; the numerical-gradient L-BFGS takes about a minute).
 5. Then the paclet model `ThinFilmMagnet` (exact check with rational arithmetic in the Wolfram Language,
    competitor with the paclet's interval helpers).
+
+24 November 2026: competitor, M1 intervals (gaps 0.085 %, 0.020 %, 0.010 % at h = 2, 10, 20) and the paclet model ThinFilmMagnet done; merged into main.
