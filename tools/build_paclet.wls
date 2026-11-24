@@ -21,5 +21,7 @@ Needs["CertiField`"];
 Print["installed from: ", CertiField`Private`$CertiFieldDirectory];
 Print[CertifiedVariationalBound["Phi4Kink"]["Summary"]];
 Print[CertifiedVariationalBound[CertiFieldModel["ScalarFieldND", <|"Potential" -> Function[u, u^2 - u], "Domain" -> {{0, 1}, {0, 1}}, "Cells" -> 16|>]]["Summary"]];
+Print[CertifiedVariationalBound[CertiFieldModel["LinearElasticity", <|"Lame" -> {3/2, 1}, "Domain" -> {{0, 1}, {0, 1}}, "Cells" -> 8,
+    "TractionFreeFaces" -> {{2, "Lower"}, {2, "Upper"}}, "BoundaryData" -> Function[{x, y}, {x/10, 0}]|>]]["Summary"]];
 (* leave no installed copy behind (it would shadow a development checkout) *)
 PacletUninstall["CertiField"];

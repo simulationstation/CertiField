@@ -1,0 +1,61 @@
+{
+ "format": "CertiField-elasticity-certificate-1",
+ "problem": {
+  "name": "bending",
+  "box": [
+   [
+    "0",
+    "2"
+   ],
+   [
+    "-1/2",
+    "1/2"
+   ]
+  ],
+  "N": [
+   4,
+   2
+  ],
+  "D": [
+   [
+    "3",
+    "1",
+    "0"
+   ],
+   [
+    "1",
+    "3",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "1"
+   ]
+  ],
+  "b": [
+   "0",
+   "0"
+  ],
+  "bc": [
+   [
+    "D",
+    "D"
+   ],
+   [
+    "N",
+    "N"
+   ]
+  ],
+  "degree": 2
+ },
+ "lower": "0.03124999996",
+ "upper": "0.03125000004",
+ "reference": "0.1.0-reference",
+ "info": {
+  "example": "bending",
+  "note": "pure bending with free sides (exact minimum 1/32)",
+  "seconds": 0.05739426612854004,
+  "exact": "1/32"
+ }
+}

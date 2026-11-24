@@ -1,0 +1,4 @@
+N=24 clamped: 156445 boxes to solve (L=4)   1s
+    cg stopped after 189 iterations, info=0
+2326669 boxes to certify (L=6); octant volume between 0.934359 and 0.934742   72s
+certified upper bound  K <= 1.83348613   (float value 1.83348613)   total 277s

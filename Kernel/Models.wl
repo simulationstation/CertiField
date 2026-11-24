@@ -5,7 +5,7 @@
 
 Begin["CertiField`Private`"];
 
-$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "ThinFilmMagnet", "SkyrmeDegreeOne"};
+$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "LinearElasticity", "ThinFilmMagnet", "SkyrmeDegreeOne"};
 
 (* ---- model specifications ---- *)
 CertiFieldModel[name_String, rules___Rule] := CertiFieldModel[name, Association[rules]];
@@ -176,6 +176,7 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
     name === "SkyrmeDegreeOne", certifySkyrme[params, cand, opts],
     name === "ScalarFieldND", certifyScalarFieldND[params, cand, opts],
     name === "ThinFilmMagnet", certifyThinFilmMagnet[params, cand, opts],
+    name === "LinearElasticity", certifyLinearElasticity[params, cand, opts],
     True, certifyScalarField1D[presetSpec[name, params], If[cand === Automatic && name =!= "ScalarField1D", presetCandidate[name, params], cand], opts]];
   If[! (NumericQ[raw["LowerBound"]] && NumericQ[raw["UpperBound"]]),
     Throw[failure["Inconclusive", "A bound could not be enclosed."], "CertiField"]];
@@ -186,6 +187,7 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
     name === "SkyrmeDegreeOne", skyrmeDescription[res],
     name === "ScalarFieldND", scalarNDDescription[params, res],
     name === "ThinFilmMagnet", tfmDescription[params, res],
+    name === "LinearElasticity", elasticityDescription[params, res],
     True, scalarDescription[name, params, res]];
   rel = N[relGapOf[res]];
   status = If[tolerance === None || rel <= tolerance, "Certified", "Inconclusive"];
@@ -230,6 +232,7 @@ VerifyCertificate[CertifiedBound[a_Association]] := TrueQ[Catch[verifyCertificat
 verifyCertificate[a_Association] := Module[{c = a["Certificate"], name = a["Model"], lb, ub, spec, prec = 30},
   If[name === "ScalarFieldND", Return[verifyScalarFieldND[a]]];
   If[name === "ThinFilmMagnet", Return[TrueQ[verifyThinFilmMagnet[a]]]];
+  If[name === "LinearElasticity", Return[verifyLinearElasticity[a]]];
   Which[
     name === "SkyrmeDegreeOne",
       lb = levelSetLowerBound[c["Mu"], loadSkyrmeGrid[skyrmeGridDir[c["Mu"], c["Preset"]]], minorantTable[$skyrmePresets[c["Preset"], "Table"]]]["LowerBound"];

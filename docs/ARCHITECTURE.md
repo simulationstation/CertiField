@@ -11,6 +11,7 @@ optimisation) is a heuristic choice that can only make a bound less tight, never
 Models.wl              public API: CertifiedVariationalBound, VerifyCertificate, CertiFieldModel, presets
   |-- ScalarField1D.wl     1D: calibration lower bound, admissible competitor, exact / Taylor-model energy
   |-- ScalarFieldND.wl     2D/3D scalar fields on boxes: calibration-field lower bound, Q1 competitor, the two modes
+  |-- Elasticity.wl        2D linear elasticity: complementary-energy lower bound (Airy stress function), Q_p competitor
   |-- SkyrmeLevelSet.wl    Skyrme lower bound: the level-set dynamic programme
   |-- SkyrmeHedgehog.wl    Skyrme upper bound: hedgehog trial maps and their certified energy
   |-- Minorants.wl         certified affine minorants of h_kappa (input to the dynamic programme)
@@ -41,8 +42,9 @@ refined geometrically without blowing up the cost.
 
 **Overflow.** An overflowing machine operation does not return an infinity in the Wolfram Language: the kernel repeats
 it in software arithmetic and returns a number that is not a machine number, in an array that is no longer packed.
-The Skyrme programme checks its cell bounds against the sentinel. `ScalarFieldND.wl`, whose inputs are a user's
-arrays, tests the result of every interval operation (`ndChk`, a flag test) and stops as `"Inconclusive"`.
+The Skyrme programme checks its cell bounds against the sentinel. `ScalarFieldND.wl` and `Elasticity.wl`, whose
+inputs are a user's arrays, test the result of every interval operation (`ndChk`, a flag test) and stop as
+`"Inconclusive"`.
 
 ## The Skyrme lower bound (SkyrmeLevelSet.wl, Minorants.wl)
 
@@ -117,6 +119,37 @@ coefficients. Statement and proofs: `docs/SCALAR_ND.md`. The module is a port of
   candidate, or with `"RefineCandidate" -> True`, the package minimises the discrete energy by Newton's method
   (`ndSolveCandidate`).
 
+## Linear elasticity on rectangles (Elasticity.wl)
+
+E[u] = ∫ ½ e(u)ᵀD e(u) − b·u on a rectangle (plane strain), u prescribed on some faces, no traction on the others,
+D a constant symmetric positive definite matrix with rational entries. Statement and proofs: `docs/ELASTICITY.md`.
+The module is a port of the Python reference in `Reference/Elasticity` (function map, conventions and log:
+`Reference/Elasticity/PORTING.md`).
+
+* **The certified problem.** The Dirichlet datum is the trace of the continuous piecewise polynomial of degree p
+  (1 or 2) in each variable through the nodal boundary values; these are machine numbers taken as the exact binary
+  numbers they are, and they are stored in the certificate.
+* **Lower bound.** The complementary-energy inequality of Prager and Synge,
+  E[u] ≥ ∫ (σν)·g over the Dirichlet faces − ½ ∫ σ : D⁻¹ : σ, holds for every stress field that is in equilibrium
+  with the body force and has no traction on the traction-free faces, both exactly. The field is
+  (∂₂₂φ, ∂₁₁φ, −∂₁₂φ) + (−b₁x₁, −b₂x₂, 0) with φ a C¹ piecewise bicubic function, so that equilibrium and the
+  continuity of the traction hold identically for any nodal values. On the traction-free faces the nodal values
+  are those of a polynomial ψ_b + Σ P_k ψ_k that `elTraces` finds in rational arithmetic (`RowReduce`), with
+  machine numbers P_k: none if the traction-free part of the boundary is connected, three for two opposite faces.
+  The bound is a polynomial of degree two in the nodal values with exact rational coefficients (`elAiryLocal`,
+  `elFaceLocal`). `elLowerBound` evaluates it with outward-rounded arrays, the nodal values on the traction-free
+  faces entering as enclosures of their exact values, and sums the cells exactly.
+* **Upper bound.** The energy of the Q_p function through the candidate's nodal values, with the Dirichlet values
+  imposed exactly, is a polynomial of degree two in them with exact rational coefficients (`elStiffnessLocal`,
+  `elUpperBound`).
+* **Differences, not nodal values.** Both quadratic forms are evaluated on differences of nodal values: from an
+  affine function for φ, from a constant for u. The element matrices annihilate those exactly, which is checked in
+  rational arithmetic when they are built. Evaluated on the nodal values themselves, the terms cancel and outward
+  rounding costs accuracy that grows like h⁻⁴ under refinement.
+* **Choosing the fields (heuristic).** One sparse linear solve each: the finite-element solution
+  (`elSolveCandidate`) and the maximiser of the bound over the free nodal values and the parameters
+  (`elSolveStress`). Both matrices are sums of Kronecker products of one-dimensional matrices.
+
 ## Certificates and verification
 
 `CertifiedVariationalBound` returns `CertifiedBound[assoc]`. The reported bounds are machine numbers rounded outward
@@ -129,7 +162,10 @@ least as strong as the stored ones:
 * 2D/3D scalar fields: the stored nodal boundary values (which must agree with the model's boundary data to
   rounding), the stored field and the stored nodal values of the candidate. The stored claims carry a margin of one
   part in 10⁹, because the machine root finder that places the conjugate tables need not return the same last
-  bits on another machine; any placement gives a valid bound.
+  bits on another machine; any placement gives a valid bound;
+* linear elasticity: the stored nodal boundary values (which must agree with the model's boundary data to
+  rounding), the stored nodal values and parameters of the stress field and the stored nodal values of the
+  candidate. The stored claims carry the same margin.
 
 Nothing numerical is copied from the stored result.
 
@@ -140,5 +176,6 @@ Nothing numerical is copied from the stored result.
    multipliers) separate from the certified evaluation.
 3. Convert candidates into explicitly admissible competitors and compute their energy rigorously.
 4. Register the model in `Models.wl`: `$CertiFieldModels`, `CertiFieldModelInfo`, a description with `"Theorem"`,
-   `"AdmissibleClass"`, `"TrustedBase"`, `"NotClaimed"`, and a branch in `verifyCertificate`.
+   `"AdmissibleClass"`, `"TrustedBase"`, `"NotClaimed"`, and a branch in `verifyCertificate`. (The model's own file
+   may hold its `CertiFieldModelInfo` and description, as `Elasticity.wl` does; `Models.wl` then only dispatches.)
 5. Add tests that enclose a known exact value and that check failure modes.

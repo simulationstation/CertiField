@@ -1,0 +1,12 @@
+N=24 clamped: 21435 boxes to solve (L=2)
+assembled (105456, 105456) 65317464 174 s
+    cg iteration 500
+    cg iteration 1000
+    cg iteration 1500
+    cg iteration 2000
+    cg iteration 2500
+    cg iteration 3000
+    cg stopped after 3000 iterations, info=3000
+156445 boxes to certify (L=4); octant volume between 0.933783 and 0.935317
+float value K_low = 1.81732246   463s
+certified lower bound  K >= 1.81732246    total 1129s
