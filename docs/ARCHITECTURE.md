@@ -14,6 +14,7 @@ Models.wl              public API: CertifiedVariationalBound, VerifyCertificate,
   |-- Elasticity.wl        2D linear elasticity: complementary-energy lower bound (Airy stress function), Q_p competitor
   |-- SkyrmeLevelSet.wl    Skyrme lower bound: the level-set dynamic programme
   |-- SkyrmeHedgehog.wl    Skyrme upper bound: hedgehog trial maps and their certified energy
+  |-- SkyrmeLevelSetDegree.wl  Skyrme lower bound for degree B (the level-set programme with B times the flux)
   |-- Minorants.wl         certified affine minorants of h_kappa (input to the dynamic programme)
 CertifiedBound.wl      the result object: properties, directed decimal display, report
 RigorousQuadrature.wl  adaptive interval quadrature (first order and Simpson with 4th-derivative remainder)
@@ -62,6 +63,14 @@ affine on the cells of a volume grid. Each transition between levels uses:
 
 The result is min_v Λ₁(v)/(12π²), rounded down. The volume grids in `Data/Skyrme` are heuristic, shipped as exact IEEE
 doubles, and checked for consistency (increasing τ in (0, π), exactly representable steps) before use.
+
+**Other degrees (SkyrmeLevelSetDegree.wl).** The degree of the map enters the analytic reduction in one place, the
+flux through a level surface, which is B·4π sin²τ for a map of degree ±B (`docs/SKYRME_DEGREE_TWO.md`).
+`levelSetLowerBoundDegree` is the verifier above with the three flux integrals of a step multiplied by B; for B = 1
+it performs the same operations and returns the same numbers. The grids for B = 2 are in `Data/SkyrmeDegree`
+(generator: `Reference/SkyrmeDegree`), together with stored claims that `tools/skyrme_degree_claims.wls` recomputes.
+The model `SkyrmeDegreeTwo` pairs this lower bound with twice the certified energy of the hedgehog trial map, which is
+the energy of two disjoint copies of it.
 
 ## The Skyrme upper bound (SkyrmeHedgehog.wl)
 
