@@ -1,0 +1,122 @@
+{
+ "dirichlet_p1": {
+  "wolfram_model": "<|\"Lame\" -> {3/2, 1}, \"Domain\" -> {{0, 2}, {0, 1}, {0, 1}}, \"Cells\" -> {2, 1, 1}, \"Degree\" -> 1, \"BoundaryData\" -> Function[{x, y, z}, {0.1 x - 0.15 y + 0.3 x z, 0.25 x + 0.2 y z - 0.1, 0.05 z - 0.2 x y + 0.1 y}]|>",
+  "expected": {
+   "lower": 0.5204509374250365,
+   "boundary": [
+    1.0409018748501324,
+    1.0409018748502157
+   ],
+   "intQ": [
+    1.0409018748501568,
+    1.0409018748501915
+   ],
+   "upper_enclosure": [
+    0.5429166666666633,
+    0.5429166666666702
+   ],
+   "parameters": 0,
+   "prescribed": 0
+  }
+ },
+ "bodyforce_p2": {
+  "wolfram_model": "<|\"Lame\" -> {3/2, 1}, \"Domain\" -> {{0, 2}, {0, 1}, {1/3, 1}}, \"Cells\" -> {1, 2, 1}, \"Degree\" -> 2, \"BodyForce\" -> {1/2, -1/3, 1/5}, \"BoundaryData\" -> Function[{x, y, z}, {0.1 x - 0.15 y + 0.3 x z, 0.25 x + 0.2 y z - 0.1, 0.05 z - 0.2 x y + 0.1 y}]|>",
+  "expected": {
+   "lower": 0.39935172454318996,
+   "boundary": [
+    0.8577720482550724,
+    0.8577720482551477
+   ],
+   "intQ": [
+    0.9168406474235608,
+    0.9168406474237646
+   ],
+   "upper_enclosure": [
+    0.4015641511427752,
+    0.40156415114282906
+   ],
+   "parameters": 0,
+   "prescribed": 0
+  }
+ },
+ "block_p1": {
+  "wolfram_model": "<|\"Lame\" -> {3/2, 1}, \"Domain\" -> {{0, 1}, {0, 1}, {0, 1}}, \"Cells\" -> {2, 2, 2}, \"Degree\" -> 1, \"TractionFreeFaces\" -> {{2, \"Lower\"}, {2, \"Upper\"}, {3, \"Lower\"}, {3, \"Upper\"}}, \"BoundaryData\" -> Function[{x, y, z}, {0.1 x, 0, 0}]|>",
+  "expected": {
+   "lower": 0.01356376516152751,
+   "boundary": [
+    0.027127530323068652,
+    0.02712753032307004
+   ],
+   "intQ": [
+    0.027127530323056544,
+    0.027127530323082277
+   ],
+   "upper_enclosure": [
+    0.014687499999999888,
+    0.014687500000000117
+   ],
+   "parameters": 6,
+   "prescribed": 936
+  }
+ },
+ "ring_aniso": {
+  "wolfram_model": "<|\"StiffnessMatrix\" -> {{7/2, 7/4, 3/2, 1/4, 0, -1/8}, {7/4, 7/2, 3/2, 0, 1/5, 0}, {3/2, 3/2, 7/2, 0, 0, 1/3}, {1/4, 0, 0, 1, 1/8, 0}, {0, 1/5, 0, 1/8, 1, -1/6}, {-1/8, 0, 1/3, 0, -1/6, 1}}, \"Domain\" -> {{-1, 1}, {1/2, 2}, {0, 1}}, \"Cells\" -> {1, 1, 2}, \"Degree\" -> 2, \"BodyForce\" -> {1/3, 1/4, -1/2}, \"TractionFreeFaces\" -> {{1, \"Lower\"}, {1, \"Upper\"}, {3, \"Lower\"}, {3, \"Upper\"}}, \"BoundaryData\" -> Function[{x, y, z}, {0.1 x - 0.15 y + 0.3 x z, 0.25 x + 0.2 y z - 0.1, 0.05 z - 0.2 x y + 0.1 y}]|>",
+  "expected": {
+   "lower": -9.840821923985692,
+   "boundary": [
+    0.5193582555182706,
+    0.5193582555183223
+   ],
+   "intQ": [
+    20.72036035900516,
+    20.720360359007916
+   ],
+   "upper_enclosure": [
+    5.796949116263658,
+    5.796949116263884
+   ],
+   "parameters": 6,
+   "prescribed": 496
+  }
+ },
+ "corner": {
+  "wolfram_model": "<|\"Lame\" -> {1, 1}, \"Domain\" -> {{0, 1}, {0, 1}, {0, 1}}, \"Cells\" -> {1, 1, 2}, \"Degree\" -> 1, \"BodyForce\" -> {1, 1, 1}, \"TractionFreeFaces\" -> {{1, \"Lower\"}, {2, \"Lower\"}, {3, \"Lower\"}}, \"BoundaryData\" -> Function[{x, y, z}, {0.1 x - 0.15 y + 0.3 x z, 0.25 x + 0.2 y z - 0.1, 0.05 z - 0.2 x y + 0.1 y}]|>",
+  "expected": {
+   "lower": -0.3138605482257458,
+   "boundary": [
+    -0.1827611606632283,
+    -0.18276116066321704
+   ],
+   "intQ": [
+    0.26219877512499634,
+    0.2621987751250347
+   ],
+   "upper_enclosure": [
+    -0.17012740403303672,
+    -0.17012740403303359
+   ],
+   "parameters": 0,
+   "prescribed": 392
+  }
+ },
+ "cup_random": {
+  "wolfram_model": "<|\"Lame\" -> {3/2, 1}, \"Domain\" -> {{0, 1}, {0, 1}, {0, 2}}, \"Cells\" -> {1, 1, 2}, \"Degree\" -> 2, \"BodyForce\" -> {0, 0, -1}, \"TractionFreeFaces\" -> {{1, \"Lower\"}, {1, \"Upper\"}, {2, \"Lower\"}, {2, \"Upper\"}, {3, \"Upper\"}}, \"BoundaryData\" -> Function[{x, y, z}, {0.1 x - 0.15 y + 0.3 x z, 0.25 x + 0.2 y z - 0.1, 0.05 z - 0.2 x y + 0.1 y}]|>",
+  "expected": {
+   "lower": -0.5168962557074924,
+   "boundary": [
+    0.005482945286206666,
+    0.005482945286207093
+   ],
+   "intQ": [
+    1.044758401987131,
+    1.0447584019873977
+   ],
+   "upper_enclosure": [
+    4.313660915277005,
+    4.313660915277115
+   ],
+   "parameters": 0,
+   "prescribed": 560
+  }
+ }
+}
