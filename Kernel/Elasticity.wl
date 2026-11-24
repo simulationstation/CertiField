@@ -66,13 +66,18 @@ elStiffnessLocal[p_Integer, h_List, dm_List, b_List] := elStiffnessLocal[p, h, d
       {s1, $elStrain}, {s2, $elStrain}],
     {pp, dofs}, {qq, dofs}];
   intL = elPInt /@ lag;
-  If[km =!= Transpose[km], Throw[failure["Internal", "The element matrix is not symmetric."], "CertiField"]];
-  <|"Dofs" -> dofs, "K" -> km, "f" -> Table[b[[pp[[1]]]] h[[1]] h[[2]] intL[[pp[[2]] + 1]] intL[[pp[[3]] + 1]], {pp, dofs}]|>];
+  (* the matrix is symmetric, and a constant displacement has no strain: K.(1, ..., 1 in one component) = 0.  The
+     certified evaluation relies on the second fact (it works with differences of nodal values), so both are
+     checked here in exact arithmetic. *)
+  If[km =!= Transpose[km] || ! AllTrue[Flatten[Table[km . Boole[# == a & /@ dofs[[All, 1]]], {a, 2}]], # == 0 &],
+    Throw[failure["Internal", "The element matrix is not symmetric or does not annihilate constants."], "CertiField"]];
+  <|"Dofs" -> dofs, "K" -> km, "f" -> Table[b[[pp[[1]]]] h[[1]] h[[2]] intL[[pp[[2]] + 1]] intL[[pp[[3]] + 1]], {pp, dofs}],
+    "Keep" -> Flatten[Position[dofs, {_, i1_, i2_} /; {i1, i2} =!= {0, 0}, {1}, Heads -> False]]|>];
 
 (* exact element matrix A of Integrate[s.S.s] over a cell for the stress of the 16 bicubic basis functions
    {k1, k2}, k_i = 2 (end of the cell in direction i) + (1 for a derivative in direction i), and the vectors w with
    Integrate[s.S.s_b] = Sum[X_k (w_k1 + xc1 w_k2 + xc2 w_k3)], xc the lower corner of the cell, s_b = (-b1 x1, -b2 x2, 0) *)
-elAiryLocal[h_List, sm_List, b_List] := elAiryLocal[h, sm, b] = Module[{ih, jh, dofs, scale, am, w},
+elAiryLocal[h_List, sm_List, b_List] := elAiryLocal[h, sm, b] = Module[{ih, jh, dofs, scale, am, w, aff},
   ih = Table[elIMat[$elHermite, a, $elHermite, c], {a, 0, 2}, {c, 0, 2}];
   jh = Table[elPInt[elPMul[UnitVector[k + 1, k + 1], elPDer[hk, a]]], {k, 0, 1}, {a, 0, 2}, {hk, $elHermite}];
   dofs = Flatten[Table[{k1, k2}, {k1, 0, 3}, {k2, 0, 3}], 1];
@@ -89,12 +94,24 @@ elAiryLocal[h_List, sm_List, b_List] := elAiryLocal[h, sm, b] = Module[{ih, jh, 
            (-b[[2]] sm[[m, 2]]) jh[[1, ia, k1]] jh[[1, ib, k2]]}],
       {s1, $elAiry}],
     {kk, dofs}];
-  If[am =!= Transpose[am], Throw[failure["Internal", "The element matrix is not symmetric."], "CertiField"]];
-  <|"Dofs" -> dofs, "A" -> am, "w" -> w|>];
+  (* the nodal values of the affine functions 1, x1 - xc1, x2 - xc2: their stress is zero, so A and w annihilate
+     them.  The certified evaluation relies on this (it works with the differences from an affine function), so it
+     is checked here in exact arithmetic, with the symmetry of A. *)
+  aff = Transpose[Table[
+    Switch[Mod[kk, 2], {0, 0}, {1, h[[1]] Quotient[kk[[1]], 2], h[[2]] Quotient[kk[[2]], 2]}, {1, 0}, {0, 1, 0}, {0, 1}, {0, 0, 1}, _, {0, 0, 0}], {kk, dofs}]];
+  If[am =!= Transpose[am] || ! AllTrue[Flatten[{aff . am, aff . w}], # == 0 &],
+    Throw[failure["Internal", "The element matrix is not symmetric or does not annihilate affine functions."], "CertiField"]];
+  <|"Dofs" -> dofs, "A" -> am, "w" -> w,
+    "Keep" -> Flatten[Position[dofs, kk_ /; ! MemberQ[{{0, 0}, {1, 0}, {0, 1}}, kk], {1}, Heads -> False]]|>];
 
 (* exact matrices for the boundary term: Integrate[H_k'' L_q], Integrate[H_k' L_q], Integrate[L_q] *)
-elFaceLocal[p_Integer] := elFaceLocal[p] = With[{lag = elLagrange[p]},
-  <|"HL2" -> elIMat[$elHermite, 2, lag, 0], "HL1" -> elIMat[$elHermite, 1, lag, 0], "LI" -> elPInt /@ lag|>];
+elFaceLocal[p_Integer] := elFaceLocal[p] = Module[{lag = elLagrange[p], hl2, hl1},
+  hl2 = elIMat[$elHermite, 2, lag, 0]; hl1 = elIMat[$elHermite, 1, lag, 0];
+  (* the second derivative of an affine function and the first derivative of a constant vanish: checked, because the
+     certified evaluation works with differences *)
+  If[! AllTrue[Flatten[{{1, 0, 1, 0} . hl2, {0, 1, 1, 1} . hl2, {1, 0, 1, 0} . hl1}], # == 0 &],
+    Throw[failure["Internal", "The face matrices do not annihilate affine functions."], "CertiField"]];
+  <|"HL2" -> hl2, "HL1" -> hl1, "LI" -> elPInt /@ lag|>];
 
 (* ------------------------------------------------------------------------------------------------ *)
 (* model normalisation                                                                               *)
@@ -275,7 +292,7 @@ elQuadratic[m_, dofs_, xc_] := Module[{n = Length[dofs], acc = None, term},
 (* RIGOROUS enclosure {lo, hi} (exact rationals) of the energy of the Q_p function with the nodal values u0
    (dimensions {2, M1, M2}): Sum over the cells of u.K.u/2 - f.u with the exact element matrix and load vector;
    the sum over the cells is exact. *)
-elUpperBound[spec_, u0_] := ndQuiet@Module[{p = spec["p"], n1, n2, u, loc, xc, en},
+elUpperBound[spec_, u0_] := ndQuiet@Module[{p = spec["p"], n1, n2, u, loc, xc, dc, keep, en},
   {n1, n2} = spec["Cells"];
   u = ndRealArray[u0, Prepend[spec["M"], 2]];
   If[u === $Failed, Throw[failure["BadCandidate", "The nodal values must be a real array of dimensions {2, M1, M2} with M = Degree Cells + 1."], "CertiField"]];
@@ -283,8 +300,15 @@ elUpperBound[spec_, u0_] := ndQuiet@Module[{p = spec["p"], n1, n2, u, loc, xc, e
     Throw[failure["Internal", "The Dirichlet nodal values are not imposed exactly."], "CertiField"]];
   loc = elStiffnessLocal[p, spec["h"], spec["D"], spec["b"]];
   xc = Association[Table[d -> ivPt[u[[d[[1]], d[[2]] + 1 ;; d[[2]] + 1 + p (n1 - 1) ;; p, d[[3]] + 1 ;; d[[3]] + 1 + p (n2 - 1) ;; p]]], {d, loc["Dofs"]}]];
-  en = ivK[elQuadratic[loc["K"], loc["Dofs"], xc], 1/2];
-  Do[If[loc["f"][[j]] != 0, en = ndSub[en, ivK[xc[loc["Dofs"][[j]]], loc["f"][[j]]]]], {j, Length[loc["Dofs"]]}];
+  (* K annihilates constants, so u.K.u = d.K.d with d the differences from the value at the lower corner of the cell,
+     component by component.  The products of the differences are of the size of the energy of the cell; the
+     products of the nodal values themselves are larger by the factor (|u|/(h |grad u|))^2 and would cancel. *)
+  keep = loc["Dofs"][[loc["Keep"]]];
+  dc = Association[Table[d -> ndSub[xc[d], xc[{d[[1]], 0, 0}]], {d, keep}]];
+  en = ivK[elQuadratic[loc["K"][[loc["Keep"], loc["Keep"]]], keep, dc], 1/2];
+  (* the load: f.u = f.d + (sum of f over the nodes of the component) (value at the lower corner) *)
+  Do[With[{fj = loc["f"][[loc["Keep"][[j]]]]}, If[fj != 0, en = ndSub[en, ivK[dc[keep[[j]]], fj]]]], {j, Length[keep]}];
+  Do[With[{fa = Total[Pick[loc["f"], loc["Dofs"][[All, 1]], a]]}, If[fa != 0, en = ndSub[en, ivK[xc[{a, 0, 0}], fa]]]], {a, 2}];
   {exactTotal[en[[1]]], exactTotal[en[[2]]]}];
 
 (* RIGOROUS lower bound  Integrate[(s nu).g over the Dirichlet faces] - 1/2 Integrate[s.S.s]  for the stress field of
@@ -293,7 +317,7 @@ elUpperBound[spec_, u0_] := ndQuiet@Module[{p = spec["p"], n1, n2, u, loc, xc, e
    values exact machine numbers or enclosures (elNodalEnclosure); sums over cells and cell faces are exact. *)
 elLowerBound[spec_, field_] := ndQuiet@Module[
   {f, n1, n2, loc, face, x, xc, q, b = spec["b"], sm = spec["S"], dom = spec["Domain"], h = spec["h"], p = spec["p"], g = spec["G"],
-   vn = spec["VNodes"], x1, x2, w, coef, qb, intq, bnd = {0, 0}},
+   vn = spec["VNodes"], x1, x2, w, coef, qb, intq, bnd = {0, 0}, a0, a1, a2, keep, dc},
   f = elPackField[spec, field];
   If[f === $Failed,
     Throw[failure["BadField", "The stress field must be <|\"X\" -> nodal values of dimensions {4, N1 + 1, N2 + 1}, \"Parameters\" -> the parameters of the traction-free faces|> for the grid of the model."], "CertiField"]];
@@ -304,23 +328,38 @@ elLowerBound[spec_, field_] := ndQuiet@Module[
   xc = Association[Table[
     With[{t = Mod[kk[[1]], 2] + 2 Mod[kk[[2]], 2] + 1, s1 = Quotient[kk[[1]], 2] + 1 ;; Quotient[kk[[1]], 2] + n1, s2 = Quotient[kk[[2]], 2] + 1 ;; Quotient[kk[[2]], 2] + n2},
       kk -> {x[[1, t, s1, s2]], x[[2, t, s1, s2]]}], {kk, loc["Dofs"]}]];
+  (* The stress of an affine Airy function is zero, so A and w annihilate its nodal values, and X.A.X = d.A.d with d
+     the differences from the affine function that has the values (phi, d1 phi, d2 phi) of the lower corner of the
+     cell.  The differences are of the order h^2 |stress|, and their products are of the size of the complementary
+     energy of the cell; the products of the nodal values themselves are larger by the factor (|phi|/(h^2 |stress|))^2
+     and would cancel, which costs accuracy on fine grids. *)
+  a0 = xc[{0, 0}]; a1 = xc[{1, 0}]; a2 = xc[{0, 1}];
+  keep = loc["Dofs"][[loc["Keep"]]];
+  dc = Association[Table[
+    kk -> Switch[Mod[kk, 2],
+      {0, 0}, ndSub[xc[kk], ndAdd[ndAdd[a0, ivK[a1, Quotient[kk[[1]], 2] h[[1]]]], ivK[a2, Quotient[kk[[2]], 2] h[[2]]]]],
+      {1, 0}, ndSub[xc[kk], a1],
+      {0, 1}, ndSub[xc[kk], a2],
+      _, xc[kk]], {kk, keep}]];
   (* the cell integrals: Integrate[s.S.s] = (Airy part) + 2 (cross term with s_b) + (s_b part) *)
-  q = elQuadratic[loc["A"], loc["Dofs"], xc];
+  q = elQuadratic[loc["A"][[loc["Keep"], loc["Keep"]]], keep, dc];
   If[b =!= {0, 0},
     x1 = With[{e = ivC /@ vn[[1, 1 ;; n1]]}, elPackPair[{Transpose[ConstantArray[e[[All, 1]], n2]], Transpose[ConstantArray[e[[All, 2]], n2]]}]];
     x2 = With[{e = ivC /@ vn[[2, 1 ;; n2]]}, elPackPair[{ConstantArray[e[[All, 1]], n1], ConstantArray[e[[All, 2]], n1]}]];
     Do[
-      w = loc["w"][[j]];
+      w = loc["w"][[loc["Keep"][[j]]]];
       If[w =!= {0, 0, 0},
         coef = ndAdd[ndAdd[ivC[w[[1]]], ndMul[x1, ivC[w[[2]]]]], ndMul[x2, ivC[w[[3]]]]];
-        q = ndAdd[q, ivK[ndMul[xc[loc["Dofs"][[j]]], coef], 2]]],
-      {j, Length[loc["Dofs"]]}]];
+        q = ndAdd[q, ivK[ndMul[dc[keep[[j]]], coef], 2]]],
+      {j, Length[keep]}]];
   qb = With[{a1 = dom[[1, 1]], c1 = dom[[1, 2]], a2 = dom[[2, 1]], c2 = dom[[2, 2]]},
     sm[[1, 1]] b[[1]]^2 (c1^3 - a1^3)/3 (c2 - a2) + 2 sm[[1, 2]] b[[1]] b[[2]] (c1^2 - a1^2)/2 (c2^2 - a2^2)/2 +
       sm[[2, 2]] b[[2]]^2 (c1 - a1) (c2^3 - a2^3)/3];
   intq = {exactTotal[q[[1]]], exactTotal[q[[2]]]} + qb;
   (* the boundary term.  On a Dirichlet face {x_i = a}, with t the other variable: (s nu).g =
-     +-((d_tt phi - b_i a) g_i - d_t(d_i phi) g_t); phi and d_i phi are cubic on every cell face, g_i and g_t have degree p *)
+     +-((d_tt phi - b_i a) g_i - d_t(d_i phi) g_t); phi and d_i phi are cubic on every cell face, g_i and g_t have
+     degree p.  Again differences are used: d_tt annihilates the affine function through the value and the slope at
+     the lower end of the cell face, d_t the constant through the value there. *)
   Do[
     If[spec["Dirichlet"][[i, side]],
       Module[{j = 3 - i, nt, ht, pos, posU, tt, tn, line, lower, upper, cA, cB, gn, gt, a = dom[[i, side]], acc = None, add, tl, th},
@@ -330,15 +369,15 @@ elLowerBound[spec_, field_] := ndQuiet@Module[
         line[t_] := If[i == 1, {x[[1, t, pos, All]], x[[2, t, pos, All]]}, {x[[1, t, All, pos]], x[[2, t, All, pos]]}];
         lower[iv_] := {iv[[1, 1 ;; nt]], iv[[2, 1 ;; nt]]};
         upper[iv_] := {iv[[1, 2 ;; nt + 1]], iv[[2, 2 ;; nt + 1]]};
-        cA = {lower[line[1]], ivK[lower[line[tt]], ht], upper[line[1]], ivK[upper[line[tt]], ht]};
-        cB = {lower[line[tn]], ivK[lower[line[4]], ht], upper[line[tn]], ivK[upper[line[4]], ht]};
+        cA = {None, None, ndSub[upper[line[1]], ndAdd[lower[line[1]], ivK[lower[line[tt]], ht]]], ivK[ndSub[upper[line[tt]], lower[line[tt]]], ht]};
+        cB = {None, ivK[lower[line[4]], ht], ndSub[upper[line[tn]], lower[line[tn]]], ivK[upper[line[4]], ht]};
         gn = Table[ivPt[If[i == 1, g[[i, posU, qq + 1 ;; qq + 1 + p (nt - 1) ;; p]], g[[i, qq + 1 ;; qq + 1 + p (nt - 1) ;; p, posU]]]], {qq, 0, p}];
         gt = Table[ivPt[If[i == 1, g[[j, posU, qq + 1 ;; qq + 1 + p (nt - 1) ;; p]], g[[j, qq + 1 ;; qq + 1 + p (nt - 1) ;; p, posU]]]], {qq, 0, p}];
         add[term_] := (acc = If[acc === None, term, ndAdd[acc, term]]);
         Do[
           Do[
-            If[face["HL2"][[k, qq]] != 0, add[ivK[ndMul[cA[[k]], gn[[qq]]], face["HL2"][[k, qq]]/ht]]];
-            If[face["HL1"][[k, qq]] != 0, add[ivK[ndMul[cB[[k]], gt[[qq]]], -face["HL1"][[k, qq]]]]],
+            If[cA[[k]] =!= None && face["HL2"][[k, qq]] != 0, add[ivK[ndMul[cA[[k]], gn[[qq]]], face["HL2"][[k, qq]]/ht]]];
+            If[cB[[k]] =!= None && face["HL1"][[k, qq]] != 0, add[ivK[ndMul[cB[[k]], gt[[qq]]], -face["HL1"][[k, qq]]]]],
             {k, 4}];
           If[b[[i]] != 0 && a != 0, add[ivK[gn[[qq]], -b[[i]] a ht face["LI"][[qq]]]]],
           {qq, p + 1}];
@@ -441,6 +480,8 @@ elSolveStress[spec_] := Module[
         Do[With[{id = kidx[nd[[1]], nd[[2]], t]}, isfree[[id]] = 0; x0[[id]] = N[tr["Tb"][[q, t + 1]]]], {t, 0, 3}]],
       {q, Length[tr["Nodes"]]}]];
   free = Flatten[Position[isfree, 1]];
+  (* nothing to choose: every node lies on a traction-free face and there are no parameters *)
+  If[Length[free] + r == 0, Return[<|"X" -> ConstantArray[0., {4, n1, n2}], "Parameters" -> {}|>, Module]];
   tm = SparseArray[Join[
       Thread[Transpose[{free, Range[Length[free]]}] -> 1.],
       Flatten[Table[
