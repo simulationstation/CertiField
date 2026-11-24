@@ -166,14 +166,30 @@ rmPieces[p_, q_, z_, b_] := Module[{a = PadRight[CoefficientList[p, z], b + 1], 
     {rmCoefIv /@ aa, rmCoefIv /@ cc, rmCoefIv /@ PadRight[CoefficientList[Expand[D[pp, z] qq - pp D[qq, z]], z], Max[2 b - 1, 1]]}];
   {mk[a, c], mk[sgn a, sgn c], mk[Reverse[a], Reverse[c]], mk[sgn Reverse[a], sgn Reverse[c]]}];
 
-Options[rationalMapIntegral] = {"Tolerance" -> 10^-5, "MaxLevel" -> 9};
+(* The integrand of a piece depends on its polynomials only through S = |P|^2 + |Q|^2 and M = |W|^2 as polynomials in
+   (rho, t).  These are computed exactly; pieces with the same (S, M) have the same integral, which is then enclosed
+   once (maps with symmetries need one or two enclosures instead of four). *)
+rmPieceKeys[p_, q_, z_, b_] := Module[{a = PadRight[CoefficientList[p, z], b + 1], c = PadRight[CoefficientList[q, z], b + 1],
+   sgn = (-1)^Range[0, b], hom, key},
+  hom[poly_, deg_] := Expand[Sum[Coefficient[poly, z, k] \[FormalR]^k (1 + I \[FormalT])^k (1 - I \[FormalT])^(deg - k), {k, 0, deg}]];
+  key[aa_, cc_] := Module[{pp = aa . z^Range[0, b], qq = cc . z^Range[0, b], pw, qw, ww},
+    pw = hom[pp, b]; qw = hom[qq, b]; ww = hom[Expand[D[pp, z] qq - pp D[qq, z]], Max[2 b - 2, 0]];
+    {Expand[ComplexExpand[pw Conjugate[pw] + qw Conjugate[qw]]], Expand[ComplexExpand[ww Conjugate[ww]]]}];
+  {key[a, c], key[sgn a, sgn c], key[Reverse[a], Reverse[c]], key[sgn Reverse[a], sgn Reverse[c]]}];
+
+Options[rationalMapIntegral] = {"Tolerance" -> 1/10^4, "MaxLevel" -> 9};
 (* enclosure of the angular integral: <|"Lower" -> rational, "Upper" -> rational, "Cells" -> number of cells|> *)
-rationalMapIntegral[p_, q_, z_Symbol, b_Integer, OptionsPattern[]] := Module[{res, lo, hi},
+rationalMapIntegral[p_, q_, z_Symbol, b_Integer, OptionsPattern[]] := Module[{pieces, keys, done = <||>, res, lo, hi, cells = 0},
   If[! rationalMapQ[p, q, z, b],
     Throw[failure["BadModel", "The rational map must be given by two polynomials with Gaussian rational coefficients and no common zero, of the stated degree."], "CertiField"]];
-  res = rmPieceBound[#, N[OptionValue["Tolerance"]], OptionValue["MaxLevel"]] & /@ rmPieces[p, q, z, b];
+  pieces = rmPieces[p, q, z, b]; keys = rmPieceKeys[p, q, z, b];
+  res = Table[
+    If[KeyExistsQ[done, keys[[i]]], done[keys[[i]]],
+      done[keys[[i]]] = rmPieceBound[pieces[[i]], N[OptionValue["Tolerance"]], OptionValue["MaxLevel"]]],
+    {i, 4}];
   lo = Total[res[[All, 1]]]; hi = Total[res[[All, 2]]];
-  <|"Lower" -> If[lo >= 0, lo/$piHi, lo/$piLo], "Upper" -> If[hi >= 0, hi/$piLo, hi/$piHi], "Cells" -> Total[res[[All, 3]]]|>];
+  <|"Lower" -> If[lo >= 0, lo/$piHi, lo/$piLo], "Upper" -> If[hi >= 0, hi/$piLo, hi/$piHi], "Cells" -> Total[Values[done][[All, 3]]],
+    "DistinctPieces" -> Length[done]|>];
 
 (* ------------------------------------------------------------------------------------------------ *)
 (* the radial integral (after hedgehogUpperBound)                                                    *)
@@ -303,7 +319,8 @@ CertiFieldModelInfo["SkyrmeRationalMap"] := <|
   "Energy" -> "E(U) = \[Integral] |dU|^2 + |\[CapitalLambda]^2 dU|^2 + 2\[Mu]^2 (1 - cos f) over \[DoubleStruckCapitalR]^3, f = dist(U, 1); reported as E/(12\[Pi]^2)",
   "Parameters" -> <|"Degree" -> "B, a positive integer (default 2); maps are built in for B = 1, ..., 8",
     "PionMass" -> "a rational \[Mu] with 0 \[LessEqual] \[Mu] < 2 (default 0)",
-    "RationalMap" -> "optional: a pure function of z giving a rational map of degree B with Gaussian rational coefficients; it replaces the built-in map"|>,
+    "RationalMap" -> "optional: a pure function of z giving a rational map of degree B with Gaussian rational coefficients; it replaces the built-in map",
+    "AngularTolerance" -> "optional: target relative width of the enclosure of the angular integral (default 1/10^4)"|>,
   "AdmissibleClass" -> "finite-energy maps U: \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 of degree B with U - 1 \[Element] L^6",
   "LowerBound" -> "the topological bound E \[GreaterEqual] 12\[Pi]^2 |B| (not tight)",
   "UpperBound" -> "energy of the field of the rational-map ansatz, U = exp(i f(r) n_R\[CenterDot]\[Sigma]): certified enclosure of the angular integral of the map and rigorous quadrature of the radial integral",
@@ -326,7 +343,11 @@ rationalMapSpec[params_Association] := Module[{b = Lookup[params, "Degree", 2], 
     Throw[failure["BadModel", "\"RationalMap\" must be a pure function of z giving a quotient of two polynomials with Gaussian rational coefficients and no common zero, of degree \"Degree\" as a map."], "CertiField"]];
   {b, mu, pq[[1]], pq[[2]]}];
 
-rationalMapIntegralCached[p_, q_, z_, b_] := rationalMapIntegralCached[p, q, z, b] = rationalMapIntegral[p, q, z, b];
+rationalMapIntegralCached[p_, q_, z_, b_, tol_] := rationalMapIntegralCached[p, q, z, b, tol] = rationalMapIntegral[p, q, z, b, "Tolerance" -> tol];
+
+(* the tolerance of the angular integral: affects only the width of the enclosure *)
+rmTolerance[x_] := If[MatchQ[x, _Integer | _Rational] && 0 < x <= 1/10, x,
+  Throw[failure["BadModel", "\"AngularTolerance\" must be a rational number in (0, 1/10]."], "CertiField"]];
 
 (* The stored upper bound is the computed one weakened by one part in 10^9. *)
 certifySkyrmeRationalMap[params_Association, cand_, opts_List] := Module[
@@ -334,7 +355,7 @@ certifySkyrmeRationalMap[params_Association, cand_, opts_List] := Module[
    b, mu, p, q, int, ii, trial, ub, t0 = AbsoluteTime[]},
   {b, mu, p, q} = spec;
   If[verbose, Print["  enclosing the angular integral of the map"]];
-  int = rationalMapIntegralCached[p, q, z, b];
+  int = rationalMapIntegralCached[p, q, z, b, rmTolerance[Lookup[params, "AngularTolerance", 1/10^4]]];
   ii = upperDecimal[int["Upper"], 12];
   If[verbose, Print["  angular integral in [", N[int["Lower"], 12], ", ", N[int["Upper"], 12], "], ", int["Cells"], " cells"]];
   trial = Which[
@@ -346,6 +367,7 @@ certifySkyrmeRationalMap[params_Association, cand_, opts_List] := Module[
   <|"LowerBound" -> b, "UpperBound" -> SetPrecision[ub["UpperBound"], Infinity] (1 + 1/10^9), "Seconds" -> AbsoluteTime[] - t0,
     "Degree" -> b, "Mu" -> mu, "Map" -> {CoefficientList[p, z], CoefficientList[q, z]},
     "AngularIntegral" -> {lowerDecimal[int["Lower"], 12], ii}, "AngularCells" -> int["Cells"], "Trial" -> trial,
+    "AngularTolerance" -> rmTolerance[Lookup[params, "AngularTolerance", 1/10^4]],
     "Radial" -> KeyDrop[ub, "Enclosure"], "ComputedUpperBound" -> ub["UpperBound"]|>];
 
 skyrmeRationalMapDescription[res_] := With[{b = res["Degree"]},
@@ -368,7 +390,7 @@ verifySkyrmeRationalMap[a_Association] := Module[{c = a["Certificate"], z = \[Fo
   {b, mu, p, q} = spec;
   If[! (c["Degree"] === b && c["Mu"] === mu && c["Map"] === {CoefficientList[p, z], CoefficientList[q, z]} && a["LowerBound"] <= b),
     Return[False, Module]];
-  int = rationalMapIntegral[p, q, z, b];
+  int = rationalMapIntegral[p, q, z, b, "Tolerance" -> rmTolerance[Lookup[c, "AngularTolerance", 1/10^4]]];
   ii = upperDecimal[int["Upper"], 12];
   ub = rationalMapUpperBound[c["Trial"], b, ii, mu]["UpperBound"];
   NumericQ[ub] && a["LowerBound"] <= b && ub <= a["UpperBound"]];
@@ -382,7 +404,8 @@ exportRationalMapCertificate[file_String, cert_CertifiedBound] := Module[{c = ce
   pair[v_] := {rmString[Re[v]], rmString[Im[v]]};
   Export[file, <|"format" -> "CertiField-rational-map-certificate-1", "degree" -> c["Degree"], "mu" -> rmString[c["Mu"]],
     "map" -> <|"p" -> (pair /@ c["Map"][[1]]), "q" -> (pair /@ c["Map"][[2]])|>,
-    "angular_integral" -> <|"lower" -> rmString[c["AngularIntegral"][[1]]], "upper" -> rmString[c["AngularIntegral"][[2]]]|>,
+    "angular_integral" -> <|"lower" -> rmString[c["AngularIntegral"][[1]]], "upper" -> rmString[c["AngularIntegral"][[2]]],
+      "tolerance" -> rmString[c["AngularTolerance"]]|>,
     "trial" -> (rmString /@ # & /@ c["Trial"]),
     "upper_bound" -> rmString[upperDecimal[cert["UpperBound"], 12]],
     "upper_bound_per_degree" -> ToString[N[upperDecimal[cert["UpperBound"], 12]/c["Degree"], 8]]|>, "RawJSON"]];
@@ -394,7 +417,7 @@ verifyRationalMapCertificateFile[file_String] := Catch[Module[{j = Import[file, 
   p = cpoly[j["map", "p"]]; q = cpoly[j["map", "q"]];
   If[! (IntegerQ[b] && b >= 1 && mu >= 0 && rationalMapQ[p, q, z, b]), Throw[False, "CertiField"]];
   trial = Association[# -> (rmParse /@ j["trial", #]) & /@ {"r", "p", "dp"}];
-  int = rationalMapIntegral[p, q, z, b];
+  int = rationalMapIntegral[p, q, z, b, "Tolerance" -> rmTolerance[rmParse[j["angular_integral", "tolerance"]]]];
   ii = upperDecimal[int["Upper"], 12];
   ub = rationalMapUpperBound[trial, b, ii, mu]["UpperBound"];
   TrueQ[NumericQ[ub] && ub <= rmParse[j["upper_bound"]] && ii <= rmParse[j["angular_integral", "upper"]]]], "CertiField"] === True;

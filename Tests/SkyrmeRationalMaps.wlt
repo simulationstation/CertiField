@@ -33,8 +33,8 @@ VerificationTest[
 (* known angular integrals: 1 for R = z, Pi + 8/3 for R = z^2 (Houghton, Manton, Sutcliffe) *)
 VerificationTest[
   Module[{a = CertiField`Private`rationalMapIntegral[\[FormalZ], 1, \[FormalZ], 1], b = CertiField`Private`rationalMapIntegral[\[FormalZ]^2, 1, \[FormalZ], 2]},
-    {a["Lower"] <= 1 <= a["Upper"], a["Upper"] - a["Lower"] < 10^-4,
-     b["Lower"] <= CertiField`Private`$piLo + 8/3 && CertiField`Private`$piHi + 8/3 <= b["Upper"], b["Upper"] - b["Lower"] < 10^-3}],
+    {a["Lower"] <= 1 <= a["Upper"], a["Upper"] - a["Lower"] < 10^-3,
+     b["Lower"] <= CertiField`Private`$piLo + 8/3 && CertiField`Private`$piHi + 8/3 <= b["Upper"], b["Upper"] - b["Lower"] < 10^-2}],
   {True, True, True, True}, TestID -> "rational-map-known-angular-integrals"]
 
 (* degree one with II = 1 is exactly the hedgehog computation of SkyrmeDegreeOne *)
