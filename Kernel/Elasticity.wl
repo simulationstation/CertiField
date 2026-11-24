@@ -337,7 +337,10 @@ elLowerBound[spec_, field_] := ndQuiet@Module[
   keep = loc["Dofs"][[loc["Keep"]]];
   dc = Association[Table[
     kk -> Switch[Mod[kk, 2],
-      {0, 0}, ndSub[xc[kk], ndAdd[ndAdd[a0, ivK[a1, Quotient[kk[[1]], 2] h[[1]]]], ivK[a2, Quotient[kk[[2]], 2] h[[2]]]]],
+      {0, 0},                                              (* the value at the corner first: each subtraction is then rounded relative to a small number *)
+        With[{t1 = ndSub[xc[kk], a0]},
+          With[{t2 = If[Quotient[kk[[1]], 2] == 1, ndSub[t1, ivK[a1, h[[1]]]], t1]},
+            If[Quotient[kk[[2]], 2] == 1, ndSub[t2, ivK[a2, h[[2]]]], t2]]],
       {1, 0}, ndSub[xc[kk], a1],
       {0, 1}, ndSub[xc[kk], a2],
       _, xc[kk]], {kk, keep}]];
@@ -369,7 +372,7 @@ elLowerBound[spec_, field_] := ndQuiet@Module[
         line[t_] := If[i == 1, {x[[1, t, pos, All]], x[[2, t, pos, All]]}, {x[[1, t, All, pos]], x[[2, t, All, pos]]}];
         lower[iv_] := {iv[[1, 1 ;; nt]], iv[[2, 1 ;; nt]]};
         upper[iv_] := {iv[[1, 2 ;; nt + 1]], iv[[2, 2 ;; nt + 1]]};
-        cA = {None, None, ndSub[upper[line[1]], ndAdd[lower[line[1]], ivK[lower[line[tt]], ht]]], ivK[ndSub[upper[line[tt]], lower[line[tt]]], ht]};
+        cA = {None, None, ndSub[ndSub[upper[line[1]], lower[line[1]]], ivK[lower[line[tt]], ht]], ivK[ndSub[upper[line[tt]], lower[line[tt]]], ht]};
         cB = {None, ivK[lower[line[4]], ht], ndSub[upper[line[tn]], lower[line[tn]]], ivK[upper[line[4]], ht]};
         gn = Table[ivPt[If[i == 1, g[[i, posU, qq + 1 ;; qq + 1 + p (nt - 1) ;; p]], g[[i, qq + 1 ;; qq + 1 + p (nt - 1) ;; p, posU]]]], {qq, 0, p}];
         gt = Table[ivPt[If[i == 1, g[[j, posU, qq + 1 ;; qq + 1 + p (nt - 1) ;; p]], g[[j, qq + 1 ;; qq + 1 + p (nt - 1) ;; p, posU]]]], {qq, 0, p}];
