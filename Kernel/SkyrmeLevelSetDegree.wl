@@ -257,10 +257,10 @@ skyrmeDegreeTwoDescription[res_] := <|
 
 verifySkyrmeDegreeTwo[a_Association] := Module[{c = a["Certificate"], lb, ub},
   ub = 2 exactNumber[hedgehogUpperBound[c["Trial"], c["Mu"]]["UpperBound"]];
-  If[! (NumericQ[ub] && ub <= exactNumber[a["UpperBound"]]), Return[False, Module]];
-  lb = levelSetLowerBoundDegree[2, c["Mu"], loadSkyrmeDegreeGrid[2, c["Mu"], c["Preset"]],
-    minorantTable[$skyrmeDegreePresets[c["Preset"], "Table"]]]["LowerBound"];
-  NumericQ[lb] && exactOf[lb] >= exactNumber[a["LowerBound"]]];
+  NumericQ[ub] && ub <= exactNumber[a["UpperBound"]] &&
+    (lb = levelSetLowerBoundDegree[2, c["Mu"], loadSkyrmeDegreeGrid[2, c["Mu"], c["Preset"]],
+       minorantTable[$skyrmeDegreePresets[c["Preset"], "Table"]]]["LowerBound"];
+     NumericQ[lb] && exactOf[lb] >= exactNumber[a["LowerBound"]])];
 
 (* ---- stored claims (Data/SkyrmeDegree/claims.json): recompute and compare ---- *)
 skyrmeDegreeClaims[] := Import[FileNameJoin[{$CertiFieldDirectory, "Data", "SkyrmeDegree", "claims.json"}], "RawJSON"];
