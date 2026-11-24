@@ -146,40 +146,51 @@ then valid for every choice of the machine numbers.
 ### 3.4 The polynomials Ψ (*states*)
 
 They are found in exact rational arithmetic and depend on the box, on which faces are traction-free and on b, not
-on the grid. A sextuple of polynomials of degree at most three in each variable has 6·64 coefficients.
+on the grid. A sextuple of polynomials of degree at most three in each variable has 6·64 coefficients; the
+coefficient of x₁^γ₁ x₂^γ₂ x₃^γ₃ in the f-th function has the number 64f + 16γ₁ + 4γ₂ + γ₃.
 
 * The conditions of Corollary 4 are linear equations for the coefficients (equate the coefficients of the
-  monomials in the two variables of each traction-free face). Ψ_b is the solution with all free unknowns equal to
-  zero in the reduced row echelon form of this system. If the system has no solution the problem is refused.
-* 𝒫 is the space of solutions of the homogeneous system, 𝒩 ⊂ 𝒫 the space of sextuples with σ^Ψ = 0 identically
-  (*null sextuples*). Adding an element of 𝒩 to Φ does not change σ^Φ. Ψ₁, …, Ψ_r are elements of the echelon basis
-  of 𝒫 whose face data (the polynomials in the list (Rᵢ) on each traction-free face) are linearly independent of
-  each other and of the face data of 𝒩, as many as there are.
+  monomials in the two variables of each traction-free face). The reduced row echelon form of this system is
+  computed; it is unique. Ψ_b is the solution with all free unknowns equal to zero. If the system has no solution
+  the problem is refused; this does not happen for any of the 63 arrangements of the faces (Section 7). The space
+  𝒫 of solutions of the homogeneous system gets the echelon basis, one vector per free unknown in increasing
+  order.
+* **Default rule.** Call Γ_N a *ring* if it consists of the four faces around one axis x_a and the two faces normal
+  to e_a are Dirichlet faces. For a ring, Ψ₁, …, Ψ₆ are the first six elements of the echelon basis whose
+  *resultants* are linearly independent: the force ∫σe_a and the moment ∫x × σe_a over a cross-section, six
+  rational numbers for each element, computed exactly. In every other case r = 0, and the prescribed nodal values
+  are those of Ψ_b alone (zero if b = 0).
+* **Alternative rule** (`states='all'`, used for comparison only): all elements of the echelon basis whose face
+  data (the polynomials in the list (Rᵢ) on each traction-free face) are linearly independent of each other and of
+  the face data of the sextuples with σ^Ψ = 0 identically. For this rule the ranks are computed modulo two primes.
 
-Any choice of the Ψ_k satisfying the identities of Corollary 4 gives valid bounds; the choice only affects how
-good the best bound in the family can be. Section 3.5 says what is expected.
+Any choice of the Ψ_k satisfying the identities of Corollary 4 gives valid bounds, whatever the rule; a wrong
+rank could only change which valid states are used. The choice affects how good the best bound in the family can
+be, and Section 3.5 says what is expected.
 
 ### 3.5 What the states are for (tightness only) [SKETCH]
 
 Nothing in this subsection is used for the validity of a bound.
 
 * *Gauge.* σ^Φ = 0 for Φ = ½(∇w + ∇wᵀ) with any vector field w; these fields change Φ and not the stress. This is
-  why the Hessian of the dual problem is singular, and why the nodal values at a traction-free face can often be
-  taken to be zero: if the stress vanishes on the far side of a face (extend it by zero across the traction-free
-  face), Φ is of this form there, and subtracting a field of this form defined everywhere leaves a Φ that vanishes
-  with its first derivatives on the face.
-* *Rings.* That argument needs w to be single-valued in the region outside Γ_N. If Γ_N consists of the four faces
-  around one axis and the two end faces are Dirichlet faces, that region is a ring, and w can have a jump which is
-  a rigid motion (six parameters). Correspondingly r = 6 is expected: six states carrying the resultant force and
-  moment transmitted through the body. Examples for a bar along x₁ with the cross-section (−w,w) × (−h,h): tension,
-  Φ₃₃ = x₂²/2; bending, Φ₃₃ = x₂³/6; torsion, Φ₃₃ = −2x₁x₃(x₂³/3 − w²x₂), Φ₂₂ = 2x₁x₂(x₃³/3 − h²x₃).
-  For every other arrangement of traction-free faces r = 0 is expected, and then all prescribed nodal values are
-  those of Ψ_b alone.
-* *Why six functions.* With the three functions of Maxwell alone the fields that change Φ and not the stress are
-  far fewer (w₁ may depend on x₂ and x₃ only in a restricted way), and between two opposite traction-free faces
-  the prescribed nodal values then allow shear resultants ∫σ₁₂dx₂, ∫σ₂₃dx₂ that are functions of one variable only.
-  A bound computed with Maxwell's functions alone is valid, but for bending-type loads it does not converge to
-  the infimum under refinement. Section 8 shows this numerically.
+  why the system for the stress field is singular, and why the nodal values at a traction-free face can be taken
+  to be zero: if the stress is extended by zero across the face, Φ is of this form on the far side, and subtracting
+  a field of this form defined everywhere leaves a Φ that vanishes with its first derivatives on the face.
+* *Rings.* That argument needs w to be single-valued in the region outside Γ_N. Outside a ring it need not be:
+  going once around, w can change by a rigid motion, which has six parameters (the classical statement for
+  multiply connected bodies is due to Volterra). Correspondingly six states are needed, carrying the resultant
+  force and moment through the cross-section. Examples for a bar along x₁ with the cross-section (−w,w) × (−h,h):
+  tension, Φ₃₃ = x₂²/2; bending, Φ₃₃ = x₂³/6; torsion, Φ₃₃ = −2x₁x₃(x₂³/3 − w²x₂), Φ₂₂ = 2x₁x₂(x₃³/3 − h²x₃).
+* *The alternative rule* finds 18 states for a ring, 12 for two opposite traction-free faces (with or without one
+  further face between them), and none otherwise. The additional ones are face data of fields ½(∇w + ∇wᵀ) with
+  different polynomials w on different faces. A w that interpolates between them is not a polynomial, so they are
+  not face data of polynomial null sextuples; but the free nodal values can nearly reproduce them, they make the
+  system for the stress field badly conditioned, and in the experiments of Section 8 they do not change the bound
+  for two of three loads and improve it on coarse grids for the third. This is why they are not used by default.
+* *Why six functions.* With the three functions of Maxwell alone far fewer fields change Φ without changing the
+  stress, and zero nodal values on two opposite traction-free faces then exclude stress fields that the problem
+  needs. Section 8 shows the effect: for a twisted end face the bound with Maxwell's functions and the default
+  rule is useless.
 
 ### 3.6 The certified lower bound
 
@@ -199,10 +210,13 @@ upper bound for inf E. Any nodal values give a valid bound.
 
 ## 5. Choosing the fields (heuristic)
 
-Both bounds are quadratic in their unknowns. The candidate is the finite-element solution in Q_p, the stress field
-the maximiser of LB over the free nodal values and the parameters P_k. Both are computed by preconditioned
-conjugate gradients in ordinary floating point, the second on a singular system (Section 3.5) with a small
-regularisation. Neither is trusted; the nodal values are then taken as the exact binary numbers they are.
+Both bounds are quadratic in their unknowns. The candidate is the finite-element solution in Q_p (a sparse direct
+solve, or conjugate gradients on large grids). The stress field is a maximiser of LB over the free nodal values and
+the parameters P_k. That system is singular (Section 3.5). It is solved by an eigen-decomposition when it has fewer
+than 3000 unknowns and otherwise by conjugate gradients with the diagonal as preconditioner, after adding 10⁻¹⁰
+times the diagonal. (A multiple of the identity does not work: the diagonal entries differ by ten orders of
+magnitude between the types of nodal values.) Neither field is trusted; the nodal values are then taken as the
+exact binary numbers they are.
 
 ## 6. Arithmetic and trusted base
 
