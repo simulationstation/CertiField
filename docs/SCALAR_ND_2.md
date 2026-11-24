@@ -5,9 +5,9 @@ Lemmas 3 to 5, Propositions 6 and 7 are the statements there; the statements her
 
 **Status (23 November 2026).** The statements and proofs below are complete and were written before any code. They
 have been checked by their author only. Everything in them is classical or elementary (references at the end) and
-no novelty is claimed. **The implementation has been started, not finished**: see the log in
-`Reference/ScalarND/PORTING.md`, Section 10, for what exists. No certified number for any of the new problem
-classes is reported yet. `ScalarFieldND` as released in version 0.3.0 is unchanged.
+no novelty is claimed. The implementation is `Kernel/ScalarFieldND2.wl`, reached through the model `ScalarFieldND`
+when one of the keys "Source", "Mean", "PeriodicDirections", "ValueRange", "DataTerm" is given; its tests are
+`Tests/ScalarFieldND2.wlt`. Problems without these keys are handled exactly as in version 0.3.0.
 
 ## 1. The extended problem
 
@@ -35,8 +35,7 @@ Kinds of W_c the implementation is to take (the theory does not depend on this l
 |---|---|---|
 | polynomial | Σ wⱼ tʲ, rational coefficients | ℝ, or an interval [τ₋, τ₊] |
 | polynomial with entropy terms | P(t) + c₁ (t − τ₋) ln(t − τ₋) + c₂ (τ₊ − t) ln(τ₊ − t), c₁, c₂ ≥ 0 rational, P a polynomial | [τ₋, τ₊] |
-| materials | one of finitely many potentials of the kinds above, chosen by an integer per cell | common |
-| table | for each cell its own continuous piecewise linear function on a uniform grid of [τ₋, τ₊] | [τ₋, τ₊] |
+| table | a polynomial plus, for each cell, its own continuous piecewise linear function on a uniform grid of [τ₋, τ₊] | [τ₋, τ₊] |
 | linear | w₀ + w₁ t (no growth; Section 6) | ℝ |
 
 The regular-solution free energy t ln t + (1 − t) ln(1 − t) + χ t(1 − t) on [0, 1] is the second kind with
