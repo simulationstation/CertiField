@@ -1,0 +1,61 @@
+{
+ "format": "CertiField-elasticity-certificate-1",
+ "problem": {
+  "name": "block_p2_16",
+  "box": [
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ]
+  ],
+  "N": [
+   16,
+   16
+  ],
+  "D": [
+   [
+    "7/2",
+    "3/2",
+    "0"
+   ],
+   [
+    "3/2",
+    "7/2",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "1"
+   ]
+  ],
+  "b": [
+   "0",
+   "0"
+  ],
+  "bc": [
+   [
+    "D",
+    "D"
+   ],
+   [
+    "N",
+    "N"
+   ]
+  ],
+  "degree": 2
+ },
+ "lower": "0.01501720483",
+ "upper": "0.01503403927",
+ "reference": "0.1.0-reference",
+ "info": {
+  "example": "block_p2_16",
+  "note": "the same",
+  "seconds": 0.12315177917480469,
+  "exact": null
+ }
+}

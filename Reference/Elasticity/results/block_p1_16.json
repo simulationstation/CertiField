@@ -1,0 +1,61 @@
+{
+ "format": "CertiField-elasticity-certificate-1",
+ "problem": {
+  "name": "block_p1_16",
+  "box": [
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ]
+  ],
+  "N": [
+   16,
+   16
+  ],
+  "D": [
+   [
+    "7/2",
+    "3/2",
+    "0"
+   ],
+   [
+    "3/2",
+    "7/2",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "1"
+   ]
+  ],
+  "b": [
+   "0",
+   "0"
+  ],
+  "bc": [
+   [
+    "D",
+    "D"
+   ],
+   [
+    "N",
+    "N"
+   ]
+  ],
+  "degree": 1
+ },
+ "lower": "0.01501720483",
+ "upper": "0.01506421420",
+ "reference": "0.1.0-reference",
+ "info": {
+  "example": "block_p1_16",
+  "note": "block clamped on the left, pulled on the right, free sides",
+  "seconds": 0.054285526275634766,
+  "exact": null
+ }
+}
