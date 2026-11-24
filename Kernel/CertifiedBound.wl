@@ -8,7 +8,7 @@ Begin["CertiField`Private`"];
 (* ---- derived quantities (rigorous: computed exactly from the stored bounds, then rounded up) ---- *)
 gapOf[a_Association] := If[NumericQ[a["LowerBound"]] && NumericQ[a["UpperBound"]],
   exactNumber[a["UpperBound"]] - exactNumber[a["LowerBound"]], Missing["NotAvailable"]];
-relGapOf[a_Association] := With[{g = gapOf[a]}, If[NumericQ[g] && a["UpperBound"] > 0, g/exactNumber[a["UpperBound"]], Missing["NotAvailable"]]];
+relGapOf[a_Association] := With[{g = gapOf[a]}, If[NumericQ[g] && a["UpperBound"] != 0, g/Abs[exactNumber[a["UpperBound"]]], Missing["NotAvailable"]]];
 
 $derivedProperties = {"Gap", "RelativeGap", "Report", "Association", "Properties", "Summary"};
 
@@ -30,9 +30,12 @@ statusStyle[s_String] := Style[s, Bold, Lookup[$statusColor, s, Gray]];
 displayDigits[a_Association] := With[{g = relGapOf[a]},
   If[NumericQ[g] && g > 0, Clip[Ceiling[-Log10[N[g]]] + 2, {6, 16}], 10]];
 
-(* q: exact number that is a multiple of 10^-j (as returned by lowerDecimal/upperDecimal) *)
+(* q: exact number that is a multiple of 10^-j (as returned by lowerDecimal/upperDecimal).
+   The digit string is padded on the left to at least jj + 1 digits and never shortened: IntegerString[n, 10, len]
+   keeps only the last len digits, which dropped the leading digits of every number with modulus 10 or more. *)
 decimalString[q_, j_Integer] := Module[{n = Round[q 10^Max[j, 0]], ds, jj = Max[j, 0]},
-  ds = IntegerString[Abs[n], 10, jj + 1];
+  ds = IntegerString[Abs[n]];
+  If[StringLength[ds] < jj + 1, ds = StringPadLeft[ds, jj + 1, "0"]];
   If[n < 0, "-", ""] <> StringDrop[ds, -jj] <> If[jj > 0, "." <> StringTake[ds, -jj], ""]];
 decimalPlaces[q_, digits_] := If[exactNumber[q] == 0, 0, digits - 1 - Floor[Log10[Abs[N[exactNumber[q]]]]]];
 lowerString[q_, digits_] := decimalString[lowerDecimal[q, digits], decimalPlaces[q, digits]];
