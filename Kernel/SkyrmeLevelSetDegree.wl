@@ -189,7 +189,18 @@ $skyrmeDegreePresets = <|
   "Standard" -> <|"Table" -> {2000, 900, 1/10^10}|>|>;
 $skyrmeDegreeMuNames = <|0 -> "0", 1 -> "1"|>;
 
-skyrmeDegreeGridDir[deg_Integer, muq_, preset_String] := FileNameJoin[{$CertiFieldDirectory, "Data", "SkyrmeDegree",
+CertiFieldModelInfo["SkyrmeDegreeTwo"] := <|
+  "Name" -> "SkyrmeDegreeTwo",
+  "Energy" -> "E(U) = \[Integral] |dU|^2 + |\[CapitalLambda]^2 dU|^2 + 2\[Mu]^2 (1 - cos f) over \[DoubleStruckCapitalR]^3, f = dist(U, 1); reported as E/(12\[Pi]^2)",
+  "Parameters" -> <|"PionMass" -> "\[Mu] \[Element] {0, 1} (default 0)"|>,
+  "AdmissibleClass" -> "finite-energy maps U: \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 of degree 2 or \[Minus]2 with U - 1 \[Element] L^6",
+  "LowerBound" -> "level-set lower bound with the flux of degree two (docs/SKYRME_DEGREE_TWO.md); certified dynamic programme",
+  "UpperBound" -> "twice the certified energy of a hedgehog trial map that is the vacuum outside a ball (two disjoint copies form a map of degree two)",
+  "Resolutions" -> Keys[$skyrmeDegreePresets],
+  "NotClaimed" -> "that the bounds are close to the infimum: the interval is about 10% wide",
+  "Status" -> "Supported"|>;
+
+skyrmeDegreeGridDir[deg_Integer, muq_, preset_String] :=FileNameJoin[{$CertiFieldDirectory, "Data", "SkyrmeDegree",
   "b" <> ToString[deg] <> "_mu" <> $skyrmeDegreeMuNames[muq] <> "_" <> ToLowerCase[preset]}];
 
 skyrmeDegreeMu[params_] := Module[{mu = Lookup[params, "PionMass", 0]},
