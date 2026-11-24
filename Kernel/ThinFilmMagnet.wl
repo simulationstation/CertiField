@@ -589,4 +589,48 @@ verifyThinFilmMagnet[a_Association] := Catch[Module[{c = a["Certificate"], spec,
   ub = If[t > 0, tfmStrayUpper[spec, x1, x2, c["Nodal"]][[1]], tfmUpperBound[tfmModelOf[spec], x1, x2, c["Nodal"]]];
   lb >= exactNumber[a["LowerBound"]] && ub <= exactNumber[a["UpperBound"]]], "tfmv"];
 
+(* ================================================================================================ *)
+(* HedgehogCube: m : (-L, L)^3 -> S^2 with m = x/|x| on the boundary (docs/MAGNETISATION.md, Lemma 8) *)
+(*   E[m] = Integral A |grad m|^2 + K (1 - m3^2) + h (1 - m3),  A > 0, K >= 0, h >= 0.                *)
+(*   Lower bound: Lin's null Lagrangian, A Integral |grad m|^2 >= A Integral ((div m)^2 - tr((grad m)^2)) = 48 A J L,  *)
+(*   and the potential terms are >= 0.  Upper bound: the hedgehog x/|x|, whose energy is                *)
+(*   48 A J L + (16/3) K L^3 + 8 h L^3 exactly.  J = Integral_0^1 ArcTan[1/Sqrt[1 + s^2]]/Sqrt[1 + s^2] ds  *)
+(*   is enclosed by rigorous quadrature.                                                               *)
+(* ================================================================================================ *)
+
+hcSpec[params_Association] := Module[{p = exactify[params], A, K, h, L},
+  A = Lookup[p, "A", 1]; K = Lookup[p, "K", 0]; h = Lookup[p, "Field", 0]; L = Lookup[p, "HalfWidth", 1];
+  If[! (tfmExactQ[A] && A > 0 && tfmExactQ[K] && K >= 0 && tfmExactQ[h] && h >= 0 && tfmExactQ[L] && L > 0),
+    Throw[failure["BadModel", "\"A\" > 0, \"K\" >= 0, \"Field\" >= 0 and \"HalfWidth\" > 0 must be rational numbers."], "CertiField"]];
+  <|"A" -> A, "K" -> K, "Field" -> h, "HalfWidth" -> L|>];
+
+(* J = Integral over [0, 1]^2 of 1/(1 + s^2 + t^2) = Integral_0^1 ArcTan[1/Sqrt[1 + s^2]]/Sqrt[1 + s^2] ds, as exact rationals *)
+hcJ[] := hcJ[] = Module[{iv = rigorousIntegral[ArcTan[1/Sqrt[1 + hcS^2]]/Sqrt[1 + hcS^2], {hcS, 0, 1}, "Tolerance" -> 10^-15]},
+  If[! ivFinite[iv], Throw[failure["Inconclusive", "The quadrature for J did not converge."], "CertiField"]];
+  {SetPrecision[Min[iv], Infinity], SetPrecision[Max[iv], Infinity]}];
+
+hcBounds[sp_] := Module[{j = hcJ[], A = sp["A"], K = sp["K"], h = sp["Field"], L = sp["HalfWidth"]},
+  {48 A j[[1]] L, 48 A j[[2]] L + 16/3 K L^3 + 8 h L^3}];
+
+certifyHedgehogCube[params_Association, cand_, opts_List] := Module[{sp = hcSpec[params], t0 = AbsoluteTime[], b},
+  If[cand =!= Automatic, Throw[failure["BadCandidate", "The competitor of HedgehogCube is the hedgehog x/|x|; no candidate is taken."], "CertiField"]];
+  b = hcBounds[sp];
+  <|"LowerBound" -> b[[1]], "UpperBound" -> b[[2]], "Seconds" -> AbsoluteTime[] - t0, "J" -> hcJ[], "Spec" -> sp|>];
+
+hcDescription[params_, res_] := Module[{sp = res["Spec"], d = Max[displayDigits[res], 10], L},
+  L = sp["HalfWidth"];
+  <|"Units" -> "energy units of the model",
+    "Theorem" -> Row[{"Every m in H^1 of the cube (", exactString[-L], ", ", exactString[L], ")^3 with values in S^2 and m = x/|x| on the boundary has E[m] \[GreaterEqual] ",
+      lowerString[res["LowerBound"], d], "; the hedgehog x/|x| has E \[LessEqual] ", upperString[res["UpperBound"], d], "."}],
+    "Energy" -> Row[{"E[m] = \[Integral] ", exactString[sp["A"]], " |\[Del]m|^2 + ", exactString[sp["K"]], " (1 - m3^2) + ", exactString[sp["Field"]], " (1 - m3) dx"}],
+    "AdmissibleClass" -> Row[{"all m in H^1 of the cube (", exactString[-L], ", ", exactString[L], ")^3 with |m| = 1 and m = x/|x| on the boundary (trace)"}],
+    "LowerBoundMethod" -> "the null Lagrangian (div m)^2 - tr((\[Del]m)^2) \[LessEqual] |\[Del]m|^2 of S^2-valued maps (Lin), whose integral is fixed by the boundary values (= 48 J L); the anisotropy and field terms are bounded below by 0; J by rigorous quadrature",
+    "UpperBoundMethod" -> "the hedgehog x/|x|: 48 A J L + (16/3) K L^3 + 8 h L^3, exactly",
+    "TrustedBase" -> "Wolfram Language exact rational and Interval arithmetic, and docs/MAGNETISATION.md (Lemma 8; proof checked by one author only)",
+    "NotClaimed" -> "that the hedgehog minimises the energy when K or h is positive (it does when K = h = 0); the gap is the hedgehog's anisotropy and field energy",
+    "References" -> "Brezis\[Dash]Coron\[Dash]Lieb (1986); Lin (1987); docs/MAGNETISATION.md, Lemma 8."|>];
+
+verifyHedgehogCube[a_Association] := Catch[Module[{b = hcBounds[hcSpec[a["Parameters"]]]},
+  b[[1]] >= exactNumber[a["LowerBound"]] && b[[2]] <= exactNumber[a["UpperBound"]]], "CertiField"];
+
 End[];

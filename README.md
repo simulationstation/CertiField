@@ -356,6 +356,12 @@ film. For the same skyrmion with K = 1/2, which the shape anisotropy of the film
 0.4177781 ≤ inf (E − E[e₃]) ≤ 0.4244089, gap 1.6 %. Statements and proofs:
 [`docs/MAGNETISATION.md`](docs/MAGNETISATION.md). Not claimed: that the axisymmetric skyrmion is a minimiser.
 
+`HedgehogCube` certifies the cube (−L, L)³ with m = x/|x| on the boundary and E = ∫ A|∇m|² + K(1 − m₃²) + h(1 − m₃):
+the lower bound is 48AJL from Lin's null Lagrangian (exact for K = h = 0, where the hedgehog is the minimiser), and
+the upper bound is the hedgehog's energy 48AJL + 16KL³/3 + 8hL³, with J = ∫∫_{[0,1]²} ds dt/(1 + s² + t²) enclosed by
+rigorous quadrature. The anisotropy and field terms are not bounded from below, so the gap is the hedgehog's
+potential energy (2.1 % at A = 1, K = h = 1/20).
+
 ## How it works
 
 ```
@@ -421,7 +427,7 @@ VerifyCertificate[cert]
 | `CertifiedBound[...]["prop"]` | `"LowerBound"`, `"UpperBound"`, `"RelativeGap"`, `"Status"`, `"Theorem"`, `"AdmissibleClass"`, `"TrustedBase"`, `"NotClaimed"`, `"Report"`, ... |
 | `VerifyCertificate[cert]` | recomputes every rigorous step from the recorded inputs |
 | `CertiFieldModelInfo[name]` | energy, parameters, admissible class and methods of a model |
-| `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `ScalarFieldND`, `LinearElasticity`, `ThinFilmMagnet`, `SkyrmeDegreeOne`, `SkyrmeDegreeTwo` |
+| `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `ScalarFieldND`, `LinearElasticity`, `ThinFilmMagnet`, `HedgehogCube`, `SkyrmeDegreeOne`, `SkyrmeDegreeTwo` |
 
 Options: `"Resolution"` (`"Quick"`, `"Standard"`, `"Publication"` for Skyrme), `"GapTolerance"`, `"Nodes"`,
 `"Verbose"`, `WorkingPrecision`; `Method` (`"Monotonicity"`, `"GeneratedGrid"`) for `SkyrmeDegreeOne`; for `ScalarFieldND` also `Method` (`Automatic`, `"Convex"`, `"Calibration"`) and

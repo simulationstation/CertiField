@@ -5,7 +5,7 @@
 
 Begin["CertiField`Private`"];
 
-$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "LinearElasticity", "ThinFilmMagnet", "SkyrmeDegreeOne", "SkyrmeDegreeTwo"};
+$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "LinearElasticity", "ThinFilmMagnet", "HedgehogCube", "SkyrmeDegreeOne", "SkyrmeDegreeTwo"};
 
 (* ---- model specifications ---- *)
 CertiFieldModel[name_String, rules___Rule] := CertiFieldModel[name, Association[rules]];
@@ -86,6 +86,15 @@ CertiFieldModelInfo["ThinFilmMagnet"] := <|
   "LowerBound" -> "E \[GreaterEqual] 2\[Pi]Q (\[Integral] u dt - 4A) - \[CapitalGamma] |\[CapitalOmega]| for a dual field (\[Phi], u, \[CapitalGamma]) of piecewise polynomials in t = m3 satisfying the conditions of Proposition 5 of docs/MAGNETISATION.md, checked in exact rational arithmetic",
   "UpperBound" -> "energy of the normalised bilinear interpolant of the candidate (outward-rounded enclosure) with certified degree",
   "Reference" -> "docs/MAGNETISATION.md",
+  "Status" -> "Supported"|>;
+CertiFieldModelInfo["HedgehogCube"] := <|
+  "Name" -> "HedgehogCube",
+  "Energy" -> "E[m] = \[Integral] A |\[Del]m|^2 + K (1 - m3^2) + h (1 - m3) dx over the cube (-L, L)^3, m with values in S^2",
+  "Parameters" -> <|"A" -> "exchange stiffness > 0 (default 1)", "K" -> "anisotropy >= 0 (default 0)", "Field" -> "h >= 0 (default 0)", "HalfWidth" -> "L > 0 (default 1)"|>,
+  "AdmissibleClass" -> "all m in H^1 of the cube with |m| = 1 and m = x/|x| on the boundary",
+  "LowerBound" -> "Lin's null Lagrangian: E \[GreaterEqual] 48 A J L (J by rigorous quadrature); exact for K = h = 0",
+  "UpperBound" -> "the hedgehog x/|x|: 48 A J L + (16/3) K L^3 + 8 h L^3",
+  "Reference" -> "docs/MAGNETISATION.md, Lemma 8",
   "Status" -> "Supported"|>;
 CertiFieldModelInfo["SkyrmeDegreeOne"] := <|
   "Name" -> "SkyrmeDegreeOne",
@@ -182,6 +191,7 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
     name === "SkyrmeDegreeTwo", certifySkyrmeDegreeTwo[params, cand, opts],
     name === "ScalarFieldND", certifyScalarFieldND[params, cand, opts],
     name === "ThinFilmMagnet", certifyThinFilmMagnet[params, cand, opts],
+    name === "HedgehogCube", certifyHedgehogCube[params, cand, opts],
     name === "LinearElasticity", certifyLinearElasticity[params, cand, opts],
     True, certifyScalarField1D[presetSpec[name, params], If[cand === Automatic && name =!= "ScalarField1D", presetCandidate[name, params], cand], opts]];
   If[! (NumericQ[raw["LowerBound"]] && NumericQ[raw["UpperBound"]]),
@@ -194,6 +204,7 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
     name === "SkyrmeDegreeTwo", skyrmeDegreeTwoDescription[res],
     name === "ScalarFieldND", scalarNDDescription[params, res],
     name === "ThinFilmMagnet", tfmDescription[params, res],
+    name === "HedgehogCube", hcDescription[params, res],
     name === "LinearElasticity", elasticityDescription[params, res],
     True, scalarDescription[name, params, res]];
   rel = N[relGapOf[res]];
@@ -241,6 +252,7 @@ VerifyCertificate[CertifiedBound[a_Association]] := TrueQ[Catch[verifyCertificat
 verifyCertificate[a_Association] := Module[{c = a["Certificate"], name = a["Model"], lb, ub, spec, prec = 30},
   If[name === "ScalarFieldND", Return[verifyScalarFieldND[a]]];
   If[name === "ThinFilmMagnet", Return[TrueQ[verifyThinFilmMagnet[a]]]];
+  If[name === "HedgehogCube", Return[TrueQ[verifyHedgehogCube[a]]]];
   If[name === "LinearElasticity", Return[verifyLinearElasticity[a]]];
   If[name === "SkyrmeDegreeTwo", Return[verifySkyrmeDegreeTwo[a]]];
   Which[

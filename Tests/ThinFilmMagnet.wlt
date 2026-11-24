@@ -86,6 +86,17 @@ VerificationTest[
    VerifyCertificate[CertifiedBound[Append[tfmStray["Association"], "LowerBound" -> tfmStray["LowerBound"] + 0.001]]]},
   {"Certified", True, True, True, False}, TestID -> "tfm-stray-field-skyrmion"]
 
+(* the cube with hedgehog boundary values: known answer first (exchange only: the hedgehog, 48 A J) *)
+VerificationTest[
+  With[{c = CertifiedVariationalBound[CertiFieldModel["HedgehogCube", <|"A" -> 1|>]]},
+    {c["Status"], c["LowerBound"] <= 30.6964968897749 <= c["UpperBound"], c["UpperBound"] - c["LowerBound"] < 10^-10}],
+  {"Certified", True, True}, TestID -> "hedgehog-cube-exchange-only"]
+
+VerificationTest[
+  With[{c = CertifiedVariationalBound[CertiFieldModel["HedgehogCube", <|"A" -> 1, "K" -> 1/20, "Field" -> 1/20|>]]},
+    {c["Status"], c["RelativeGap"] < 0.03, VerifyCertificate[c], VerifyCertificate[CertifiedBound[Append[c["Association"], "UpperBound" -> c["UpperBound"] - 0.1]]]}],
+  {"Certified", True, True, False}, TestID -> "hedgehog-cube-anisotropy-and-field"]
+
 (* failure modes *)
 VerificationTest[
   {FailureQ[CertifiedVariationalBound[CertiFieldModel["ThinFilmMagnet", <|"DMI" -> 1, "Field" -> 2, "Domain" -> {{-1/3, 1/3}, {-1, 1}}|>]]],

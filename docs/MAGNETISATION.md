@@ -2,8 +2,8 @@
 
 This note states and proves what the magnetisation track certifies and describes how the two bounds are computed.
 It is the analytic reduction behind the model `ThinFilmMagnet` (`Kernel/ThinFilmMagnet.wl`) and its Python
-reference (`Reference/Magnetisation`). Both implement Proposition 5 and Section 5. Of Section 4 (the strip and the
-cube) only the wall lower bound is implemented, in the reference.
+reference (`Reference/Magnetisation`). Both implement Proposition 5 and Section 5. Of Section 4, the wall lower bound is
+implemented in the reference and Lemma 8 (the cube) as the model `HedgehogCube`.
 
 **Status.** The method is a calibration (null-Lagrangian) argument. Its ingredients are classical: the degree of
 maps into the sphere, the Belavin–Polyakov inequality, the helical-derivative factorisation used for chiral
