@@ -237,11 +237,20 @@ evaluations. `VerifyCertificate` then recomputes both bounds in 1 to 15 seconds.
 the exact minimum is known from a sine series (−0.01602506 and −0.00949862), and for the wall it is the
 one-dimensional value 0.94496743. All three lie inside the certified intervals.
 
+**Source terms, constraints, other potentials.** Further keys extend the model. `"Source" -> f` adds −f(x) u to the
+energy density (f a number, a function of the coordinates, or nodal or cell values); `"Mean" -> m` prescribes the
+mean of u; `"PeriodicDirections" -> {i, ...}` makes u periodic in those directions; `"ValueRange" -> {lo, hi}`
+restricts u to an interval, on which the potential may contain the entropy terms (u − lo) Log[u − lo] and
+(hi − u) Log[hi − u], and `"DataTerm"` adds a table per cell (values at lo + j (hi − lo)/M, linear in between). A
+potential that is at most linear in u, such as the Poisson energy, is certified with an equilibrated flux, everything
+else in calibration mode. Statement and proofs: [`docs/SCALAR_ND_2.md`](docs/SCALAR_ND_2.md); three examples
+(phase separation with a prescribed mean, image restoration with a tabulated data term, a ferroelectric in an
+applied field): `Examples/ScalarFieldND2.wls`.
+
 **What is and is not claimed.** The bounds are theorems about the stated problem, whose boundary datum is the
 piecewise multilinear interpolant of the given boundary values on the grid. They do not say that the candidate is the
 minimiser. The inequality is classical and no novelty is claimed for it; the proofs in `docs/SCALAR_ND.md` have been
-checked by one author only. Scalar fields on boxes with polynomial potentials only; no source terms f(x)u yet, and
-therefore not the plain Poisson problem.
+checked by one author only. Scalar fields on boxes only.
 
 ## Linear elasticity
 

@@ -1021,6 +1021,7 @@ ndLevelsQ[levels_, n_] := MatchQ[levels, {{{__Integer}, _Integer} ..}] && AllTru
 certifyScalarFieldND[params_Association, cand_, opts_List] := Module[
   {spec, t0 = AbsoluteTime[], mname, sub, verbose, refine, gfun, given, mode, u, ub, p, fields = {}, lbs, best, lo, hi, margin, qs = 16,
    trange, kfin, levels, scale, cal, rows = {}, wv, known = <||>},
+  If[nd2ParamsQ[params], Return[certifyScalarFieldND2[params, cand, opts]]];       (* Kernel/ScalarFieldND2.wl *)
   spec = scalarFieldNDSpec[KeyDrop[params, "Field"]];
   {mname, sub} = ndMethod[OptionValue[CertifiedVariationalBound, opts, Method]];
   verbose = TrueQ[OptionValue[CertifiedVariationalBound, opts, "Verbose"]];
@@ -1081,7 +1082,8 @@ ndNum[x_] := ToString[NumberForm[N[x], 10]];
 ndSec[x_] := ToString[NumberForm[N[x], {Infinity, 1}]];
 
 scalarNDDescription[params_, res_] := Module[{sp = res["Spec"], d = Max[displayDigits[res], 8], nat, grid},
-  nat = Flatten[Table[If[sp["Dirichlet"][[i, s]], Nothing, {i, If[s == 1, "Lower", "Upper"]}], {i, sp["n"]}, {s, 2}], 1];
+  If[TrueQ[sp["ND2"]], Return[nd2Description[params, res]]];
+  nat =Flatten[Table[If[sp["Dirichlet"][[i, s]], Nothing, {i, If[s == 1, "Lower", "Upper"]}], {i, sp["n"]}, {s, 2}], 1];
   grid = ndGridString[sp["Cells"]];
   <|"Units" -> "energy units of the model",
     "Theorem" -> Row[{"Every u in H^1 of the box ", exactString[sp["Domain"]], " whose trace on the Dirichlet faces is the piecewise multilinear interpolant of the nodal boundary values on the ",
@@ -1100,7 +1102,8 @@ scalarNDDescription[params_, res_] := Module[{sp = res["Spec"], d = Max[displayD
    is the one stored in the certificate (exact machine numbers); it must agree with the boundary data of the model
    to rounding, because a function of the coordinates need not evaluate to the same last bits on another machine. *)
 verifyScalarFieldND[a_Association] := Module[{c = a["Certificate"], spec, g, lb, ub},
-  spec = scalarFieldNDSpec[KeyDrop[a["Parameters"], "Field"]];
+  If[nd2ParamsQ[a["Parameters"]], Return[verifyScalarFieldND2[a]]];
+  spec =scalarFieldNDSpec[KeyDrop[a["Parameters"], "Field"]];
   g = ndRealArray[Lookup[c, "BoundaryNodalValues", $Failed], spec["Cells"] + 1];
   If[g === $Failed || Max[Abs[(1 - spec["Fixed"]) g]] != 0. || Max[Abs[g - spec["G"]]] > 10.^-12 (1. + Max[Abs[spec["G"]]]), Return[False]];
   spec = Append[spec, "G" -> g];

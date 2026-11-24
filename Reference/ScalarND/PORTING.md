@@ -270,3 +270,109 @@ an independent check of them.
   has to be replaced by a bound on Φ″.
 * Speed of calibration mode: the objective is bound by memory bandwidth (2ⁿ passes over cells × samples). The
   vertex passes are independent and could run in parallel; LibraryLink would help as for the Skyrme programme.
+
+## 10. ScalarFieldND 2 (branch `scalar-nd-2`): log
+
+Scope: position-dependent linear terms, a different potential in each cell, potentials on an interval that are
+not polynomials, a prescribed mean, periodic boundary conditions, potentials without superlinear growth. The
+statements and proofs are in `docs/SCALAR_ND_2.md`; the statements of `docs/SCALAR_ND.md` keep their numbers.
+
+### 23 November 2026
+
+**Done.**
+* `docs/SCALAR_ND_2.md`: Theorem 8 (Theorem 1 with a constant matrix K, W(x,u), a value range and periodic
+  faces; the earlier proof checked line by line), Corollary 9 (prescribed mean), Proposition 10 (cells to vertices
+  with the term a(x)u), Lemma 11 (the subinterval that ends at a singular point of an entropy term: the closed
+  form max(Phi(beta), Phi(alpha) + c w)), Lemma 12 (logarithm from the four operations), Proposition 13 (the
+  competitor: linear term, entropy terms, tables, exact mean by a shift), Lemmas 14 and 15 and Proposition 16
+  (linear potentials through the Poincare inequality on a box), the six known answers for the tests.
+* Decisions. (1) A companion note, not new sections of the first one, so that no number changes. (2) For
+  potentials without growth, the residual route (Proposition 16), not exact equilibrium: reasons in Section 5 of
+  the note. (3) Potentials on an interval and tables are evaluated in calibration mode only, with the spline
+  range equal to the value range, so they have no tails. (4) A matrix K is covered by the theorem and not
+  implemented. (5) "A different potential in each cell" is two things: a finite list of materials with an integer
+  per cell, and a table per cell that is piecewise linear in u.
+
+* `ia.py`: `ln` (Lemma 12), `xlnx` (s ln s on intervals that may start at 0), `sqrt_up` (verified square root),
+  `pi_lower` (Machin). New functions only; nothing existing changed. `check_ia.py` compares each with exact
+  rational arithmetic (607 + 303 + 3000 points): all enclosures hold, relative width of ln 4e-15.
+
+* `scalarnd.py`, first part of step 2. Potentials are objects (`Poly`, `PolyLog` with the entropy terms and the
+  rule of Lemma 11 in `sub_bound`); `Problem` takes `lin` (nodal or cell values of a), `mean`, `mat` (materials)
+  and `('P', 'P')` in `bc`, with `tie`/`tied` for periodic arrays and methods `Wenc`, `sub_bound`, `Wenc_cells`,
+  `W2rng_cells` that return scalars for one polynomial and arrays over the cells otherwise. `upper_bound` works on
+  nodal intervals (`nodal_enclosure`: the shift that makes the mean exact), adds the term a(x)u exactly, and for
+  potentials that are not plain polynomials takes the better of the midpoint rule and the vertex rule
+  (Proposition 13). `check_unchanged.py` (new) recomputes the five test vectors of version 0.3.0 and compares
+  bit for bit: identical. `verify_all.py`: all stored certificates verified.
+  **Not yet exercised by any test: every new branch of `upper_bound`** (linear term, mean, `PolyLog`, materials).
+  They are written from the propositions and have not been run.
+
+* `scalarnd.py`, second part of step 2 (rigorous lower bound). `Calibration` has `lam` (the multiplier of the
+  mean), `opt_lam`, `tie` and `respects_periodic_faces`. `lower_bound`: the per-vertex term (lam − a_v) t, the
+  shifted tails (`_tails_shifted`), the end rule of Lemma 11 through `Problem.sub_bound`, no tails when the
+  potential has a value range, + lam m |Ω|. `poisson_lower`: Proposition 16, both cases.
+* `check_theorem2.py` (new, seconds): known answers with fields written down by hand, so only the evaluators
+  run. Output of the last run: source f = 4k, lower bound −0.16666666666666824 against −1/6 in 2D, in 2D with
+  periodic sides and a on the nodes, and in 3D (exact to rounding, as required); source f = c x enclosed at three
+  grids; convex potential with prescribed mean, |Ω|W(m) enclosed with the lower bound 2×10⁻⁷ below it (the slack
+  of the conjugate tables known from version 0.3.0); source with prescribed mean and no Dirichlet face, bounds do
+  not cross; competitor energy with entropy terms, enclosure 10⁻¹⁴ wide around the floating-point value.
+  `check_unchanged.py` after these edits: identical bit for bit.
+
+### 23 November 2026, state at the stop
+
+**Tested:** what the two scripts above cover, and `check_ia.py` as run before the last edit of `sqrt_up`.
+
+**Written but never executed** (treat as untested code):
+* `lower_bound` with K > 0 and any new feature: the term (lam − a_v) t at the samples, `_tails_shifted`, the end
+  rule (the branch with `ca`, `cb`), `PolyLog` in `sub_bound`/`enc`, potentials on a value range (no tails).
+* `upper_bound`: materials, the vertex rule, a candidate whose mean has to be shifted (`nodal_enclosure` was
+  only run with candidates that already had the right mean).
+* `Problem.spec` / `from_spec` with the new keys; `Calibration.pack`/`unpack` with `opt_lam`.
+
+**Known gaps and caveats.**
+* `sqrt_up` returned after a very long loop for subnormal arguments (it hung the second case of test 1); it now
+  returns 1e-150 for arguments below 1e-300. `check_ia.py` has not been re-run since.
+* In test 2 the lower bound converges at first order only. The cells there are h × 1/2 and Proposition 16 uses
+  h_max. Use cells of equal sides in tests, or sharpen Lemma 14 for a coefficient that varies in one direction.
+* `refine_t`, `prolong_x`, `save_certificate`, `load_certificate`, `export_field_dir` do not carry `lam`, `lin`,
+  `mat`, `mean` yet; `certify_convex` and `certify_calibration` know nothing of the new features.
+* The heuristics are untouched: `discrete_energy`, `solve_candidate`, `fv_energy`, `fv_solve`,
+  `affine_from_candidate`, `optimise_calibration` ignore the linear term, the mean, periodic faces and materials
+  (for a problem that is not plain they would compute with the wrong energy; nothing rigorous depends on them).
+* The table kind of potential (a table per cell) is not written at all.
+* `docs/SCALAR_ND_2.md`: no lemma is half-proved. References [1] and [2] there are from memory and unverified;
+  the literature search has not been done.
+* Not started: `check_exact2.py`, falsification, stored certificates, test vectors, the Wolfram Language port
+  (`Kernel/ScalarFieldND.wl` and `Tests/` are as in version 0.3.0), the three examples, README,
+  `docs/INDUSTRY.md`.
+
+**In progress.** Nothing is half-edited: every file is in a state that imports and passes the scripts above.
+
+**Next, in this order.**
+1. (done, see above)
+2. `scalarnd.py`, the rigorous evaluators first. Plan that keeps every existing result bit for bit: potentials
+   become objects (`Poly`, `PolyLog`, `Table`, a list with a material map) behind methods of `Problem` that return
+   a scalar for one polynomial, exactly as now, and arrays over the cells otherwise; `Problem` gains `lin`
+   (nodal or cell values of a), `mean`, and `'P'` in `bc`; periodic arrays keep their full shape with the last
+   slice tied to the first; `Calibration` gains `lam`. `upper_bound` takes nodal intervals (Proposition 13);
+   `lower_bound` gets the per-vertex term, the shifted tails (stack the 2^n shifted arguments into one call of
+   `conj_cells`), the end rule of Lemma 11, and the branch for linear potentials (Proposition 16).
+3. `check_exact2.py`: the same formulas in exact rational arithmetic with no shared code (logarithms by rational
+   series with remainder, square roots by integer square roots), on small grids, for random fields.
+4. The heuristics: finite-volume solve with a(x), the mean constraint and periodic faces (direct solve for linear
+   potentials); the optimiser with the per-vertex term, the multiplier and tied faces; the candidate.
+5. `check_theorem2.py`: the known answers of Section 7 of the note, then falsification as in `check_theorem.py`.
+6. Stored certificates (format 2 for problems that use a new feature; format 1 untouched), test vectors.
+7. The Wolfram Language port and `Tests/ScalarFieldND2.wlt` (flag `--nd2`); the three examples; README;
+   `docs/INDUSTRY.md`; the literature search that the note lists as open.
+
+**Checks that must keep passing after every step:** `verify_all.py`, `check_exact.py`, `check_theorem.py`, and
+`tools/run_tests.wls --nd` with `Tests/ScalarFieldND.wlt` byte-identical.
+
+### 24 November 2026
+
+Wolfram Language implementation done: `Kernel/ScalarFieldND2.wl` (model keys "Source", "Mean", "PeriodicDirections",
+"ValueRange", "DataTerm"), `Tests/ScalarFieldND2.wlt` (`--nd2`), `Examples/ScalarFieldND2.wls`. The Python reference was
+not extended further; the exact cross-check of the new lower bound is in the Wolfram Language tests.

@@ -61,6 +61,7 @@ Get[FileNameJoin[{DirectoryName[$InputFileName], #}]] & /@ {
   "SkyrmeLevelSetDegree.wl",
   "ScalarField1D.wl",
   "ScalarFieldND.wl",
+  "ScalarFieldND2.wl",
   "ThinFilmMagnet.wl",
   "Elasticity.wl",
   "Elasticity3D.wl",
