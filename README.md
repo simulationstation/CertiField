@@ -118,6 +118,14 @@ flux of each level surface doubled and bounds the energy of every map of degree 
 μ = 0 and ≥ 2.572283 for μ = 1, about a minute each (`"Resolution" -> "Standard"`: ≥ 2.610878 for μ = 1). The argument is in `docs/SKYRME_DEGREE_TWO.md`. The upper bound
 it reports is the energy of two separated hedgehogs, so the interval is about 10% wide.
 
+### Higher degree: rational maps
+
+`CertifiedVariationalBound["SkyrmeRationalMap", "Degree" -> B]` certifies the energy of the Skyrme field built from a
+rational map of degree B and a radial profile (the ansatz of Houghton, Manton and Sutcliffe; maps for B = 1, …, 8 are
+built in, `"RationalMap" -> Function[z, ...]` takes any other, `"PionMass"` any rational 0 ≤ μ < 2). This is an upper
+bound for the infimum over all maps of degree B; the lower end of the interval is only the topological bound B.
+Values for B = 1, …, 8: `docs/SKYRME_RATIONAL_MAPS.md`.
+
 ### Reproduced independently, in your kernel
 
 The Skyrme certificate was first produced by a Python/NumPy verifier. CertiField re-implements it from scratch in
@@ -360,7 +368,7 @@ VerifyCertificate[cert]
 | `CertifiedBound[...]["prop"]` | `"LowerBound"`, `"UpperBound"`, `"RelativeGap"`, `"Status"`, `"Theorem"`, `"AdmissibleClass"`, `"TrustedBase"`, `"NotClaimed"`, `"Report"`, ... |
 | `VerifyCertificate[cert]` | recomputes every rigorous step from the recorded inputs |
 | `CertiFieldModelInfo[name]` | energy, parameters, admissible class and methods of a model |
-| `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `ScalarFieldND`, `LinearElasticity`, `SkyrmeDegreeOne` |
+| `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `ScalarFieldND`, `LinearElasticity`, `SkyrmeDegreeOne`, `SkyrmeDegreeTwo`, `SkyrmeRationalMap` |
 
 Options: `"Resolution"` (`"Quick"`, `"Standard"`, `"Publication"` for Skyrme), `"GapTolerance"`, `"Nodes"`,
 `"Verbose"`, `WorkingPrecision`; for `ScalarFieldND` also `Method` (`Automatic`, `"Convex"`, `"Calibration"`) and
