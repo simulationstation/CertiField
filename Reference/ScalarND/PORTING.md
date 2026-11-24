@@ -270,3 +270,50 @@ an independent check of them.
   has to be replaced by a bound on Φ″.
 * Speed of calibration mode: the objective is bound by memory bandwidth (2ⁿ passes over cells × samples). The
   vertex passes are independent and could run in parallel; LibraryLink would help as for the Skyrme programme.
+
+## 10. ScalarFieldND 2 (branch `scalar-nd-2`): log
+
+Scope: position-dependent linear terms, a different potential in each cell, potentials on an interval that are
+not polynomials, a prescribed mean, periodic boundary conditions, potentials without superlinear growth. The
+statements and proofs are in `docs/SCALAR_ND_2.md`; the statements of `docs/SCALAR_ND.md` keep their numbers.
+
+### 23 November 2026
+
+**Done.**
+* `docs/SCALAR_ND_2.md`: Theorem 8 (Theorem 1 with a constant matrix K, W(x,u), a value range and periodic
+  faces; the earlier proof checked line by line), Corollary 9 (prescribed mean), Proposition 10 (cells to vertices
+  with the term a(x)u), Lemma 11 (the subinterval that ends at a singular point of an entropy term: the closed
+  form max(Phi(beta), Phi(alpha) + c w)), Lemma 12 (logarithm from the four operations), Proposition 13 (the
+  competitor: linear term, entropy terms, tables, exact mean by a shift), Lemmas 14 and 15 and Proposition 16
+  (linear potentials through the Poincare inequality on a box), the six known answers for the tests.
+* Decisions. (1) A companion note, not new sections of the first one, so that no number changes. (2) For
+  potentials without growth, the residual route (Proposition 16), not exact equilibrium: reasons in Section 5 of
+  the note. (3) Potentials on an interval and tables are evaluated in calibration mode only, with the spline
+  range equal to the value range, so they have no tails. (4) A matrix K is covered by the theorem and not
+  implemented. (5) "A different potential in each cell" is two things: a finite list of materials with an integer
+  per cell, and a table per cell that is piecewise linear in u.
+
+**In progress.** Nothing is half-written in the code: `scalarnd.py`, `ia.py` and `Kernel/ScalarFieldND.wl` are as
+in version 0.3.0.
+
+**Next, in this order.**
+1. `ia.py`: `ln` (Lemma 12), `sqrt_up` (verified square root), a rational lower bound for pi (Machin). New
+   functions only.
+2. `scalarnd.py`, the rigorous evaluators first. Plan that keeps every existing result bit for bit: potentials
+   become objects (`Poly`, `PolyLog`, `Table`, a list with a material map) behind methods of `Problem` that return
+   a scalar for one polynomial, exactly as now, and arrays over the cells otherwise; `Problem` gains `lin`
+   (nodal or cell values of a), `mean`, and `'P'` in `bc`; periodic arrays keep their full shape with the last
+   slice tied to the first; `Calibration` gains `lam`. `upper_bound` takes nodal intervals (Proposition 13);
+   `lower_bound` gets the per-vertex term, the shifted tails (stack the 2^n shifted arguments into one call of
+   `conj_cells`), the end rule of Lemma 11, and the branch for linear potentials (Proposition 16).
+3. `check_exact2.py`: the same formulas in exact rational arithmetic with no shared code (logarithms by rational
+   series with remainder, square roots by integer square roots), on small grids, for random fields.
+4. The heuristics: finite-volume solve with a(x), the mean constraint and periodic faces (direct solve for linear
+   potentials); the optimiser with the per-vertex term, the multiplier and tied faces; the candidate.
+5. `check_theorem2.py`: the known answers of Section 7 of the note, then falsification as in `check_theorem.py`.
+6. Stored certificates (format 2 for problems that use a new feature; format 1 untouched), test vectors.
+7. The Wolfram Language port and `Tests/ScalarFieldND2.wlt` (flag `--nd2`); the three examples; README;
+   `docs/INDUSTRY.md`; the literature search that the note lists as open.
+
+**Checks that must keep passing after every step:** `verify_all.py`, `check_exact.py`, `check_theorem.py`, and
+`tools/run_tests.wls --nd` with `Tests/ScalarFieldND.wlt` byte-identical.
