@@ -1,0 +1,12 @@
+quartic2d       N=64x64     K= 0  claim -0.01676426710 <= inf E <= -0.01675442415   gap  0.059 %   OK  (1 s)
+quartic3d       N=32x32x32  K= 0  claim -0.009800243983 <= inf E <= -0.009760233359   gap  0.410 %   OK  (1 s)
+ramp2d          N=64x64     K=32  claim 8.275401140 <= inf E <= 8.291701687   gap  0.197 %   OK  (2 s)
+ramp3d_32       N=32x32x32  K=16  claim 8.014875532 <= inf E <= 8.027318687   gap  0.156 %   OK  (10 s)
+saddle2d        N=64x64     K=32  claim 10.67921737 <= inf E <= 10.95291663   gap  2.499 %   OK  (2 s)
+screened2d      N=64x64     K= 0  claim -0.01602883595 <= inf E <= -0.01601929459   gap  0.060 %   OK  (1 s)   reference -0.01602506 inside
+screened2d_128  N=128x128   K= 0  claim -0.01602600417 <= inf E <= -0.01602361899   gap  0.015 %   OK  (1 s)   reference -0.01602506 inside
+screened3d      N=32x32x32  K= 0  claim -0.009516792468 <= inf E <= -0.009477452396   gap  0.416 %   OK  (1 s)   reference -0.00949862 inside
+screened3d_48   N=48x48x48  K= 0  claim -0.009506676889 <= inf E <= -0.009489222566   gap  0.184 %   OK  (1 s)   reference -0.00949862 inside
+wall2d          N=96x4      K=32  claim 0.9442106791 <= inf E <= 0.9451112063   gap  0.096 %   OK  (1 s)   reference +0.94496743 inside
+wall3d          N=48x2x2    K=32  claim 0.9441989772 <= inf E <= 0.9455500387   gap  0.143 %   OK  (1 s)   reference +0.94496743 inside
+ALL CERTIFICATES VERIFIED

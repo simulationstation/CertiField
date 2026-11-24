@@ -5,7 +5,7 @@
 
 Begin["CertiField`Private`"];
 
-$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "SkyrmeDegreeOne"};
+$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "SkyrmeDegreeOne"};
 
 (* ---- model specifications ---- *)
 CertiFieldModel[name_String, rules___Rule] := CertiFieldModel[name, Association[rules]];
@@ -50,6 +50,28 @@ CertiFieldModelInfo["MagneticDomainWall"] := <|"Name" -> "MagneticDomainWall",
   "Energy" -> "\[Sigma][\[Theta]] = \[Integral] (A \[Theta]'^2 + K sin^2 \[Theta]) dx  (Bloch wall, uniaxial anisotropy; energy per unit wall area)",
   "Parameters" -> <|"A" -> "exchange stiffness", "K" -> "anisotropy constant"|>, "Reduces to" -> "ScalarField1D",
   "Minimum (exact)" -> "4 \[Sqrt](A K) on the line", "Status" -> "Supported"|>;
+CertiFieldModelInfo["ScalarFieldND"] := <|
+  "Name" -> "ScalarFieldND",
+  "Energy" -> "E[u] = \[Integral] (k |\[Del]u|^2 + W(u)) dx over a box in two or three dimensions",
+  "Parameters" -> <|"Potential" -> "pure function W, a polynomial with rational coefficients (need not be convex)",
+    "Stiffness" -> "k > 0 (default 1/2)", "Domain" -> "{{a1, b1}, {a2, b2}} or {{a1, b1}, {a2, b2}, {a3, b3}}, rational",
+    "Cells" -> "grid, an integer or one integer per direction (default 32 in 2D, 16 in 3D)",
+    "BoundaryData" -> "a number, a function of the coordinates, or an array of nodal values; the certified datum is the piecewise multilinear interpolant of the nodal values on the boundary grid",
+    "NaturalFaces" -> "list of {direction, \"Lower\" | \"Upper\"}: faces where u is free (default: none)",
+    "Field" -> "optional: a calibration field to certify, or a directory written by the Python reference; it replaces the package's own choice of field"|>,
+  "Options" -> <|"Method" -> "Automatic (convex mode if W is convex, calibration mode otherwise), \"Convex\", \"Calibration\", or {\"Calibration\", suboptions}",
+    "Suboptions of calibration mode" -> <|"TRange" -> "{tlo, thi}, rational: the range of the B-splines in u (default: the hull of the Dirichlet data and of the critical points of W)",
+      "KnotIntervals" -> "K on the final grid (default 16)", "Levels" -> "{{cells, K}, ...}, coarse to fine, ending on the grid of the model (default: from Cells and K)",
+      "Scale" -> "multiplies the smoothing parameters (default: max(1, range of W on the t-range))",
+      "Samples" -> "samples per knot interval in the optimiser (default 4)", "Subintervals" -> "subintervals per knot interval in the certified evaluation (default 16)",
+      "Schedule" -> "<|\"First\" | \"Later\" | \"Last\" -> {{tau, iterations}, ...}|> for the first, the intermediate and the last level"|>,
+    "RefineCandidate" -> "True: the given candidate is only the starting point of the package's own minimisation (default False: it is certified as given)",
+    "Verbose" -> "True prints the progress of calibration mode"|>,
+  "AdmissibleClass" -> "all u in H^1 of the box with the given trace on the Dirichlet faces",
+  "LowerBound" -> "E \[GreaterEqual] \[Integral] S(x,g)\[CenterDot]\[Nu] - \[Integral] sup_t (div S + |\[PartialD]_t S|^2/(4k) - W) for any Raviart\[Dash]Thomas/B-spline field S, evaluated with outward-rounded arithmetic. Convex mode: the flux of a finite-volume solve (seconds, tight for convex W). Calibration mode: a field found by a multilevel optimiser (minutes, for W that is not convex)",
+  "UpperBound" -> "energy of the piecewise multilinear function through the candidate's nodal values (rigorous enclosure)",
+  "Reference" -> "docs/SCALAR_ND.md",
+  "Status" -> "Supported"|>;
 CertiFieldModelInfo["SkyrmeDegreeOne"] := <|
   "Name" -> "SkyrmeDegreeOne",
   "Energy" -> "E(U) = \[Integral] |dU|^2 + |\[CapitalLambda]^2 dU|^2 + 2\[Mu]^2 (1 - cos f) over \[DoubleStruckCapitalR]^3, f = dist(U, 1); reported as E/(12\[Pi]^2)",
@@ -114,8 +136,9 @@ certifySkyrme[params_Association, cand_, opts_List] := Module[
     "GridMeta" -> grid["Meta"], "TableInfo" -> tab["Info"]|>];
 
 (* ---- assembling the CertifiedBound ---- *)
+(* Method and "RefineCandidate" are used by ScalarFieldND only (Kernel/ScalarFieldND.wl) *)
 Options[CertifiedVariationalBound] = {"Resolution" -> "Quick", "Nodes" -> Automatic, "GapTolerance" -> None,
-  "Verbose" -> False, WorkingPrecision -> 30};
+  "Verbose" -> False, WorkingPrecision -> 30, Method -> Automatic, "RefineCandidate" -> False};
 
 (* convenience: CertifiedVariationalBound["Name", candidate?, modelParam -> v, ..., option -> v, ...] *)
 $cvbOptionNames := ToString /@ Keys[Options[CertifiedVariationalBound]];
@@ -135,15 +158,19 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
   If[! MemberQ[$CertiFieldModels, name], Message[CertifiedVariationalBound::nomodel, name, $CertiFieldModels];
     Throw[failure["UnknownModel", "Unknown model: " <> name], "CertiField"]];
   tolerance = OptionValue[CertifiedVariationalBound, opts, "GapTolerance"];
-  raw = If[name === "SkyrmeDegreeOne",
-    certifySkyrme[params, cand, opts],
-    certifyScalarField1D[presetSpec[name, params], If[cand === Automatic && name =!= "ScalarField1D", presetCandidate[name, params], cand], opts]];
+  raw = Which[
+    name === "SkyrmeDegreeOne", certifySkyrme[params, cand, opts],
+    name === "ScalarFieldND", certifyScalarFieldND[params, cand, opts],
+    True, certifyScalarField1D[presetSpec[name, params], If[cand === Automatic && name =!= "ScalarField1D", presetCandidate[name, params], cand], opts]];
   If[! (NumericQ[raw["LowerBound"]] && NumericQ[raw["UpperBound"]]),
     Throw[failure["Inconclusive", "A bound could not be enclosed."], "CertiField"]];
   res = Join[raw, <|"LowerBound" -> fLo[exactNumber[raw["LowerBound"]]], "UpperBound" -> fHi[exactNumber[raw["UpperBound"]]],
     "RawBounds" -> {raw["LowerBound"], raw["UpperBound"]}|>];
   If[res["LowerBound"] > res["UpperBound"], Throw[failure["Internal", "Lower bound exceeds upper bound."], "CertiField"]];
-  base = If[name === "SkyrmeDegreeOne", skyrmeDescription[res], scalarDescription[name, params, res]];
+  base = Which[
+    name === "SkyrmeDegreeOne", skyrmeDescription[res],
+    name === "ScalarFieldND", scalarNDDescription[params, res],
+    True, scalarDescription[name, params, res]];
   rel = N[relGapOf[res]];
   status = If[tolerance === None || rel <= tolerance, "Certified", "Inconclusive"];
   CertifiedBound[Join[base, <|"Status" -> status, "LowerBound" -> res["LowerBound"], "UpperBound" -> res["UpperBound"],
@@ -185,6 +212,7 @@ scalarDescription[name_, params_, res_] := Module[{sp = res["Spec"], dom, bv, d 
 VerifyCertificate[CertifiedBound[a_Association]] := TrueQ[Catch[verifyCertificate[a], "CertiField"]];
 
 verifyCertificate[a_Association] := Module[{c = a["Certificate"], name = a["Model"], lb, ub, spec, prec = 30},
+  If[name === "ScalarFieldND", Return[verifyScalarFieldND[a]]];
   Which[
     name === "SkyrmeDegreeOne",
       lb = levelSetLowerBound[c["Mu"], loadSkyrmeGrid[skyrmeGridDir[c["Mu"], c["Preset"]]], minorantTable[$skyrmePresets[c["Preset"], "Table"]]]["LowerBound"];

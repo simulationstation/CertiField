@@ -1,0 +1,77 @@
+{
+ "format": "CertiField-ND-certificate-1",
+ "problem": {
+  "name": "screened3d",
+  "box": [
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ]
+  ],
+  "N": [
+   32,
+   32,
+   32
+  ],
+  "k": "1/2",
+  "W": [
+   "0",
+   "-1",
+   "1"
+  ],
+  "bc": [
+   [
+    "D",
+    "D"
+   ],
+   [
+    "D",
+    "D"
+   ],
+   [
+    "D",
+    "D"
+   ]
+  ]
+ },
+ "tlo": "0",
+ "thi": "0",
+ "K": 0,
+ "affine": true,
+ "lower": "-0.009516792468",
+ "upper": "-0.009477452396",
+ "reference": "0.3.0-reference",
+ "info": {
+  "example": "screened3d",
+  "note": "W = u^2 - u, u = 0 on the boundary of the unit cube",
+  "levels": [
+   {
+    "mode": "convex",
+    "N": [
+     32,
+     32,
+     32
+    ],
+    "K": 0,
+    "lower": -0.009516792457533167,
+    "upper": -0.009477452405550875,
+    "upper_enclosure": [
+     -0.009479065189691624,
+     -0.009477452405550875
+    ],
+    "rel_gap": 0.004150910001853568,
+    "seconds": 2.3808438777923584,
+    "unknowns": 101376
+   }
+  ],
+  "reference_float": -0.009498616716543519
+ }
+}

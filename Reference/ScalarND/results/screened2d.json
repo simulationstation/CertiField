@@ -1,0 +1,67 @@
+{
+ "format": "CertiField-ND-certificate-1",
+ "problem": {
+  "name": "screened2d",
+  "box": [
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ]
+  ],
+  "N": [
+   64,
+   64
+  ],
+  "k": "1/2",
+  "W": [
+   "0",
+   "-1",
+   "1"
+  ],
+  "bc": [
+   [
+    "D",
+    "D"
+   ],
+   [
+    "D",
+    "D"
+   ]
+  ]
+ },
+ "tlo": "0",
+ "thi": "0",
+ "K": 0,
+ "affine": true,
+ "lower": "-0.01602883595",
+ "upper": "-0.01601929459",
+ "reference": "0.3.0-reference",
+ "info": {
+  "example": "screened2d",
+  "note": "W = u^2 - u, u = 0 on the boundary of the unit square",
+  "levels": [
+   {
+    "mode": "convex",
+    "N": [
+     64,
+     64
+    ],
+    "K": 0,
+    "lower": -0.01602883592830044,
+    "upper": -0.01601929461081235,
+    "upper_enclosure": [
+     -0.01601990566410354,
+     -0.01601929461081235
+    ],
+    "rel_gap": 0.0005956140841340906,
+    "seconds": 0.8173635005950928,
+    "unknowns": 8320
+   }
+  ],
+  "reference_float": -0.016025058075473015
+ }
+}

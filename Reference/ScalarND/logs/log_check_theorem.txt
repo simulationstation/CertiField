@@ -1,0 +1,27 @@
+A. 1D double well on (-3,3), exact minimum from the first integral
+ref1d.py:11: IntegrationWarning: The occurrence of roundoff error is detected, which prevents 
+  the requested tolerance from being achieved.  The error may be 
+  underestimated.
+  return quad(lambda u: np.sqrt(k / (W(u) + c)), -1, 1, epsabs=1e-13, epsrel=1e-13, limit=400)[0] - 2 * L
+  1D K=16 Qo=4 curvature=True        optimised LB +0.94159994  highest LB over perturbations +0.94159994  reference +0.94496743  ok
+     same field, verifier Qs=2       optimised LB +0.93627842  highest LB over perturbations +0.93627842  reference +0.94496743  ok
+  1D K=16 Qo=1 curvature=False       optimised LB +0.92899364  highest LB over perturbations +0.92899364  reference +0.94496743  ok
+     same field, verifier Qs=2       optimised LB +0.92040471  highest LB over perturbations +0.92040471  reference +0.94496743  ok
+  1D K=8 Qo=1 curvature=False        optimised LB +0.89836962  highest LB over perturbations +0.89841940  reference +0.94496743  ok
+     same field, verifier Qs=2       optimised LB +0.86144577  highest LB over perturbations +0.86144577  reference +0.94496743  ok
+  1D K=32 Qo=2 curvature=False       optimised LB +0.94378739  highest LB over perturbations +0.94378739  reference +0.94496743  ok
+     same field, verifier Qs=2       optimised LB +0.94183161  highest LB over perturbations +0.94183161  reference +0.94496743  ok
+   mixed field (affine + spline optimised together)
+  1D mixed K=8                       optimised LB +0.93089317  highest LB over perturbations +0.93089317  reference +0.94496743  ok
+B. 2D and 3D double-well walls (exact minimum = area x 1D value)
+  2D wall K=8 (cheating optimiser)   optimised LB +0.89709431  highest LB over perturbations +0.89712827  reference +0.94496743  ok
+  3D wall K=8, area 2                optimised LB +1.79538426  highest LB over perturbations +1.79548957  reference +1.88993485  ok
+C. convex problems with series solutions (affine fields, random perturbations)
+  2D screened Poisson, convex mode   optimised LB -0.01613373  highest LB over perturbations -0.01613373  reference -0.01602506  ok
+  2D screened Poisson, mixed K=4     optimised LB -0.02002811  highest LB over perturbations -0.02002039  reference -0.01602506  ok
+  3D screened Poisson, convex mode   optimised LB -0.01003311  highest LB over perturbations -0.01003308  reference -0.00949862  ok
+  3D screened Poisson, mixed K=4     optimised LB -0.01366268  highest LB over perturbations -0.01365810  reference -0.00949862  ok
+D. non-constant boundary data: every Q1 competitor on every grid must lie above the bound
+  2D ramp (g = x), K=8               optimised LB +7.79459972  highest LB over perturbations +7.79515454  reference +8.28848765  ok
+
+ALL TESTS PASSED   largest (LB - reference) = -1.087e-04   (458 s)

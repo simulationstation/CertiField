@@ -10,6 +10,7 @@ optimisation) is a heuristic choice that can only make a bound less tight, never
 ```
 Models.wl              public API: CertifiedVariationalBound, VerifyCertificate, CertiFieldModel, presets
   |-- ScalarField1D.wl     1D: calibration lower bound, admissible competitor, exact / Taylor-model energy
+  |-- ScalarFieldND.wl     2D/3D scalar fields on boxes: calibration-field lower bound, Q1 competitor, the two modes
   |-- SkyrmeLevelSet.wl    Skyrme lower bound: the level-set dynamic programme
   |-- SkyrmeHedgehog.wl    Skyrme upper bound: hedgehog trial maps and their certified energy
   |-- Minorants.wl         certified affine minorants of h_kappa (input to the dynamic programme)
@@ -37,6 +38,11 @@ arithmetic at 30 digits. Simpson is used only on cells where a caller-supplied p
 the 1D lower bound: V + c > 0 on the cell, checked by interval evaluation). Refinement is global: cells wider than
 tolerance/(2·#cells) are bisected, so cells next to a singularity, where only first-order enclosures are valid, are
 refined geometrically without blowing up the cost.
+
+**Overflow.** An overflowing machine operation does not return an infinity in the Wolfram Language: the kernel repeats
+it in software arithmetic and returns a number that is not a machine number, in an array that is no longer packed.
+The Skyrme programme checks its cell bounds against the sentinel. `ScalarFieldND.wl`, whose inputs are a user's
+arrays, tests the result of every interval operation (`ndChk`, a flag test) and stops as `"Inconclusive"`.
 
 ## The Skyrme lower bound (SkyrmeLevelSet.wl, Minorants.wl)
 
@@ -81,6 +87,36 @@ tightness. Energy:
   polynomial in the cell data). Otherwise it uses a Taylor model of order 8 around the cell midpoint, with the t-integrals of
   the powers computed exactly and the Lagrange remainder enclosed on an exact enclosure of the cell's range.
 
+## Scalar fields in two and three dimensions (ScalarFieldND.wl)
+
+E[u] = ∫ k|∇u|² + W(u) on a box, u prescribed on some faces and free on the others, W a polynomial with rational
+coefficients. Statement and proofs: `docs/SCALAR_ND.md`. The module is a port of the Python reference in
+`Reference/ScalarND` (function map, conventions and port log: `Reference/ScalarND/PORTING.md`).
+
+* **The certified problem.** The Dirichlet datum is the piecewise multilinear interpolant of the nodal boundary
+  values on the grid; the nodal values are machine numbers taken as the exact binary numbers they are, and they are
+  stored in the certificate.
+* **Lower bound.** For any field S(x, t) = t σ₀(x) + Σ aₘ(x) bₘ(clamp t), with σ₀ and aₘ lowest-order Raviart–Thomas
+  fields on the box grid and bₘ quadratic B-splines, every admissible u has
+  E[u] ≥ ∫ S(x, g)·ν over the Dirichlet faces − ∫ sup_t (div_x S + |∂_t S|²/(4k) − W(t)).
+  `ndLowerBound` evaluates the right-hand side for the given coefficients: the cell integral through the 2ⁿ vertices
+  of each cell (the integrand is convex in each coordinate), the supremum over t on subintervals of the knot
+  intervals with a curvature allowance, the two tails through certified tables of restricted convex conjugates
+  (`conjUpper`, `conjCells`), and the boundary flux on sub-faces with a Lipschitz or Taylor penalty
+  (`ndFluxLower`). Sample points, B-spline weights and W at the samples are exact rationals; everything else is
+  outward-rounded array arithmetic; the sums over cells are exact rational sums.
+* **Choosing the field (heuristic).** Convex mode: the affine part alone, the two-point flux of a cell-centred
+  finite-volume solve (`ndFVSolve`, `ndConvexField`); this is the classical complementary-energy bound, tight for
+  convex W, and takes seconds. Calibration mode: the spline part alone, found by L-BFGS on a smoothed copy of the
+  certified functional, coarse to fine (`ndCalibrate`): the field is embedded exactly into the grid with twice as
+  many cells (`ndProlongX`) or the spline space with twice as many knot intervals (`ndRefineT`), and the field with
+  the best *certified* value is kept at every stage. A field from elsewhere can be supplied (`"Field"`).
+* **Upper bound.** The candidate's nodal values define a piecewise multilinear function with the Dirichlet values
+  imposed exactly. Its gradient energy is an exact quadratic form of the nodal values; its potential energy is
+  enclosed by the midpoint rule with the remainder |c|/24 Σ hᵢ² sup|W″(u_h)|(∂ᵢu_h)² (`ndUpperBound`). With no
+  candidate, or with `"RefineCandidate" -> True`, the package minimises the discrete energy by Newton's method
+  (`ndSolveCandidate`).
+
 ## Certificates and verification
 
 `CertifiedVariationalBound` returns `CertifiedBound[assoc]`. The reported bounds are machine numbers rounded outward
@@ -89,7 +125,11 @@ from the computed enclosures (lower down, upper up); the raw enclosure ends are 
 least as strong as the stored ones:
 
 * Skyrme: the grid preset, the minorant table and the trial map;
-* 1D: the proof of V + c ≥ 0, the calibration constant and the competitor data.
+* 1D: the proof of V + c ≥ 0, the calibration constant and the competitor data;
+* 2D/3D scalar fields: the stored nodal boundary values (which must agree with the model's boundary data to
+  rounding), the stored field and the stored nodal values of the candidate. The stored claims carry a margin of one
+  part in 10⁹, because the machine root finder that places the conjugate tables need not return the same last
+  bits on another machine; any placement gives a valid bound.
 
 Nothing numerical is copied from the stored result.
 

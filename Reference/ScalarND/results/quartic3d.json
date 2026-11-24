@@ -1,0 +1,79 @@
+{
+ "format": "CertiField-ND-certificate-1",
+ "problem": {
+  "name": "quartic3d",
+  "box": [
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ]
+  ],
+  "N": [
+   32,
+   32,
+   32
+  ],
+  "k": "1/2",
+  "W": [
+   "0",
+   "-1",
+   "1/2",
+   "0",
+   "1/4"
+  ],
+  "bc": [
+   [
+    "D",
+    "D"
+   ],
+   [
+    "D",
+    "D"
+   ],
+   [
+    "D",
+    "D"
+   ]
+  ]
+ },
+ "tlo": "0",
+ "thi": "0",
+ "K": 0,
+ "affine": true,
+ "lower": "-0.009800243983",
+ "upper": "-0.009760233359",
+ "reference": "0.3.0-reference",
+ "info": {
+  "example": "quartic3d",
+  "note": "W = u^4/4 + u^2/2 - u (convex, not quadratic), u = 0 on the boundary of the unit cube",
+  "levels": [
+   {
+    "mode": "convex",
+    "N": [
+     32,
+     32,
+     32
+    ],
+    "K": 0,
+    "lower": -0.009800243972307339,
+    "upper": -0.009760233369421858,
+    "upper_enclosure": [
+     -0.009761089882736612,
+     -0.009760233369421858
+    ],
+    "rel_gap": 0.00409934899823519,
+    "seconds": 2.4132070541381836,
+    "unknowns": 101376
+   }
+  ],
+  "reference_float": null
+ }
+}

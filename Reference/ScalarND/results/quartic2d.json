@@ -1,0 +1,69 @@
+{
+ "format": "CertiField-ND-certificate-1",
+ "problem": {
+  "name": "quartic2d",
+  "box": [
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ]
+  ],
+  "N": [
+   64,
+   64
+  ],
+  "k": "1/2",
+  "W": [
+   "0",
+   "-1",
+   "1/2",
+   "0",
+   "1/4"
+  ],
+  "bc": [
+   [
+    "D",
+    "D"
+   ],
+   [
+    "D",
+    "D"
+   ]
+  ]
+ },
+ "tlo": "0",
+ "thi": "0",
+ "K": 0,
+ "affine": true,
+ "lower": "-0.01676426710",
+ "upper": "-0.01675442415",
+ "reference": "0.3.0-reference",
+ "info": {
+  "example": "quartic2d",
+  "note": "W = u^4/4 + u^2/2 - u, unit square",
+  "levels": [
+   {
+    "mode": "convex",
+    "N": [
+     64,
+     64
+    ],
+    "K": 0,
+    "lower": -0.016764267081018896,
+    "upper": -0.016754424169652754,
+    "upper_enclosure": [
+     -0.01675475916529235,
+     -0.016754424169652754
+    ],
+    "rel_gap": 0.0005874813283031359,
+    "seconds": 0.980255126953125,
+    "unknowns": 8320
+   }
+  ],
+  "reference_float": null
+ }
+}

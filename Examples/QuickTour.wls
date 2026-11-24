@@ -29,6 +29,14 @@ Print[sk["Summary"]];
 Print["   ", TextString[sk["Theorem"]]];
 Print["   not claimed: ", sk["NotClaimed"], "\n"];
 
-(* 5. Anyone can re-check a certificate *)
+(* 5. Your own energy in two or three dimensions: E[u] = Integrate[|grad u|^2/2 + W(u)] on a box, u = 0 on the boundary.
+      W is convex here, so the lower bound is the complementary-energy bound and takes seconds, also in 3D.
+      (A W that is not convex is handled too; the field is then optimised, which takes from under a minute.) *)
+box = CertifiedVariationalBound[CertiFieldModel["ScalarFieldND",
+   <|"Potential" -> Function[u, u^4/4 + u^2/2 - u], "Domain" -> {{0, 1}, {0, 1}, {0, 1}}, "Cells" -> 32, "BoundaryData" -> 0|>]];
+Print[box["Summary"]];
+Print["   ", TextString[box["Theorem"]], "\n"];
+
+(* 6. Anyone can re-check a certificate *)
 Print["VerifyCertificate[kink] = ", VerifyCertificate[kink]];
 Print["a tampered certificate:   ", VerifyCertificate[CertifiedBound[Append[kink["Association"], "LowerBound" -> 1.]]]];

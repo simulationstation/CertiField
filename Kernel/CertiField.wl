@@ -15,7 +15,9 @@ BeginPackage["CertiField`"];
 CertifiedVariationalBound::usage =
   "CertifiedVariationalBound[model, candidate] returns a CertifiedBound object with rigorous bounds \
 LowerBound <= inf E <= UpperBound for the minimal energy of model over its admissible class, the upper bound \
-coming from candidate.\nCertifiedVariationalBound[model] uses the model's built-in reference candidate.";
+coming from candidate.\nCertifiedVariationalBound[model] uses the model's built-in reference candidate.\n\
+Options: \"GapTolerance\", \"Verbose\"; \"Resolution\" (SkyrmeDegreeOne); \"Nodes\", WorkingPrecision (one-dimensional \
+models); Method, \"RefineCandidate\" (ScalarFieldND). CertiFieldModelInfo[name] lists the parameters of each model.";
 
 CertifiedBound::usage =
   "CertifiedBound[...] is the result of CertifiedVariationalBound. Query it with cert[\"LowerBound\"], \
@@ -42,7 +44,7 @@ CertifiedVariationalBound::badcand = "`1`";
 
 Begin["`Private`"];
 
-$CertiFieldVersion = "0.2.0";
+$CertiFieldVersion = "0.3.0";
 $CertiFieldDirectory = DirectoryName[$InputFileName, 2];
 
 failure[tag_String, msg_String, extra_Association : <||>] :=
@@ -55,6 +57,7 @@ Get[FileNameJoin[{DirectoryName[$InputFileName], #}]] & /@ {
   "SkyrmeLevelSet.wl",
   "SkyrmeHedgehog.wl",
   "ScalarField1D.wl",
+  "ScalarFieldND.wl",
   "CertifiedBound.wl",
   "Models.wl"};
 

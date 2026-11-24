@@ -14,7 +14,7 @@ and it returns
 packaged as a `CertifiedBound` object that anyone can re-check in their own kernel with `VerifyCertificate`.
 
 ```wolfram
-In[1]:= PacletInstall["https://github.com/simulationstation/CertiField/releases/download/v0.2.0/CertiField-0.2.0.paclet"];
+In[1]:= PacletInstall["https://github.com/simulationstation/CertiField/releases/download/v0.3.0/CertiField-0.3.0.paclet"];
         Needs["CertiField`"]
 
 In[2]:= cert = CertifiedVariationalBound["SkyrmeDegreeOne", "PionMass" -> 1];     (* about 30 s *)
@@ -32,6 +32,11 @@ Out[5]= True
 
 When a bound cannot be established, CertiField says so (`"Inconclusive"`, or a `Failure` explaining why) instead of
 reporting a number it cannot prove.
+
+Three kinds of problem are supported: the Skyrme model (a computer-assisted theorem about all degree-one maps),
+scalar field theories in one dimension (kinks, domain walls), and **your own energy ∫ k|∇u|² + W(u) on a box in two
+or three dimensions**, convex or not, with a candidate from any solver
+([below](#bring-your-own-energy-scalar-fields-in-two-and-three-dimensions)).
 
 ---
 
@@ -157,6 +162,75 @@ Out[8]= "ScalarField1D: Certified  0.80350006723246 <= inf E <= 0.80350006723404
 The last row is the point: a poor candidate gets an honest, wide gap. With `"GapTolerance" -> 10^-3` the same call
 returns status `"Inconclusive"`.
 
+## Bring your own energy: scalar fields in two and three dimensions
+
+`ScalarFieldND` certifies
+
+    E[u] = ∫_Ω k |∇u|² + W(u) dx
+
+on a box Ω in 2D or 3D, with u prescribed on some faces and free on the others. W is any polynomial with rational
+coefficients; it does not have to be convex. The candidate can be a function of the coordinates, an `NDSolve`
+solution, or an array of nodal values. Without one, the package computes its own.
+
+```wolfram
+In[9]:= model = CertiFieldModel["ScalarFieldND", <|
+          "Potential" -> Function[u, u^4/4 + u^2/2 - u],
+          "Domain" -> {{0, 1}, {0, 1}, {0, 1}}, "Cells" -> 32, "BoundaryData" -> 0|>];
+        cert = CertifiedVariationalBound[model];          (* 3 s *)
+        cert["Summary"]
+Out[9]= "ScalarFieldND: Certified  -0.00980025 <= inf E <= -0.00976023  (relative gap <= 0.410%)"
+
+In[10]:= cert["Theorem"]
+Out[10]= Every u in H^1 of the box {{0, 1}, {0, 1}, {0, 1}} whose trace on the Dirichlet faces is the piecewise
+         multilinear interpolant of the nodal boundary values on the 32x32x32 grid has E[u] >= -0.0098002440;
+         the competitor has E <= -0.0097602333.
+
+In[11]:= sol = NDSolveValue[{-Laplacian[u[x, y], {x, y}] + u[x, y]^3 + u[x, y] == 1,
+            DirichletCondition[u[x, y] == 0, True]}, u, {x, 0, 1}, {y, 0, 1}];
+         square = CertiFieldModel["ScalarFieldND", <|"Potential" -> Function[u, u^4/4 + u^2/2 - u],
+            "Domain" -> {{0, 1}, {0, 1}}, "Cells" -> 64, "BoundaryData" -> 0|>];
+         CertifiedVariationalBound[square, sol]["Summary"]          (* your own candidate *)
+Out[11]= "ScalarFieldND: Certified  -0.0167643 <= inf E <= -0.0167543  (relative gap <= 0.0591%)"
+
+In[12]:= ramp = CertiFieldModel["ScalarFieldND", <|"Potential" -> Function[u, 4 (u^2 - 1)^2],
+            "Domain" -> {{-1, 1}, {-1, 1}}, "Cells" -> 32, "BoundaryData" -> Function[{x, y}, x]|>];
+         CertifiedVariationalBound[ramp]["Summary"]          (* a double well, not convex: under a minute *)
+Out[12]= "ScalarFieldND: Certified  8.24547 <= inf E <= 8.30526  (relative gap <= 0.720%)"
+```
+
+The lower bound holds for **every** function in H¹ with the given boundary values, not only for functions on the grid.
+It is the classical calibration inequality: for any vector field S(x, t) with matching normal components,
+
+    E[u] ≥ ∫ S(x, g)·ν over the Dirichlet faces − ∫_Ω sup_t ( div_x S + |∂_t S|²/(4k) − W(t) ) dx,
+
+evaluated with outward-rounded arithmetic. The field S is found numerically and never trusted. When W is convex it
+is the flux of a finite-volume solve (the complementary-energy bound) and the certificate takes seconds, also in
+3D. When W is not convex the field is optimised coarse to fine, which takes from under a minute to about twenty
+minutes; `"Verbose" -> True` shows the certified bound rising. The mode is chosen automatically. Statement and
+proofs: [`docs/SCALAR_ND.md`](docs/SCALAR_ND.md).
+
+| Potential W | Domain and data | Grid | Certified bounds | Gap | Time |
+|---|---|---|---|---|---|
+| u² − u | u = 0 on the boundary of the unit square | 128×128 | −0.01602601 ≤ inf E ≤ −0.01602361 | 0.015 % | 1.7 s |
+| u² − u | u = 0 on the boundary of the unit cube | 48×48×48 | −0.00950668 ≤ inf E ≤ −0.00948922 | 0.184 % | 6.1 s |
+| u⁴/4 + u²/2 − u | u = 0 on the boundary of the unit cube | 32×32×32 | −0.00980025 ≤ inf E ≤ −0.00976023 | 0.410 % | 2.7 s |
+| (u² − 1)²/4 (double well) | wall in (−3,3)×(0,1)², free sides | 48×2×2 | 0.944198 ≤ inf E ≤ 0.945551 | 0.143 % | 54 s |
+| 4(u² − 1)² (double well) | u = x on the boundary of (−1,1)² | 32×32 | 8.245472 ≤ inf E ≤ 8.305251 | 0.720 % | 43 s |
+| 4(u² − 1)² (double well) | the same | 64×64 | 8.275406 ≤ inf E ≤ 8.291702 | 0.197 % | 6 min |
+| (u² − 1)² (double well) | u = x on the boundary of (−1,1)³ | 16×16×16 | 8.005335 ≤ inf E ≤ 8.040144 | 0.433 % | 7 min |
+| (u² − 1)² (double well) | the same | 32×32×32 | 8.015122 ≤ inf E ≤ 8.027319 | 0.152 % | 18 min |
+
+Times are for the whole certificate (Wolfram Engine 15.0, 16-core processor): candidate, field, and both certified
+evaluations. `VerifyCertificate` then recomputes both bounds in 1 to 15 seconds. For the first two rows
+the exact minimum is known from a sine series (−0.01602506 and −0.00949862), and for the wall it is the
+one-dimensional value 0.94496743. All three lie inside the certified intervals.
+
+**What is and is not claimed.** The bounds are theorems about the stated problem, whose boundary datum is the
+piecewise multilinear interpolant of the given boundary values on the grid. They do not say that the candidate is the
+minimiser. The inequality is classical and no novelty is claimed for it; the proofs in `docs/SCALAR_ND.md` have been
+checked by one author only. Scalar fields on boxes with polynomial potentials only; no source terms f(x)u yet, and
+therefore not the plain Poisson problem; the method does not extend to vector-valued fields.
+
 ## How it works
 
 ```
@@ -173,10 +247,15 @@ returns status `"Inconclusive"`.
 * **Upper bounds** are valid however poor the candidate; only their tightness depends on it. CertiField converts the
   candidate into an admissible competitor and computes that competitor's energy rigorously. Polynomial potentials are
   integrated exactly in rational arithmetic; other potentials use a Taylor model of order 8 with a Lagrange remainder.
-  The hedgehog energy uses Simpson enclosures with a fourth-derivative remainder in interval arithmetic.
+  The hedgehog energy uses Simpson enclosures with a fourth-derivative remainder in interval arithmetic. In two and
+  three dimensions the competitor is the piecewise multilinear function through the candidate's nodal values: exact
+  gradient energy, midpoint rule with remainder for the potential.
 * **Lower bounds** come from a model-specific mathematical argument, evaluated with certified arithmetic:
   * one dimension: the calibration k u′² + V + c ≥ 2√(k(V+c))|u′|, with V + c ≥ 0 on ℝ *proved* by quantifier
     elimination, and the integral of √(V+c) enclosed by adaptive interval quadrature;
+  * scalar fields in two and three dimensions: a calibration field S(x, u) (Raviart–Thomas in x, B-splines in u)
+    whose coefficients come from a finite-volume solve or an optimiser and are never trusted; the bound for those
+    coefficients is evaluated with exact sample points and outward-rounded arrays, cell by cell and face by face;
   * Skyrme: the level-set dynamic programme with τ-scalars as exact rationals (Taylor series with remainder, 35-digit
     π), every array operation outward-rounded, square and cube roots verified by squaring/cubing, and every entry of the
     affine-minorant table certified by a cubic positivity test.
@@ -195,7 +274,7 @@ and it is what lets a third party re-verify a computer-assisted theorem with one
 Requires Wolfram Language 13 or later (developed and tested on 15.0, including the free Wolfram Engine).
 
 ```wolfram
-PacletInstall["https://github.com/simulationstation/CertiField/releases/download/v0.2.0/CertiField-0.2.0.paclet"]
+PacletInstall["https://github.com/simulationstation/CertiField/releases/download/v0.3.0/CertiField-0.3.0.paclet"]
 (* or, from a clone of this repository: PacletDirectoryLoad["path/to/CertiField"] *)
 Needs["CertiField`"]
 
@@ -213,14 +292,17 @@ VerifyCertificate[cert]
 | `CertifiedBound[...]["prop"]` | `"LowerBound"`, `"UpperBound"`, `"RelativeGap"`, `"Status"`, `"Theorem"`, `"AdmissibleClass"`, `"TrustedBase"`, `"NotClaimed"`, `"Report"`, ... |
 | `VerifyCertificate[cert]` | recomputes every rigorous step from the recorded inputs |
 | `CertiFieldModelInfo[name]` | energy, parameters, admissible class and methods of a model |
-| `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `SkyrmeDegreeOne` |
+| `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `ScalarFieldND`, `SkyrmeDegreeOne` |
 
 Options: `"Resolution"` (`"Quick"`, `"Standard"`, `"Publication"` for Skyrme), `"GapTolerance"`, `"Nodes"`,
-`"Verbose"`, `WorkingPrecision`.
+`"Verbose"`, `WorkingPrecision`; for `ScalarFieldND` also `Method` (`Automatic`, `"Convex"`, `"Calibration"`) and
+`"RefineCandidate"` (use the given candidate as the starting point of the package's own minimisation).
+`CertiFieldModelInfo[name]` lists the parameters of each model.
 
 **Timings** (one core, Wolfram Engine 15.0): 1D models take 0.5–10 s. Skyrme at Quick resolution takes 25–35 s per
 pion mass, including the minorant table, which is certified once (about 10 s), cached on disk and re-certified on
-load. Standard takes about 80 s, and Publication about an hour (59 min at μ = 1).
+load. Standard takes about 80 s, and Publication about an hour (59 min at μ = 1). `ScalarFieldND` (several threads)
+takes 1 to 7 s for convex energies up to 48³ cells and 39 s to 18 min for the non-convex examples above.
 
 ## Validation
 
@@ -231,15 +313,23 @@ load. Standard takes about 80 s, and Publication about an hour (59 min at μ = 1
 * `VerifyCertificate` re-derives the μ = 1 Skyrme certificate from its recorded inputs in 26 s.
 * The exact minima of the φ⁴, sine-Gordon and domain-wall models lie inside the certified enclosures, which are
   10⁻¹³ wide.
-* Tampering with a stored bound makes `VerifyCertificate` return `False`.
+* In two and three dimensions the minima known from a sine series (unit square and unit cube) and from the
+  one-dimensional first integral (domain wall) lie inside the certified intervals.
+* `ScalarFieldND` reproduces its Python reference (`Reference/ScalarND`) on identical inputs, to 10⁻¹³ for the
+  competitor energies and the lower bounds, and recomputes all eleven certificates stored by it. Its boundary-flux
+  bound is tested from both sides against the exact flux in rational arithmetic. The reference passes an exact
+  rational cross-check and falsification tests against known minima.
+* Tampering with a stored bound, a stored field or stored boundary values makes `VerifyCertificate` return `False`.
 * Non-smooth potentials, boundary values that are not vacua, unprovable positivity and unsupported parameters return
   `Failure` objects, never numbers.
-* The test suite is in `Tests/` (`wolframscript -file tools/run_tests.wls`; add `--skyrme` for the Skyrme suite).
+* The test suite is in `Tests/` (`wolframscript -file tools/run_tests.wls`; add `--skyrme` for the Skyrme suite,
+  `--nd` for the two- and three-dimensional suite, `--nd-slow` for its long runs).
 
 ## Roadmap
 
-* **Certified error bounds for finite-element solutions** of convex elliptic problems (elasticity, diffusion) via
-  complementary energy and equilibrated fluxes, applied to `NDSolve`'s own FEM output.
+* **Scalar fields in 2D and 3D**: source terms f(x)u and the Poisson problem (exactly equilibrated fluxes),
+  potentials that are not polynomials, domains other than boxes and `NDSolve`'s own finite-element meshes.
+* **Linear elasticity**: certified error bounds via complementary energy and exactly equilibrated stresses.
 * **Chiral magnets**: two-dimensional magnetic skyrmions and domain walls with topological lower bounds.
 * Higher-charge Skyrmions, and LibraryLink acceleration of the dynamic programme.
 
@@ -253,12 +343,14 @@ Kernel/          the paclet (CertiField.wl loads the modules below)
   SkyrmeLevelSet.wl       the level-set dynamic programme (lower bound)
   SkyrmeHedgehog.wl       hedgehog trial maps and their certified energy (upper bound)
   ScalarField1D.wl        calibration lower bound, admissible competitors, exact/Taylor-model energies
+  ScalarFieldND.wl        2D/3D scalar fields: calibration-field lower bound, Q1 competitor, convex and calibration modes
   CertifiedBound.wl       the result object, safe decimal display, reports
   Models.wl               model registry, public entry points, VerifyCertificate
 Data/Skyrme/     grids for 4 pion masses x 3 resolutions (heuristic inputs: they affect tightness, never validity)
+Reference/ScalarND/  the Python reference of ScalarFieldND: implementation, checks, test vectors, stored certificates
 Tests/           VerificationTest suites
 tools/           test runner and syntax checks
-docs/            architecture and method notes
+docs/            architecture (ARCHITECTURE.md) and the statement and proofs behind ScalarFieldND (SCALAR_ND.md)
 ```
 
 ## References
@@ -272,6 +364,9 @@ docs/            architecture and method notes
    571–591. Erratum, *Existence of 3D Skyrmions. Complete version*, arXiv:math-ph/0401042 (2004).
 4. R. A. Battye and P. M. Sutcliffe, Skyrmions with massive pions, Phys. Rev. C 73 (2006). Source of the units and
    pion-mass conventions.
+
+References for the two- and three-dimensional bounds (calibrations, duality, complementary energy) are listed in
+`docs/SCALAR_ND.md`.
 
 ## License
 

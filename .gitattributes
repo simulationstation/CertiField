@@ -3,6 +3,8 @@
 *.i64    binary
 *.mx     binary
 *.paclet binary
+# stored certificates of the ScalarND reference (zip archives of NumPy arrays)
+*.npz    binary
 # sources: LF in the repository
 *.wl     text eol=lf
 *.wls    text eol=lf
@@ -11,3 +13,4 @@
 *.json   text eol=lf
 *.py     text eol=lf
 *.yml    text eol=lf
+*.txt    text eol=lf

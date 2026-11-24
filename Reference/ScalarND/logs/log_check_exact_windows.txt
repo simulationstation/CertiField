@@ -1,0 +1,31 @@
+calibration mode: interval value vs exact rational value of the same formula
+  n=1 N=(9,) K=5 trial 0: interval +0.896001824637   exact +0.896001824637   exact - interval = 1.02e-14  ok
+  n=1 N=(9,) K=5 trial 1: interval -7.743796809544   exact -7.743796809544   exact - interval = 2.96e-14  ok
+  n=1 N=(9,) K=5 trial 2: interval -16.607051080410   exact -16.607051080409   exact - interval = 6.14e-14  ok
+  n=2 N=(6, 3) K=4 trial 0: interval +0.861199055471   exact +0.861199055471   exact - interval = 8.01e-15  ok
+  n=2 N=(6, 3) K=4 trial 1: interval -9.046503878109   exact -9.046503878109   exact - interval = 4.04e-14  ok
+  n=2 N=(6, 3) K=4 trial 2: interval -14.094769470769   exact -14.094769470769   exact - interval = 5.67e-14  ok
+  n=2 N=(4, 4) K=3 trial 0: interval +0.437635644123   exact +0.437635644123   exact - interval = 5.16e-15  ok
+  n=2 N=(4, 4) K=3 trial 1: interval -4.088682595979   exact -4.088682595979   exact - interval = 2.41e-14  ok
+  n=2 N=(4, 4) K=3 trial 2: interval -8.445340301310   exact -8.445340301310   exact - interval = 4.40e-14  ok
+  n=3 N=(3, 2, 2) K=3 trial 0: interval +0.771640597985   exact +0.771640597985   exact - interval = 7.40e-15  ok
+  n=3 N=(3, 2, 2) K=3 trial 1: interval -8.219515827725   exact -8.219515827725   exact - interval = 3.87e-14  ok
+  n=3 N=(3, 2, 2) K=3 trial 2: interval -13.258863403592   exact -13.258863403592   exact - interval = 5.10e-14  ok
+  n=3 N=(2, 2, 2) K=2 trial 0: interval +0.138425206641   exact +0.138425206641   exact - interval = 8.64e-15  ok
+  n=3 N=(2, 2, 2) K=2 trial 1: interval -1.105071844718   exact -1.105071844718   exact - interval = 1.55e-14  ok
+  n=3 N=(2, 2, 2) K=2 trial 2: interval -2.680449234021   exact -2.680449234021   exact - interval = 2.60e-14  ok
+convex mode (quadratic W): interval value vs exact rational value
+  n=1 N=7 trial 0: interval +0.032213077315   exact +0.032213097362   exact - interval = 2.00e-08  ok
+  n=1 N=7 trial 1: interval -0.037021281862   exact -0.037020911345   exact - interval = 3.71e-07  ok
+  n=1 N=7 trial 2: interval -0.124377092780   exact -0.124376319230   exact - interval = 7.74e-07  ok
+  n=2 N=5 trial 0: interval +0.042375124934   exact +0.042375152473   exact - interval = 2.75e-08  ok
+  n=2 N=5 trial 1: interval -0.015395520792   exact -0.015394906420   exact - interval = 6.14e-07  ok
+  n=2 N=5 trial 2: interval -0.061757812887   exact -0.061756774451   exact - interval = 1.04e-06  ok
+  n=3 N=3 trial 0: interval +0.044905764107   exact +0.044905784108   exact - interval = 2.00e-08  ok
+  n=3 N=3 trial 1: interval +0.019695859220   exact +0.019696124435   exact - interval = 2.65e-07  ok
+  n=3 N=3 trial 2: interval -0.018704464085   exact -0.018703792884   exact - interval = 6.71e-07  ok
+energy of the Q1 competitor: exact rational value inside the enclosure
+  n=1 N=6: enclosure [13.0631263285, 13.7790150840]   exact 13.4133747858   ok
+  n=2 N=4: enclosure [7.7254402181, 11.3500716914]   exact 9.2718811019   ok
+  n=3 N=2: enclosure [4.6320643687, 5.9848639382]   exact 5.1006346727   ok
+ALL EXACT CHECKS PASSED

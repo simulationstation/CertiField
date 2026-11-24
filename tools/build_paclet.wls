@@ -9,7 +9,8 @@ stage = FileNameJoin[{build, "CertiField"}];
 Quiet[DeleteDirectory[stage, DeleteContents -> True]];
 CreateDirectory[stage, CreateIntermediateDirectories -> True];
 Scan[CopyFile[FileNameJoin[{root, #}], FileNameJoin[{stage, #}]] &, {"PacletInfo.wl", "LICENSE", "README.md"}];
-Scan[CopyDirectory[FileNameJoin[{root, #}], FileNameJoin[{stage, #}]] &, {"Kernel", "Data", "Examples"}];
+(* docs: CertiFieldModelInfo and the certificates refer to docs/SCALAR_ND.md *)
+Scan[CopyDirectory[FileNameJoin[{root, #}], FileNameJoin[{stage, #}]] &, {"Kernel", "Data", "Examples", "docs"}];
 
 archive = CreatePacletArchive[stage, build];
 Print["built: ", archive, "  (", Round[FileByteCount[archive]/1024.], " KB)"];
@@ -19,5 +20,6 @@ PacletInstall[archive, ForceVersionInstall -> True];
 Needs["CertiField`"];
 Print["installed from: ", CertiField`Private`$CertiFieldDirectory];
 Print[CertifiedVariationalBound["Phi4Kink"]["Summary"]];
+Print[CertifiedVariationalBound[CertiFieldModel["ScalarFieldND", <|"Potential" -> Function[u, u^2 - u], "Domain" -> {{0, 1}, {0, 1}}, "Cells" -> 16|>]]["Summary"]];
 (* leave no installed copy behind (it would shadow a development checkout) *)
 PacletUninstall["CertiField"];

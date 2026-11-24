@@ -39,3 +39,13 @@ private/
 *.paclet
 *.mx
 build/
+
+# ScalarND reference: the four large stored certificates (12.8 MB) are not in the repository;
+# their claims (NAME.json) are, and verify_all.py reports them as skipped.  See Reference/ScalarND/README.md.
+Reference/ScalarND/results/ramp2d.npz
+Reference/ScalarND/results/saddle2d.npz
+Reference/ScalarND/results/screened3d_48.npz
+Reference/ScalarND/results/ramp3d_32.npz
+# Python
+__pycache__/
+*.pyc
