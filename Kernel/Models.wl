@@ -5,7 +5,7 @@
 
 Begin["CertiField`Private`"];
 
-$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "SkyrmeDegreeOne"};
+$CertiFieldModels = {"ScalarField1D", "Phi4Kink", "SineGordonKink", "MagneticDomainWall", "ScalarFieldND", "LinearElasticity", "ThinFilmMagnet", "SkyrmeDegreeOne", "SkyrmeDegreeTwo"};
 
 (* ---- model specifications ---- *)
 CertiFieldModel[name_String, rules___Rule] := CertiFieldModel[name, Association[rules]];
@@ -72,14 +72,31 @@ CertiFieldModelInfo["ScalarFieldND"] := <|
   "UpperBound" -> "energy of the piecewise multilinear function through the candidate's nodal values (rigorous enclosure)",
   "Reference" -> "docs/SCALAR_ND.md",
   "Status" -> "Supported"|>;
+CertiFieldModelInfo["ThinFilmMagnet"] := <|
+  "Name" -> "ThinFilmMagnet",
+  "Energy" -> "E[m] = \[Integral] A |\[Del]m|^2 + \[Kappa] m\[CenterDot](\[Del]\[Times]m) + K (1 - m3^2) + h (1 - m3) dx over a rectangle, m with values in S^2",
+  "Parameters" -> <|"A" -> "exchange stiffness > 0 (default 1/2)", "DMI" -> "\[Kappa] >= 0, bulk Dzyaloshinskii\[Dash]Moriya constant (default 0)",
+    "K" -> "uniaxial anisotropy (default 0; may be negative)", "Field" -> "h >= 0, Zeeman field along e3 (default 0)", "Degree" -> "Q, an integer (default -1)",
+    "Domain" -> "{{a1, b1}, {a2, b2}} with dyadic rational corners", "Cells" -> "cells per direction of the competitor's graded grid, even (default 200)",
+    "Grading" -> "Automatic or \[Beta] >= 0 (sinh grading towards the centre)",
+    "DualField" -> "Automatic (the shipped certificates in Data/Magnetisation and closed forms; the best that passes the exact check), a file written by the Python reference, or <|\"Mesh\", \"Phi\", \"U\", \"Gamma\"|>"|>,
+  "Candidate" -> "Automatic (axisymmetric skyrmion of degree -1 from a radial Newton solve), a profile Function[r, \[Theta]] (\[Theta](0) = \[Pi]), or a field Function[{x, y}, {m1, m2, m3}]",
+  "AdmissibleClass" -> "all m in H^1 of the rectangle with |m| = 1, m = e3 on the boundary and degree Q",
+  "LowerBound" -> "E \[GreaterEqual] 2\[Pi]Q (\[Integral] u dt - 4A) - \[CapitalGamma] |\[CapitalOmega]| for a dual field (\[Phi], u, \[CapitalGamma]) of piecewise polynomials in t = m3 satisfying the conditions of Proposition 5 of docs/MAGNETISATION.md, checked in exact rational arithmetic",
+  "UpperBound" -> "energy of the normalised bilinear interpolant of the candidate (outward-rounded enclosure) with certified degree",
+  "Reference" -> "docs/MAGNETISATION.md",
+  "Status" -> "Supported"|>;
 CertiFieldModelInfo["SkyrmeDegreeOne"] := <|
   "Name" -> "SkyrmeDegreeOne",
   "Energy" -> "E(U) = \[Integral] |dU|^2 + |\[CapitalLambda]^2 dU|^2 + 2\[Mu]^2 (1 - cos f) over \[DoubleStruckCapitalR]^3, f = dist(U, 1); reported as E/(12\[Pi]^2)",
-  "Parameters" -> <|"PionMass" -> "\[Mu] \[Element] {0, 263/500, 13/20, 1}"|>,
+  "Parameters" -> <|"PionMass" -> "a rational \[Mu] with 0 \[LessEqual] \[Mu] < 2 (default 1). Grids and trial maps are shipped for 0, 263/500, 13/20 and 1; for other masses they are computed on request"|>,
+  "Options" -> <|"Resolution" -> "\"Quick\", \"Standard\" or \"Publication\": the spacing of the grids of the level-set programme",
+    "Method" -> "Automatic; \"Monotonicity\": the lower bound of the largest shipped mass not above \[Mu] (valid because the energy is non-decreasing in the mass; no grid is generated); \"GeneratedGrid\": a generated grid even where one is shipped"|>,
   "AdmissibleClass" -> "finite-energy maps U: \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 of degree one with U - 1 \[Element] L^6 (the class in which minimisers exist)",
   "LowerBound" -> "level-set lower bound (coarea + isoperimetry + convexification; certified dynamic programme)",
   "UpperBound" -> "energy of an explicit hedgehog trial map (rigorous quadrature)",
   "Resolutions" -> Keys[$skyrmePresets],
+  "Reference" -> "docs/SKYRME_ANY_MASS.md (masses other than the four shipped ones)",
   "Status" -> "Supported"|>;
 CertiFieldModelInfo[other_] := Missing["UnknownModel", other];
 
@@ -112,28 +129,29 @@ minorantTable[{nK_, nD_, kmin_}] := minorantTable[{nK, nD, kmin}] = Module[{cach
 
 skyrmeMu[params_] := Module[{mu = Lookup[params, "PionMass", 1]},
   mu = If[InexactNumberQ[mu], Rationalize[mu, 10^-12], mu];
-  If[! KeyExistsQ[$skyrmeMuNames, mu],
-    Throw[failure["BadModel", "Supported pion masses: 0, 0.526, 0.65, 1 (Battye\[Dash]Sutcliffe units)."], "CertiField"]];
+  If[! skyrmeMassQ[mu],
+    Throw[failure["BadModel", "The pion mass must be a rational number with 0 \[LessEqual] \[Mu] < 2 (Battye\[Dash]Sutcliffe units). Grids are shipped for 0, 0.526, 0.65 and 1 and generated for other masses."], "CertiField"]];
   mu];
 
+(* For a mass without shipped data the grid and the trial map come from Kernel/SkyrmeAnyMass.wl (skyrmeGridPlan,
+   skyrmeTrial); both are heuristic.  The lower bound may be computed at a smaller mass (docs/SKYRME_ANY_MASS.md). *)
 certifySkyrme[params_Association, cand_, opts_List] := Module[
   {muq = skyrmeMu[params], preset = OptionValue[CertifiedVariationalBound, opts, "Resolution"], verbose = TrueQ[OptionValue[CertifiedVariationalBound, opts, "Verbose"]],
-   gridDir, grid, tab, lbRes, trial, ubRes, t0 = AbsoluteTime[], monitor},
+   plan, grid, tab, lbRes, trial, ubRes, t0 = AbsoluteTime[], monitor},
   If[! KeyExistsQ[$skyrmePresets, preset], Throw[failure["BadOption", "\"Resolution\" must be one of " <> ToString[Keys[$skyrmePresets]] <> "."], "CertiField"]];
-  gridDir = skyrmeGridDir[muq, preset];
-  If[! DirectoryQ[gridDir], Throw[failure["MissingData", "Grid data not found: " <> gridDir], "CertiField"]];
-  grid = loadSkyrmeGrid[gridDir];
+  plan = skyrmeGridPlan[muq, preset, OptionValue[CertifiedVariationalBound, opts, Method], verbose];
+  grid = plan["Grid"];
   tab = minorantTable[$skyrmePresets[preset, "Table"]];
   monitor = If[verbose, Function[s, If[Mod[s["Level"], 250] == 0, Print["  level ", s["Level"], "/", s["Levels"], "   pairs ", s["Pairs"], "   ", Round[s["Seconds"], 0.1], " s"]]], None];
-  lbRes = levelSetLowerBound[muq, grid, tab, "Monitor" -> monitor];
+  lbRes = levelSetLowerBound[plan["Mass"], grid, tab, "Monitor" -> monitor];
   trial = Which[
-    cand === Automatic, Get[skyrmeTrialFile[muq]],
+    cand === Automatic, skyrmeTrial[muq, verbose],
     AssociationQ[cand] && KeyExistsQ[cand, "r"], cand,
     True, Module[{f = cand, df}, df = Derivative[1][f]; hedgehogTrialData[f, df, muq]]];
   ubRes = hedgehogUpperBound[trial, muq];
-  <|"LowerBound" -> lbRes["LowerBound"], "UpperBound" -> ubRes["UpperBound"], "Seconds" -> AbsoluteTime[] - t0,
+  Join[<|"LowerBound" -> lbRes["LowerBound"], "UpperBound" -> ubRes["UpperBound"], "Seconds" -> AbsoluteTime[] - t0,
     "LevelSet" -> lbRes, "Hedgehog" -> KeyDrop[ubRes, "Enclosure"], "Trial" -> trial, "Preset" -> preset, "Mu" -> muq,
-    "GridMeta" -> grid["Meta"], "TableInfo" -> tab["Info"]|>];
+    "GridMeta" -> grid["Meta"], "TableInfo" -> tab["Info"]|>, plan["Extra"]]];
 
 (* ---- assembling the CertifiedBound ---- *)
 (* Method and "RefineCandidate" are used by ScalarFieldND only (Kernel/ScalarFieldND.wl) *)
@@ -160,7 +178,10 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
   tolerance = OptionValue[CertifiedVariationalBound, opts, "GapTolerance"];
   raw = Which[
     name === "SkyrmeDegreeOne", certifySkyrme[params, cand, opts],
+    name === "SkyrmeDegreeTwo", certifySkyrmeDegreeTwo[params, cand, opts],
     name === "ScalarFieldND", certifyScalarFieldND[params, cand, opts],
+    name === "ThinFilmMagnet", certifyThinFilmMagnet[params, cand, opts],
+    name === "LinearElasticity", certifyLinearElasticity[params, cand, opts],
     True, certifyScalarField1D[presetSpec[name, params], If[cand === Automatic && name =!= "ScalarField1D", presetCandidate[name, params], cand], opts]];
   If[! (NumericQ[raw["LowerBound"]] && NumericQ[raw["UpperBound"]]),
     Throw[failure["Inconclusive", "A bound could not be enclosed."], "CertiField"]];
@@ -169,7 +190,10 @@ assembleCertificate[name_, params_, cand_, opts_] := Module[{res, raw, base, sta
   If[res["LowerBound"] > res["UpperBound"], Throw[failure["Internal", "Lower bound exceeds upper bound."], "CertiField"]];
   base = Which[
     name === "SkyrmeDegreeOne", skyrmeDescription[res],
+    name === "SkyrmeDegreeTwo", skyrmeDegreeTwoDescription[res],
     name === "ScalarFieldND", scalarNDDescription[params, res],
+    name === "ThinFilmMagnet", tfmDescription[params, res],
+    name === "LinearElasticity", elasticityDescription[params, res],
     True, scalarDescription[name, params, res]];
   rel = N[relGapOf[res]];
   status = If[tolerance === None || rel <= tolerance, "Certified", "Inconclusive"];
@@ -184,7 +208,9 @@ skyrmeDescription[res_] := <|
   "Units" -> "12\[Pi]^2 (Faddeev\[Dash]Bogomolny units), Battye\[Dash]Sutcliffe normalisation",
   "Theorem" -> Row[{"Every finite-energy degree-one map U: \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 with pion mass \[Mu] = ", exactString[res["Mu"]],
     " has E(U)/(12\[Pi]^2) \[GreaterEqual] ", lowerString[res["LowerBound"], 8], ".  The hedgehog trial map has E/(12\[Pi]^2) \[LessEqual] ",
-    upperString[res["UpperBound"], 8], "."}],
+    upperString[res["UpperBound"], 8], ".",
+    If[Lookup[res, "LowerBoundMass", res["Mu"]] =!= res["Mu"],
+      "  (The lower bound is certified at the pion mass " <> exactString[res["LowerBoundMass"]] <> " and holds here because the energy is non-decreasing in the pion mass.)", ""]}],
   "AdmissibleClass" -> "all finite-energy maps \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 of degree one (no symmetry assumed)",
   "LowerBoundMethod" -> Row[{"level-set bound (coarea, isoperimetry, convexified level energy), certified dynamic programme: ",
     res["LevelSet", "Levels"], " levels, ", res["LevelSet", "Pairs"], " transitions, outward-rounded arithmetic"}],
@@ -213,9 +239,14 @@ VerifyCertificate[CertifiedBound[a_Association]] := TrueQ[Catch[verifyCertificat
 
 verifyCertificate[a_Association] := Module[{c = a["Certificate"], name = a["Model"], lb, ub, spec, prec = 30},
   If[name === "ScalarFieldND", Return[verifyScalarFieldND[a]]];
+  If[name === "ThinFilmMagnet", Return[TrueQ[verifyThinFilmMagnet[a]]]];
+  If[name === "LinearElasticity", Return[verifyLinearElasticity[a]]];
+  If[name === "SkyrmeDegreeTwo", Return[verifySkyrmeDegreeTwo[a]]];
   Which[
     name === "SkyrmeDegreeOne",
-      lb = levelSetLowerBound[c["Mu"], loadSkyrmeGrid[skyrmeGridDir[c["Mu"], c["Preset"]]], minorantTable[$skyrmePresets[c["Preset"], "Table"]]]["LowerBound"];
+      (* the mass at which the lower bound was computed (at most the mass of the model) and its grid, shipped or stored *)
+      With[{d = skyrmeCertificateData[c]},
+        lb = levelSetLowerBound[d[[1]], d[[2]], minorantTable[$skyrmePresets[c["Preset"], "Table"]]]["LowerBound"]];
       ub = hedgehogUpperBound[c["Trial"], c["Mu"]]["UpperBound"],
     True,
       spec = scalarField1DSpec[presetSpec[name, a["Parameters"]]];

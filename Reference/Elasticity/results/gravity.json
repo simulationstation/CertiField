@@ -1,0 +1,61 @@
+{
+ "format": "CertiField-elasticity-certificate-1",
+ "problem": {
+  "name": "gravity",
+  "box": [
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "2"
+   ]
+  ],
+  "N": [
+   16,
+   32
+  ],
+  "D": [
+   [
+    "7/2",
+    "3/2",
+    "0"
+   ],
+   [
+    "3/2",
+    "7/2",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "1"
+   ]
+  ],
+  "b": [
+   "0",
+   "-1"
+  ],
+  "bc": [
+   [
+    "N",
+    "N"
+   ],
+   [
+    "D",
+    "N"
+   ]
+  ],
+  "degree": 2
+ },
+ "lower": "-0.4514566136",
+ "upper": "-0.4511230036",
+ "reference": "0.1.0-reference",
+ "info": {
+  "example": "gravity",
+  "note": "column clamped at the bottom under its own weight, three free faces",
+  "seconds": 0.1588752269744873,
+  "exact": null
+ }
+}

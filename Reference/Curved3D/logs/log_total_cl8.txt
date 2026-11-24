@@ -1,0 +1,7 @@
+grid 8, clamped grips: both bounds in exact rational arithmetic (depths 3 and 5)
+   strain: 20000/64941 boxes   225s
+   strain: 40000/64941 boxes   237s
+   strain: 60000/64941 boxes   248s
+   exact lower bound  1.751991202691544     interval result 1.751991202687701    exact - interval = 3.84e-12
+   exact upper bound  1.839118071762823     interval result 1.839118071815897    interval - exact = 5.31e-11
+EXACT TOTALS PASSED   288s
