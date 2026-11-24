@@ -85,3 +85,5 @@ Entries are dated; the newest state is at the top.
   diagonal entries differ by ten orders of magnitude between the types of nodal values.
 * Costs at 5³ with six functions: exact local matrix about 4 s, dual solve 14 s (10 700 iterations), rigorous
   evaluation 4 s.
+
+2026-11-24: ported to the paclet (`Kernel/Elasticity3D.wl`, model `LinearElasticity` with a three-dimensional domain); test vectors agree to 10⁻¹², E-T4 cube 5³ certified with gap 0.86 % in 9 s; items 1 and 3 of the list above dropped.

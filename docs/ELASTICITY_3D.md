@@ -1,9 +1,11 @@
 # Linear elasticity on boxes in three dimensions: the certified bounds
 
-This note extends `docs/ELASTICITY.md` (two dimensions) to boxes in ℝ³. It states and proves what the reference
-implementation `Reference/Elasticity/elasticity3d.py` certifies and describes how the two bounds are computed.
+This note extends `docs/ELASTICITY.md` (two dimensions) to boxes in ℝ³. It states and proves what the model
+`LinearElasticity` certifies when its `"Domain"` has three intervals (`Kernel/Elasticity3D.wl`, a port of the
+reference implementation `Reference/Elasticity/elasticity3d.py`) and describes how the two bounds are computed.
 
-**Status.** Python reference only; there is no Wolfram Language model for three dimensions yet. The inequality is
+**Status.** Implemented in the Python reference and in the paclet; the two agree on the test vectors in
+`Reference/Elasticity/testvectors3d` to 10⁻¹². The inequality is
 the complementary-energy principle of Prager and Synge (1947); stress functions for the equilibrium equations in
 three dimensions go back to Maxwell, Morera and Beltrami, and bounding the energy from both sides with a
 displacement model and an equilibrium model is standard in structural mechanics ("dual analysis"). No novelty is
@@ -307,7 +309,6 @@ useless: these are the cases that Section 3.5 predicts. All four columns are val
   energy-norm errors of the candidate and of the stress field.
 * **Not claimed:** that the bound converges to the infimum under refinement. Section 3.5 gives the reasons to
   expect it and is a sketch; the tables of Section 8 are the evidence.
-* A Wolfram Language model. `testvectors3d/` holds inputs, expected outputs and the polynomial states for a port.
 * Conditions that prescribe only some components of u on a face (rollers), prescribed non-zero tractions, body
   forces that are not constant, stiffness that varies in space, domains other than boxes.
 * Edges where a Dirichlet face meets a traction-free face carry stress singularities. Both bounds remain valid,

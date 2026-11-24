@@ -136,15 +136,18 @@ el3Enclose[q_List] := Module[{x = Quiet@Developer`ToPackedArray[N[q]], lo, hi, o
 
 (* the quadratic form Sum[m[[k, l]] d_k d_l] of an exact symmetric matrix m, prepared row by row: {k, enclosure of
    m[[k, k]] or None, the columns l > k with m[[k, l]] != 0, lower and upper ends of the enclosures of 2 m[[k, l]]} *)
-el3Rows[m_] := Module[{n = Length[m], vals, enc},
-  vals = DeleteCases[DeleteDuplicates[Join[Diagonal[m], 2 Flatten[Table[m[[k, k + 1 ;;]], {k, n - 1}]]]], 0];
-  enc = AssociationThread[vals -> Transpose[el3Enclose[vals]]];
+el3Rows[m_] := Module[{sa = SparseArray[UpperTriangularize[m]], pos, c, uv, enc, e},
+  pos = sa["NonzeroPositions"];                              (* sorted by row, then column *)
+  (* the coefficient of d_k d_l: m[[k, k]] on the diagonal, 2 m[[k, l]] off it *)
+  c = sa["NonzeroValues"] (2 - (1 - Unitize[pos[[All, 1]] - pos[[All, 2]]]));
+  uv = DeleteDuplicates[c];
+  enc = AssociationThread[uv -> Transpose[el3Enclose[uv]]];
+  e = Lookup[enc, c];
   Table[
-    With[{cols = k + Flatten[Position[m[[k, k + 1 ;;]], x_ /; x != 0, {1}, Heads -> False]]},
-      If[m[[k, k]] == 0 && cols === {}, Nothing,
-        {k, If[m[[k, k]] == 0, None, enc[m[[k, k]]]], cols,
-         Developer`ToPackedArray[N[enc[2 m[[k, #]]][[1]] & /@ cols]], Developer`ToPackedArray[N[enc[2 m[[k, #]]][[2]] & /@ cols]]}]],
-    {k, n}]];
+    With[{k = pos[[g[[1]], 1]], isd = pos[[g[[1]], 1]] == pos[[g[[1]], 2]]},
+      With[{off = If[isd, Rest[g], g]},
+        {k, If[isd, e[[g[[1]]]], None], pos[[off, 2]], Developer`ToPackedArray[N[e[[off, 1]]]], Developer`ToPackedArray[N[e[[off, 2]]]]}]],
+    {g, SplitBy[Range[Length[pos]], pos[[#, 1]] &]}]];
 
 (* enclosure of the sum over the first dimension of an interval array {lo, hi}: pairwise, every addition rounded
    outward and checked *)
