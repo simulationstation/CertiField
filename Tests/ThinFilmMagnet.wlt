@@ -72,6 +72,20 @@ VerificationTest[
     {neg["LowerBound"] == tfmM1["LowerBound"], neg["RelativeGap"] < 0.005, plus["LowerBound"] <= 4 Pi <= plus["LowerBound"] + 10^-14, plus["RelativeGap"] < 0.02}],
   {True, True, True, True}, TestID -> "tfm-negative-kappa-and-degree-plus-one"]
 
+(* the stray field of a film of thickness t: known answer first (degree 0: the uniform state is the minimiser) *)
+VerificationTest[
+  With[{c = CertifiedVariationalBound[CertiFieldModel["ThinFilmMagnet", <|"K" -> 1, "Field" -> 1, "Degree" -> 0, "Thickness" -> 1/10,
+      "Domain" -> {{-2, 2}, {-2, 2}}, "Cells" -> 20|>], Function[{x, y}, {0, 0, 1}]]},
+    {c["Status"], c["LowerBound"] == 0, 0 <= c["UpperBound"] < 10^-12}],
+  {"Certified", True, True}, TestID -> "tfm-stray-field-uniform-state"]
+
+tfmStray = CertifiedVariationalBound[CertiFieldModel["ThinFilmMagnet",
+  <|"A" -> 1/2, "DMI" -> 1, "K" -> 1/2, "Field" -> 2, "Thickness" -> 1/20, "Domain" -> {{-4, 4}, {-4, 4}}, "Cells" -> 240|>]];
+VerificationTest[
+  {tfmStray["Status"], 0 < tfmStray["LowerBound"] < tfmStray["UpperBound"], tfmStray["RelativeGap"] < 0.03, VerifyCertificate[tfmStray],
+   VerifyCertificate[CertifiedBound[Append[tfmStray["Association"], "LowerBound" -> tfmStray["LowerBound"] + 0.001]]]},
+  {"Certified", True, True, True, False}, TestID -> "tfm-stray-field-skyrmion"]
+
 (* failure modes *)
 VerificationTest[
   {FailureQ[CertifiedVariationalBound[CertiFieldModel["ThinFilmMagnet", <|"DMI" -> 1, "Field" -> 2, "Domain" -> {{-1/3, 1/3}, {-1, 1}}|>]]],

@@ -339,10 +339,13 @@ For the model of Li and Melcher (A = 1/2, κ = 1, K = 0, degree −1):
 | 10 | (−2, 2)² | 400×400 | 12.014250 ≤ inf E ≤ 12.016743 | 0.0208 % | 30 s |
 | 20 | (−3/2, 3/2)² | 400×400 | 12.332262 ≤ inf E ≤ 12.333540 | 0.0104 % | 29 s |
 
-Dual fields for h = 3/2, 2, 3, 5, 10 and 20 ship with the paclet; for other parameters closed-form ones are used,
-which are exact at critical coupling and weaker elsewhere, and `Reference/Magnetisation` computes a dual field for
-any field h. Statements and proofs: [`docs/MAGNETISATION.md`](docs/MAGNETISATION.md). Not claimed: that the
-axisymmetric skyrmion is a minimiser. The stray field is not included.
+Dual fields for h = 3/2, 2, 3, 5, 10 and 20 ship with the paclet as a cache, `Reference/Magnetisation` computes one for
+any field h; without either, the package searches for its own. Either sign of κ and degree +1 are supported.
+With `"Thickness" -> t` the stray field of the film Ω × (0, t) is included (magnetisation independent of the
+thickness coordinate, energy unit μ₀M_s²) and the certified quantity is the energy above the uniformly magnetised
+film. For the same skyrmion with K = 1/2, which the shape anisotropy of the film cancels, and t = 1/20:
+0.4177781 ≤ inf (E − E[e₃]) ≤ 0.4244089, gap 1.6 %. Statements and proofs:
+[`docs/MAGNETISATION.md`](docs/MAGNETISATION.md). Not claimed: that the axisymmetric skyrmion is a minimiser.
 
 ## How it works
 
@@ -457,7 +460,8 @@ takes 1 to 7 s for convex energies up to 48³ cells and 39 s to 18 min for the n
 * **Scalar fields in 2D and 3D**: source terms f(x)u and the Poisson problem (exactly equilibrated fluxes),
   potentials that are not polynomials, domains other than boxes and `NDSolve`'s own finite-element meshes.
 * **Linear elasticity**: prescribed tractions and roller conditions, stiffness and body forces that vary in space.
-* **Chiral magnets**: the stray field, three-dimensional textures, and degrees other than −1 with automatic competitors.
+* **Chiral magnets**: magnetisations that vary through the thickness, three-dimensional textures, and degrees |Q| > 1
+  with automatic competitors.
 * Higher-charge Skyrmions, and LibraryLink acceleration of the dynamic programme.
 
 ## Repository layout

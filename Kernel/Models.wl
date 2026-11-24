@@ -79,6 +79,7 @@ CertiFieldModelInfo["ThinFilmMagnet"] := <|
     "K" -> "uniaxial anisotropy (default 0; may be negative)", "Field" -> "h >= 0, Zeeman field along e3 (default 0)", "Degree" -> "Q, an integer (default -1)",
     "Domain" -> "{{a1, b1}, {a2, b2}} with dyadic rational corners", "Cells" -> "cells per direction of the competitor's graded grid, even (default 200)",
     "Grading" -> "Automatic or \[Beta] >= 0 (sinh grading towards the centre)",
+    "Thickness" -> "t >= 0 (default 0): with t > 0 the stray field of the film \[CapitalOmega] \[Times] (0, t) is included (magnetisation independent of x3, energy unit \[Mu]0 Ms^2) and the certified quantity is E[m] - E[e3]",
     "DualField" -> "Automatic (the certificates shipped in Data/Magnetisation as a cache, otherwise the package's own search, and closed forms; the best that passes the exact check), a file written by the Python reference, or <|\"Mesh\", \"Phi\", \"U\", \"Gamma\"|>"|>,
   "Candidate" -> "Automatic (degree -1 with \[Kappa] \[NotEqual] 0: the axisymmetric skyrmion from a radial Newton solve; degree \[PlusMinus]1 otherwise: a Belavin\[Dash]Polyakov map of small radius), a profile Function[r, \[Theta]] (\[Theta](0) = \[Pi]), or a field Function[{x, y}, {m1, m2, m3}]",
   "AdmissibleClass" -> "all m in H^1 of the rectangle with |m| = 1, m = e3 on the boundary and degree Q",

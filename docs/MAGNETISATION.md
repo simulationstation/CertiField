@@ -275,12 +275,57 @@ The lower bounds hold on every domain. Further certified lower bounds: 6.6970232
 
 * **Not claimed:** that the competitor is a minimiser, or that the axisymmetric skyrmion is the minimiser in its
   degree class. The certified interval is for the infimum of E over 𝒜_Q.
-* The stray field (magnetostatic energy) is not included.
+* The stray field is included only for magnetisations that do not vary through the thickness (Section 10).
 * Dual fields that depend on x are not used. For domains that are small compared with the skyrmion the bound of
   Proposition 5 is valid but not tight.
 * Boundary values other than e₃ (thin film) and ±e₃ on two opposite sides (strip); free boundaries for the thin
   film with a Dzyaloshinskii–Moriya term (the term then contributes on the boundary).
 * Three dimensions beyond the exchange-only cube.
+
+## 10. The stray field of a thin film
+
+**Problem.** For a thickness t > 0 the film is F = Ω × (0, t) and m ∈ 𝒜 is extended to F independently of x₃.
+In units of μ₀M_s² (the self-energy density of a unit magnetisation is ½),
+
+    E_t[m] = t ∫_Ω A|∇m|² + κ m·(∇×m) + K(1 − m₃²) + h(1 − m₃) dx + E_ms[m],
+    E_ms[m] = ½ ∫_{ℝ³} |∇U|²,   ΔU = div(m χ_F).
+
+The certified quantity is E_t[m] − E_t[e₃] over 𝒜_Q; E_t[e₃] = E_ms[e₃] is the energy of the uniformly magnetised
+film. Magnetisations that vary through the thickness are not in the admissible class.
+
+**Lemma 9.** Let m ∈ 𝒜, w = (m₃ − 1)χ_Ω and m' = (m₁, m₂)χ_Ω (both in H¹(ℝ²), as m = e₃ on ∂Ω), σ(s) = (1 − e^{−s})/s,
+and đk = dk/(2π)². Then
+
+    E_ms[m] − E_ms[e₃] = t ∫ w c dx + (t/2) ∫ σ(|k|t) |ŵ|² đk + (t/2) ∫ (1 − σ(|k|t)) |k̂·m̂'|² đk,
+
+where c = K * χ_Ω, K = (1/t)∫₀ᵗ P_s ds and P_s(x) = s/(2π(|x|² + s²)^{3/2}). Moreover 0 ≤ c ≤ 1 and
+c(x) ≥ 1 − (√(ρ² + t²) − ρ)/t ≥ 1 − t/(2ρ), ρ = dist(x, ∂Ω).
+
+*Proof.* In Fourier variables (k, ζ) of ℝ³, Û = −i(k, ζ)·M̂/(|k|² + ζ²) with M̂ = (m̂', m̂₃)(k) τ̂(ζ),
+|τ̂(ζ)|² = 4 sin²(ζt/2)/ζ². The cross term k·m̂' ζ m̂₃ is odd in ζ, and
+∫ 4 sin²(ζt/2)/(|k|² + ζ²) dζ/2π = tσ(|k|t), ∫ 4 sin²(ζt/2)/(ζ²(|k|² + ζ²)) dζ/2π = t(1 − σ(|k|t))/|k|². Hence
+E_ms[m] = (t/2)∫ σ|m̂₃|² + (1 − σ)|k̂·m̂'|² đk. Write m₃χ_Ω = χ_Ω + w and subtract the same formula for e₃.
+The cross term is t∫σ Re(χ̂ ŵ*) đk = t∫ w (K * χ_Ω) dx, because σ(|k|t) = (1/t)∫₀ᵗ e^{−s|k|} ds and e^{−s|k|} is
+the transform of P_s. P_s ≥ 0 has mass one, so 0 ≤ c ≤ 1, and its mass in the disc of radius ρ is
+1 − s/√(ρ² + s²); averaging over s gives the last bound. ∎
+
+**Proposition 10.** For every λ > 0 and m ∈ 𝒜,
+
+    E_t[m] − E_t[e₃] ≥ t E[A − tλ/8, κ, K − ½ + t/(8λ), h − t/(4λ)][m],
+
+where E[A, κ, K, h] is the energy of Section 1. For every m ∈ 𝒜 and every function e ≥ 1 − c on {w ≠ 0},
+
+    E_t[m] − E_t[e₃] ≤ t E[A, κ, K − ½, h][m] + t ∫ e (1 − m₃) dx + (t²/4) ‖div m'‖₂ ‖m'‖₂.
+
+*Proof.* Lower bound: w ≤ 0 and c ≤ 1 give wc ≥ w; the volume term is ≥ 0; σ(s) ≥ 1 − s/2 gives
+(t/2)∫σ|ŵ|² ≥ (t/2)∫w² − (t²/4)∫|k||ŵ|², and ∫|k||ŵ|² đk ≤ ‖w‖₂‖∇w‖₂ ≤ (λ/2)‖∇m‖₂² + ‖w‖₂²/(2λ) (Cauchy–Schwarz,
+|∇m₃| ≤ |∇m|). With w + w²/2 = −(1 − m₃²)/2 and (1 − m₃)² = 2(1 − m₃) − (1 − m₃²) the bound is the stated
+energy. Upper bound: wc ≤ w(1 − e) as w ≤ 0; σ ≤ 1; 1 − σ(s) ≤ s/2 and ∫|k·m̂'|²/|k| đk ≤ ‖div m'‖₂‖m'‖₂. ∎
+
+The lower bound is evaluated with the dual fields of Section 3 for the shifted constants (λ is chosen to balance
+the two terms on the competitor), the upper bound with the competitor of Section 5: e is t/(2ρ) on each cell, and
+‖div m'‖₂² is enclosed cell by cell by interval evaluation of div m' = (∂₁M₁ + ∂₂M₂ − (M₁ M·∂₁M + M₂ M·∂₂M)/D)/√D.
+`check_strayfield.py` checks Lemma 9 and the bounds against Hankel-transform quadrature for Bloch and Néel textures.
 
 ## References
 

@@ -23,9 +23,10 @@ Begin["CertiField`Private`"];
 tfmExactQ[x_] := MatchQ[x, _Integer | _Rational];
 tfmDyadicQ[x_] := tfmExactQ[x] && exactNumber[N[x]] == x;
 
-tfmSpec[params_Association] := Module[{p = exactify[params], A, k, K, h, Q, dom, cells, beta},
+tfmSpec[params_Association] := Module[{p = exactify[params], A, k, K, h, Q, dom, cells, beta, t},
   A = Lookup[p, "A", 1/2]; k = Lookup[p, "DMI", 0]; K = Lookup[p, "K", 0]; h = Lookup[p, "Field", 0]; Q = Lookup[p, "Degree", -1];
-  dom = Lookup[p, "Domain", Missing[]]; cells = Lookup[p, "Cells", 200]; beta = Lookup[p, "Grading", Automatic];
+  dom = Lookup[p, "Domain", Missing[]]; cells = Lookup[p, "Cells", 200]; beta = Lookup[p, "Grading", Automatic]; t = Lookup[p, "Thickness", 0];
+  If[! (tfmExactQ[t] && t >= 0), Throw[failure["BadModel", "\"Thickness\" must be a rational number >= 0 (0: no stray field)."], "CertiField"]];
   If[! (tfmExactQ[A] && A > 0 && tfmExactQ[k] && tfmExactQ[K] && tfmExactQ[h] && h >= 0),
     Throw[failure["BadModel", "\"A\" > 0, \"DMI\", \"K\" and \"Field\" >= 0 must be rational numbers."], "CertiField"]];
   If[! IntegerQ[Q], Throw[failure["BadModel", "\"Degree\" must be an integer."], "CertiField"]];
@@ -33,7 +34,7 @@ tfmSpec[params_Association] := Module[{p = exactify[params], A, k, K, h, Q, dom,
     Throw[failure["BadModel", "\"Domain\" must be a rectangle {{a1, b1}, {a2, b2}} whose corners are dyadic rationals (exact machine numbers), e.g. {{-4, 4}, {-4, 4}}."], "CertiField"]];
   If[! (IntegerQ[cells] && cells >= 4 && EvenQ[cells]), Throw[failure["BadModel", "\"Cells\" must be an even integer >= 4 (cells per direction)."], "CertiField"]];
   If[! (beta === Automatic || (NumericQ[beta] && beta >= 0)), Throw[failure["BadModel", "\"Grading\" must be Automatic or a number >= 0."], "CertiField"]];
-  <|"A" -> A, "DMI" -> k, "K" -> K, "Field" -> h, "Degree" -> Q, "Domain" -> dom, "Cells" -> cells, "Grading" -> beta,
+  <|"A" -> A, "DMI" -> k, "K" -> K, "Field" -> h, "Degree" -> Q, "Domain" -> dom, "Cells" -> cells, "Grading" -> beta, "Thickness" -> t,
     "Area" -> (dom[[1, 2]] - dom[[1, 1]]) (dom[[2, 2]] - dom[[2, 1]])|>];
 
 tfmModelOf[spec_] := <|"A" -> spec["A"], "DMI" -> spec["DMI"], "K" -> spec["K"], "Field" -> spec["Field"]|>;
@@ -293,7 +294,7 @@ $tfmT2 = Table[Binomial[2, i] Binomial[2, j] Binomial[2, l]/(7 Binomial[6, i + j
 $tfmG12 = Table[Binomial[1, i] Binomial[2, k]/(4 Binomial[3, i + k]), {i, 0, 1}, {k, 0, 2}];
 
 (* RIGOROUS: an exact rational >= E[m_h] *)
-tfmUpperBound[mod_, x1_, x2_, Mn_] := ndQuiet@Module[
+tfmUpperBound[mod_, x1_, x2_, Mn_, extra_ : 0] := ndQuiet@Module[
   {B = tfmCells[x1, x2, Mn], c, alo, bhi, a, b, Cl, Ck, v, w, a2b2, al2, be2, quartic, X, Y, ex, total, d0, gap, linear, dm, area, q, q0, q1, an,
    m3, m0, m1, neg, gz, ze, h1, h2},
   h1 = B["h1"]; h2 = B["h2"];
@@ -339,14 +340,14 @@ tfmUpperBound[mod_, x1_, x2_, Mn_] := ndQuiet@Module[
       With[{dd = ivPt[(alo + bhi)/2]}, ndSub[ndDiv[ivK[q0, 2], dd], ndDiv[q1, ndMul[dd, dd]]]]];
     total = ndAdd[total, ivK[ndMul[an, area], mod["K"]]]];
   (* Zeeman: h (1 - M3/|M|),  1/|M| = (3 - D)/2 + r,  0 <= r <= (1 - D)^2/(2D) *)
-  If[mod["Field"] != 0,
+  If[mod["Field"] != 0 || extra =!= 0,
     m3 = #[[3]] & /@ {B["00"], B["10"], B["01"], B["11"]};
     m0 = ivK[ivSum[m3], 1/4];
     m1 = ivSum[Flatten[Table[ivK[ndMul[{B["00"], B["01"], B["10"], B["11"]}[[1 + 2 i + j, 3]], c[[k, l]]], $tfmG12[[i + 1, k]] $tfmG12[[j + 1, l]]], {i, 0, 1}, {j, 0, 1}, {k, 3}, {l, 3}], 3]];
     neg = Ramp[-Fold[vMin, #[[1]] & /@ m3]];
     gz = vMax[ndDiv[ivSqr[ndSub[{1., 1.}, a]], ivK[a, 2]][[2]], ndDiv[ivSqr[ndSub[{1., 1.}, b]], ivK[b, 2]][[2]]];
     ze = ivSum[{{1., 1.}, ivK[m0, -3/2], ivK[m1, 1/2], ndMul[ivPt[neg], ivPt[gz]]}];
-    total = ndAdd[total, ivK[ndMul[ze, area], mod["Field"]]]];
+    total = ndAdd[total, ndMul[ndMul[ze, area], ndAdd[ivC[mod["Field"]], {0. alo, 0. alo + extra}]]]];
   exactTotal[total[[2]]]];
 
 (* RIGOROUS: {Q or None, {lo, hi}} with lo <= Integral m.(d1 m x d2 m) <= hi (exact rationals) *)
@@ -413,8 +414,8 @@ tfmProfile[mod_, L_, n_ : 3000] := Module[
 (* nodal vectors of an axisymmetric field about the centre of the domain, e3 on the boundary and outside the inscribed
    circle: degree -1: (-sin(theta) y/r, sin(theta) x/r, cos(theta)) for kappa >= 0 and its image under
    (m1, m2) -> (-m1, -m2) for kappa < 0; degree +1: (sin(theta) x/r, -sin(theta) y/r, cos(theta)) *)
-tfmRadialNodes[spec_, x1_, x2_, theta_] := Module[{dom = spec["Domain"], cx, cy, L, X, Y, r, th, s, inside, Mn, m1, m2},
-  cx = N[Mean[dom[[1]]]]; cy = N[Mean[dom[[2]]]]; L = N[Min[(dom[[1, 2]] - dom[[1, 1]])/2, (dom[[2, 2]] - dom[[2, 1]])/2]];
+tfmRadialNodes[spec_, x1_, x2_, theta_, Ltex_] := Module[{dom = spec["Domain"], cx, cy, L = N[Ltex], X, Y, r, th, s, inside, Mn, m1, m2},
+  cx = N[Mean[dom[[1]]]]; cy = N[Mean[dom[[2]]]];
   X = Transpose[ConstantArray[x1 - cx, Length[x2]]]; Y = ConstantArray[x2 - cy, Length[x1]];
   r = Sqrt[X^2 + Y^2];
   th = ArrayReshape[tfmEvalList[theta, Flatten[Clip[r, {0., L}]]], Dimensions[r]];
@@ -428,9 +429,9 @@ tfmRadialNodes[spec_, x1_, x2_, theta_] := Module[{dom = spec["Domain"], cx, cy,
 
 tfmEvalList[f_, list_] := Module[{v = Quiet[f[list]]}, If[VectorQ[v, Internal`RealValuedNumericQ] && Length[v] == Length[list], N[v], N[f /@ list]]];
 
-tfmAutoGrading[spec_, theta_, n_] := Module[{L, rr, core, f},
+tfmAutoGrading[spec_, theta_, n_, Ltex_] := Module[{L, rr, core, f},
   L = N[Min[(spec["Domain"][[1, 2]] - spec["Domain"][[1, 1]])/2, (spec["Domain"][[2, 2]] - spec["Domain"][[2, 1]])/2]];
-  rr = Subdivide[0., L, 4000];
+  rr = Subdivide[0., N[Ltex], 4000];
   core = Max[rr[[Replace[Flatten[Position[UnitStep[Pi/2 - tfmEvalList[theta, rr]], 1, 1, 1]], {} -> {2}][[1]]]], L/1000];
   (* smallest cell about core/40 *)
   f[beta_?NumericQ] := L beta/(n Sinh[beta]) - core/40;
@@ -441,8 +442,8 @@ tfmSmallBP[spec_, L_] := Module[{stiff = N[spec["Field"] + 2 Abs[spec["K"]]], R}
   R = Min[N[L]/40, If[stiff > 0, 0.05/Sqrt[stiff], Infinity]];
   With[{RR = R, LL = N[L]}, Function[r, 2 ArcTan[r, RR (1 - (r/LL)^2)^2]]]];
 
-tfmCompetitor[spec_, cand_] := Module[{n = spec["Cells"]/2, theta, beta, x1, x2, Mn, f, L},
-  L = Min[(spec["Domain"][[1, 2]] - spec["Domain"][[1, 1]])/2, (spec["Domain"][[2, 2]] - spec["Domain"][[2, 1]])/2];
+tfmCompetitor[spec_, cand_, frac_ : 1] := Module[{n = spec["Cells"]/2, theta, beta, x1, x2, Mn, f, L},
+  L = frac Min[(spec["Domain"][[1, 2]] - spec["Domain"][[1, 1]])/2, (spec["Domain"][[2, 2]] - spec["Domain"][[2, 1]])/2];
   theta = Which[
     cand === Automatic,
       If[! MemberQ[{-1, 1}, spec["Degree"]], Throw[failure["BadCandidate", "The automatic competitor has degree -1 or +1; for other degrees give a field Function[{x, y}, {m1, m2, m3}]."], "CertiField"]];
@@ -451,10 +452,10 @@ tfmCompetitor[spec_, cand_] := Module[{n = spec["Cells"]/2, theta, beta, x1, x2,
     True, None];
   f = If[theta === None && ! MatchQ[cand, _Function | _InterpolatingFunction], Throw[failure["BadCandidate", "The candidate must be Automatic, a profile Function[r, theta] or a field Function[{x, y}, {m1, m2, m3}]."], "CertiField"], cand];
   If[theta === None && NumericQ[Quiet[f[0.5]]], theta = f];
-  beta = Replace[spec["Grading"], Automatic :> If[theta =!= None, tfmAutoGrading[spec, theta, n], 3.]];
+  beta = Replace[spec["Grading"], Automatic :> If[theta =!= None, tfmAutoGrading[spec, theta, n, L], 3.]];
   x1 = tfmGradedAxis[spec["Domain"][[1, 1]], spec["Domain"][[1, 2]], n, beta];
   x2 = tfmGradedAxis[spec["Domain"][[2, 1]], spec["Domain"][[2, 2]], n, beta];
-  Mn = If[theta =!= None, tfmRadialNodes[spec, x1, x2, theta],
+  Mn = If[theta =!= None, tfmRadialNodes[spec, x1, x2, theta, L],
     Module[{vals = Outer[N[f[#1, #2]] &, x1, x2]},
       If[! ArrayQ[vals, 3, Internal`RealValuedNumericQ] || Dimensions[vals] =!= {Length[x1], Length[x2], 3},
         Throw[failure["BadCandidate", "The field must return three real numbers at every node."], "CertiField"]];
@@ -467,6 +468,7 @@ tfmCompetitor[spec_, cand_] := Module[{n = spec["Cells"]/2, theta, beta, x1, x2,
 (* ================================================================================================ *)
 
 certifyThinFilmMagnet[params_Association, cand_, opts_List] := Module[{spec = tfmSpec[params], t0 = AbsoluteTime[], dual, lb, x1, x2, Mn, beta, deg, ub},
+  If[spec["Thickness"] > 0, Return[tfmCertifyStray[spec, cand], Module]];
   dual = tfmChooseDual[spec, Lookup[params, "DualField", Automatic]];
   lb = tfmLowerExact[dual, spec["Degree"], spec["Area"]];
   {x1, x2, Mn, beta} = tfmCompetitor[spec, cand];
@@ -478,12 +480,92 @@ certifyThinFilmMagnet[params_Association, cand_, opts_List] := Module[{spec = tf
     "BoundCoefficients" -> tfmBoundCoefficients[dual, spec["Degree"], spec["Area"]], "Grid" -> {x1, x2}, "Grading" -> beta, "Nodal" -> Mn,
     "DegreeEnclosure" -> deg[[2]], "Spec" -> spec|>];
 
-tfmDescription[params_, res_] := Module[{sp = res["Spec"], d = Max[displayDigits[res], 8]},
-  <|"Units" -> "energy units of the model",
+(* ---- the stray field (docs/MAGNETISATION.md, Section 10): E[m] - E[e3] for the film of thickness t ----
+   lower: t E2D[A - t lam/8, kappa, K - 1/2 + t/(8 lam), h - t/(4 lam)]  (any lam > 0),
+   upper: t E2D[A, kappa, K - 1/2, h + 1 - clow][m_h] + t^2/4 Sqrt[2 Int |grad m_h|^2 Int (1 - m3^2)],
+   clow = 1 - t/(2 rho) <= the mean of the 2D Poisson kernels over the thickness, rho the distance of the texture to the edge *)
+
+tfmSqrtUp[q_] := Module[{s = fHi[Sqrt[N[q, 30]]]}, While[exactNumber[s]^2 < q, s = nextUp[s]]; exactNumber[s]];
+
+(* per cell an upper bound for 1 - c on the cell: min(1, t/(2 rho)), rho the distance of the cell to the edge *)
+tfmEdgeFactor[spec_, t_, x1_, x2_] := Module[{dom = spec["Domain"], dx, dy, rho},
+  dx = MapThread[Min[#1 - dom[[1, 1]], dom[[1, 2]] - #2] &, {exactNumber /@ Most[x1], exactNumber /@ Rest[x1]}];
+  dy = MapThread[Min[#1 - dom[[2, 1]], dom[[2, 2]] - #2] &, {exactNumber /@ Most[x2], exactNumber /@ Rest[x2]}];
+  rho = Outer[Min, dx, dy];
+  Developer`ToPackedArray[Map[If[# <= 0, 1., fHi[Min[1, t/(2 #)]]] &, rho, {2}]]];
+
+(* RIGOROUS: an exact rational >= Integral (div m')^2, m' = (m1, m2), by interval evaluation on every cell *)
+tfmDivBound[x1_, x2_, Mn_] := ndQuiet@Module[{B = tfmCells[x1, x2, Mn], c, alo, bhi, a, b, hull, M, dxi, deta, d1, d2, n1, n2, num, isd, dv},
+  c = tfmDCoefficients[B, {1, 2, 3}];
+  {alo, bhi} = tfmRange[Flatten[c, 1]];
+  If[Min[alo] <= 0, Throw[failure["Inconclusive", "The interpolant of the candidate may vanish."], "CertiField"]];
+  a = ivPt[alo]; b = ivPt[bhi];
+  hull[ivs_List] := {Fold[vMin, #[[1]] & /@ ivs], Fold[vMax, #[[2]] & /@ ivs]};
+  M = Table[hull[{B["00"][[j]], B["10"][[j]], B["01"][[j]], B["11"][[j]]}], {j, 3}];
+  dxi = Table[hull[{ndSub[B["10"][[j]], B["00"][[j]]], ndSub[B["11"][[j]], B["01"][[j]]]}], {j, 3}];
+  deta = Table[hull[{ndSub[B["01"][[j]], B["00"][[j]]], ndSub[B["11"][[j]], B["10"][[j]]]}], {j, 3}];
+  d1 = ndDiv[#, B["h1"]] & /@ dxi; d2 = ndDiv[#, B["h2"]] & /@ deta;
+  n1 = tfmDot[M, d1]; n2 = tfmDot[M, d2];
+  num = ndSub[ndAdd[d1[[1]], d2[[2]]], ndDiv[ndAdd[ndMul[M[[1]], n1], ndMul[M[[2]], n2]], {alo, bhi}]];
+  isd = {ndDiv[{2., 2.}, ndAdd[b, {1., 1.}]][[1]], ndDiv[ndAdd[a, {1., 1.}], ivK[a, 2]][[2]]};    (* 2/(1 + D) <= 1/Sqrt[D] <= (1 + D)/(2 D) *)
+  dv = ndMul[num, isd];
+  exactTotal[ndMul[ivSqr[dv], ndMul[B["h1"], B["h2"]]][[2]]]];
+
+tfmCLow[spec_, t_, x1_, x2_, Mn_] := Module[{dom = spec["Domain"], nz, cm, dx, dy, rows, cols, rho},
+  nz = 1 - Map[Boole[# === {0., 0., 1.}] &, Mn, {2}];
+  cm = Unitize[nz[[1 ;; -2, 1 ;; -2]] + nz[[2 ;;, 1 ;; -2]] + nz[[1 ;; -2, 2 ;;]] + nz[[2 ;;, 2 ;;]]];
+  rows = Flatten[Position[Total[cm, {2}], _?Positive]]; cols = Flatten[Position[Total[cm], _?Positive]];
+  If[rows === {}, Return[1, Module]];
+  dx = MapThread[Min[#1 - dom[[1, 1]], dom[[1, 2]] - #2] &, {exactNumber /@ Most[x1], exactNumber /@ Rest[x1]}];
+  dy = MapThread[Min[#1 - dom[[2, 1]], dom[[2, 2]] - #2] &, {exactNumber /@ Most[x2], exactNumber /@ Rest[x2]}];
+  rho = Min[dx[[rows]], dy[[cols]]];
+  If[rho <= 0, 0, Max[0, 1 - t/(2 rho)]]];
+
+(* heuristic: lam balancing t^2 lam/8 Int |grad m|^2 against t^2/(8 lam) Int (1 - m3)^2 on the competitor *)
+tfmLambda[spec_, X_, x1_, x2_, Mn_] := Module[{t = spec["Thickness"], m3, w2, area, yw, lam},
+  m3 = Mn[[All, All, 3]]/Sqrt[Total[Mn^2, {3}]];
+  w2 = (1 - m3)^2;
+  area = Outer[Times, Differences[x1], Differences[x2]];
+  yw = Total[area (w2[[1 ;; -2, 1 ;; -2]] + w2[[2 ;;, 1 ;; -2]] + w2[[1 ;; -2, 2 ;;]] + w2[[2 ;;, 2 ;;]])/4, 2];
+  lam = If[N[X] > 0 && yw > 0, Sqrt[yw/N[X]], 1.];
+  lam = Clip[lam, {10.^-3, 2. spec["A"]/t}];
+  Rationalize[lam, lam 10^-3]];
+
+tfmShifted[spec_, lam_] := With[{t = spec["Thickness"]},
+  Join[spec, <|"A" -> spec["A"] - t lam/8, "K" -> spec["K"] - 1/2 + t/(8 lam), "Field" -> spec["Field"] - t/(4 lam), "Thickness" -> 0|>]];
+
+tfmStrayUpper[spec_, x1_, x2_, Mn_] := Module[{t = spec["Thickness"], X, Y, dv, clow, ubLoc},
+  X = tfmUpperBound[<|"A" -> 1, "DMI" -> 0, "K" -> 0, "Field" -> 0|>, x1, x2, Mn];
+  Y = tfmUpperBound[<|"A" -> 0, "DMI" -> 0, "K" -> 1, "Field" -> 0|>, x1, x2, Mn];
+  dv = Min[tfmDivBound[x1, x2, Mn], 2 X];
+  clow = tfmCLow[spec, t, x1, x2, Mn];
+  ubLoc = tfmUpperBound[<|"A" -> spec["A"], "DMI" -> spec["DMI"], "K" -> spec["K"] - 1/2, "Field" -> spec["Field"]|>, x1, x2, Mn, tfmEdgeFactor[spec, t, x1, x2]];
+  {t ubLoc + t^2/4 tfmSqrtUp[dv Y], X, Y, clow}];
+
+tfmCertifyStray[spec_, cand_] := Quiet[Module[{t = spec["Thickness"], t0 = AbsoluteTime[], x1, x2, Mn, beta, deg, ub, X, Y, clow, lam, shifted, dual, lb},
+  {x1, x2, Mn, beta} = tfmCompetitor[Join[spec, <|"K" -> spec["K"] - 1/2|>], cand, 3/4];
+  deg = tfmDegree[x1, x2, Mn];
+  If[deg[[1]] =!= spec["Degree"],
+    Throw[failure["Inconclusive", "The degree of the competitor could not be certified to be " <> ToString[spec["Degree"]] <> "."], "CertiField"]];
+  {ub, X, Y, clow} = tfmStrayUpper[spec, x1, x2, Mn];
+  lam = tfmLambda[spec, X, x1, x2, Mn];
+  shifted = tfmShifted[spec, lam];
+  dual = tfmChooseDual[shifted, Automatic];
+  lb = t tfmLowerExact[dual, spec["Degree"], spec["Area"]];
+  <|"LowerBound" -> lb, "UpperBound" -> ub, "Seconds" -> AbsoluteTime[] - t0, "Dual" -> dual, "Lambda" -> lam, "CLow" -> clow,
+    "BoundCoefficients" -> t tfmBoundCoefficients[dual, spec["Degree"], spec["Area"]], "Grid" -> {x1, x2}, "Grading" -> beta, "Nodal" -> Mn,
+    "DegreeEnclosure" -> deg[[2]], "Spec" -> spec|>], {General::munfl}];
+
+tfmDescription[params_, res_] := Module[{sp = res["Spec"], d = Max[displayDigits[res], 8], stray, en},
+  stray = sp["Thickness"] > 0;
+  en = If[stray, "E[m] - E[e3]", "E[m]"];
+  <|"Units" -> If[stray, "\[Mu]0 Ms^2 times length^3 (lengths in the units of the domain)", "energy units of the model"],
     "Theorem" -> Row[{"Every m in H^1 of the rectangle ", exactString[sp["Domain"]], " with values in S^2, m = (0, 0, 1) on the boundary and degree ", sp["Degree"],
-      " has E[m] \[GreaterEqual] ", lowerString[res["LowerBound"], d], "; the competitor, of certified degree ", sp["Degree"], ", has E \[LessEqual] ", upperString[res["UpperBound"], d], "."}],
-    "Energy" -> Row[{"E[m] = \[Integral] ", exactString[sp["A"]], " |\[Del]m|^2 + ", exactString[sp["DMI"]], " m\[CenterDot](\[Del]\[Times]m) + ", exactString[sp["K"]],
-      " (1 - m3^2) + ", exactString[sp["Field"]], " (1 - m3) dx"}],
+      " has ", en, " \[GreaterEqual] ", lowerString[res["LowerBound"], d], "; the competitor, of certified degree ", sp["Degree"], ", has ", en, " \[LessEqual] ", upperString[res["UpperBound"], d],
+      If[stray, Row[{" (stray field of the film of thickness ", exactString[sp["Thickness"]], " included; e3 is the uniformly magnetised film)"}], ""], "."}],
+    "Energy" -> Row[{"E[m] = ", If[stray, Row[{exactString[sp["Thickness"]], " "}], ""], "\[Integral] ", exactString[sp["A"]], " |\[Del]m|^2 + ", exactString[sp["DMI"]], " m\[CenterDot](\[Del]\[Times]m) + ", exactString[sp["K"]],
+      " (1 - m3^2) + ", exactString[sp["Field"]], " (1 - m3) dx",
+      If[stray, " + (1/2) \[Integral] |\[Del]U|^2 over \[DoubleStruckCapitalR]^3, \[CapitalDelta]U = div(m \[Chi]), \[Chi] the film \[CapitalOmega] \[Times] (0, t), m independent of x3", ""]}],
     "AdmissibleClass" -> Row[{"all m in H^1 of the rectangle ", exactString[sp["Domain"]], " with |m| = 1, m = (0, 0, 1) on the boundary (trace) and degree ",
       sp["Degree"], " (the degree is the integer (1/4\[Pi]) \[Integral] m\[CenterDot](\[PartialD]1 m \[Times] \[PartialD]2 m))"}],
     "LowerBoundMethod" -> Row[{"null Lagrangians of degree and divergence type with a dual field (\[Phi], u, \[CapitalGamma]) of piecewise polynomials in m3 on ",
@@ -491,19 +573,20 @@ tfmDescription[params_, res_] := Module[{sp = res["Spec"], d = Max[displayDigits
     "UpperBoundMethod" -> Row[{"normalised bilinear interpolant on a graded ", Length[res["Grid"][[1]]] - 1, "\[Times]", Length[res["Grid"][[2]]] - 1,
       " grid; energy and degree enclosed with outward-rounded arithmetic"}],
     "TrustedBase" -> "IEEE-754 machine arithmetic (+, \[Minus], \[Times], \[Divide]), Wolfram Language exact rational arithmetic, and docs/MAGNETISATION.md (Lemmas 1\[Dash]3, Theorem 4, Proposition 5; proofs checked by one author only)",
-    "NotClaimed" -> "that the competitor is a minimiser, or that the axisymmetric skyrmion minimises the energy in its degree class; the stray field is not included",
+    "NotClaimed" -> If[stray, "that the competitor is a minimiser; magnetisations that vary through the thickness are not in the admissible class",
+      "that the competitor is a minimiser, or that the axisymmetric skyrmion minimises the energy in its degree class; the stray field is not included"],
     "References" -> "docs/MAGNETISATION.md; Belavin\[Dash]Polyakov (1975); D\[ODoubleDot]ring\[Dash]Melcher (2017); Li\[Dash]Melcher, arXiv:1711.07717."|>];
 
-verifyThinFilmMagnet[a_Association] := Catch[Module[{c = a["Certificate"], spec, dual, lb, ub, deg, x1, x2},
-  spec = tfmSpec[a["Parameters"]];
+verifyThinFilmMagnet[a_Association] := Catch[Module[{c = a["Certificate"], spec, dual, lb, ub, deg, x1, x2, t},
+  spec = tfmSpec[a["Parameters"]]; t = spec["Thickness"];
   dual = c["Dual"];
-  If[dual["Model"] =!= tfmModelOf[spec] || ! tfmCheckDual[dual], Throw[False, "tfmv"]];
-  lb = tfmLowerExact[dual, spec["Degree"], spec["Area"]];
+  If[! tfmSameModel[dual["Model"], tfmModelOf[If[t > 0, tfmShifted[spec, c["Lambda"]], spec]], 1] || ! tfmCheckDual[dual], Throw[False, "tfmv"]];
+  lb = If[t > 0, t, 1] tfmLowerExact[dual, spec["Degree"], spec["Area"]];
   {x1, x2} = c["Grid"];
   If[{x1[[1]], x1[[-1]], x2[[1]], x2[[-1]]} != N[Flatten[spec["Domain"]]], Throw[False, "tfmv"]];
   deg = tfmDegree[x1, x2, c["Nodal"]];
   If[deg[[1]] =!= spec["Degree"], Throw[False, "tfmv"]];
-  ub = tfmUpperBound[tfmModelOf[spec], x1, x2, c["Nodal"]];
+  ub = If[t > 0, tfmStrayUpper[spec, x1, x2, c["Nodal"]][[1]], tfmUpperBound[tfmModelOf[spec], x1, x2, c["Nodal"]]];
   lb >= exactNumber[a["LowerBound"]] && ub <= exactNumber[a["UpperBound"]]], "tfmv"];
 
 End[];
