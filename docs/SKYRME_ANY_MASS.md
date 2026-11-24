@@ -180,3 +180,19 @@ What was searched and found: to be filled in.
 
 * 23 November 2026. Note written before the implementation. The frozen files were read; the mass enters
   `levelSetLowerBound` only through the four quantities of Section 2.
+* 23 November 2026. **Done:** Kernel/SkyrmeAnyMass.wl (the grid generator, the trial profile, the choice of grid,
+  mass and trial map, the checks on a grid stored in a certificate); the model accepts rational 0 ≤ μ < 2
+  (Kernel/Models.wl: `skyrmeMu`, `certifySkyrme`, the theorem text, the Skyrme branch of `verifyCertificate`).
+  Measured against the original construction (four shipped masses): critical slopes equal to 2×10⁻⁹; the reference
+  path equal to 7×10⁻⁹ in ln r for τ ≤ π − 0.02 (4×10⁻⁷ for μ = 0); regenerated Quick and Standard grids have the
+  same numbers of levels and nodes and the same offsets, levels equal to 7×10⁻⁹ and reference volumes to 10⁻⁸
+  (10⁻⁶ for μ = 0). The tangent point from the closed-form equation agrees with the bisection of
+  Kernel/Minorants.wl to 2×10⁻¹².
+  **In progress:** the first end-to-end certificates (μ = 3/4; regenerated grid and trial map at μ = 1 against the
+  shipped ones). **Next:** the test file Tests/SkyrmeAnyMass.wlt and the flag `--skyrme-any-mass`; the table of ten
+  masses (Section 9); the cross-check with the original verifier on a generated grid; Sections 8–10 of this note;
+  README and docs/ARCHITECTURE.md; then Track S2.
+* Observation: `hedgehogProfile` in the frozen Kernel/SkyrmeHedgehog.wl does not converge on Wolfram Engine 15.0
+  (its bisection stops at the first step because the solution at the stopping event is not negative). It is not
+  used by the public interface. The trial profile for a new mass therefore comes from the shooting code of
+  Kernel/SkyrmeAnyMass.wl.
