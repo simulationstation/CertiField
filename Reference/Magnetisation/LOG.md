@@ -4,12 +4,20 @@ Dated entries, newest last. Numbers marked [FLOAT] are ordinary floating point a
 
 ## 23 November 2026
 
-### State
+### State (updated at the end of the day's entries below)
 
-* Done: analysis of the dual family for the thin-film model; a floating-point feasibility study
-  (`explore_reduced_dual.py`); literature check of the items below.
-* In progress: the note `docs/MAGNETISATION.md` (statements and proofs), then the reference implementation.
-* Next: exact certificate for the lower bound, certified competitor energy and degree, tests M-T1 to M-T4, M1.
+* Done: the note `docs/MAGNETISATION.md`, Sections 1 to 6 (statements and proofs); the exact checker for the
+  lower-bound certificate (`magnet.py`), with known answers, falsification and an independent exact test of the
+  pointwise inequality (`check_dual.py`, `pointwise.py`: all pass); the heuristic search for certificates
+  (`dual_opt.py`); the first certified lower bound for the skyrmion class (`results/zeeman_h2.json`).
+* In progress: certificates for other fields (`run_dual.py`); the certified competitor (energy and degree of a
+  normalised bilinear interpolant, Section 5 of the note) is designed and not yet written.
+* Next: `upper_bound` and `degree` with interval arithmetic; M-T2 and the critical family from above; M-T3 (strip,
+  cross-check with `MagneticDomainWall`); M-T1 (enclosure of 48 J); M1 intervals at a large and a moderate field;
+  stored certificates and `verify_all.py`; Sections 7 and 8 of the note; then the paclet model.
+* Open: the search starts from phi = kappa and repairs infeasible cells by damping towards phi = kappa, which is
+  strictly feasible only for h > kappa^2/(2A); for lower fields (the dynamic programme gives bounds down to
+  h = 0.9) another starting point and repair are needed. Degree Q > 0 uses the constant certificate only.
 
 ### The dual family that is being built
 
@@ -81,3 +89,27 @@ that depend on x can only gain through the boundary; this has not been quantifie
   to Döring and Melcher, with the explicit minimiser h(x/2r), h the Belavin–Polyakov map.
 * S. Komineas, C. Melcher, S. Venakides, Nonlinearity 33 (2020) 3395: small-radius asymptotics; the lower bound
   for the energy is stated there as resting on a heuristic.
+
+### Exact certificates (evening)
+
+* `check_dual.py` (20 s): constant certificates reproduce 8πA|Q| (exchange only), 4π(1 − 2r²) for the critical
+  family at r = 1/4, 1/2, 3/4, 1 (and u lowered by 10⁻⁶ is rejected in each case), 4π(1 − 1/h) for the Zeeman
+  model, and 4√(AK)w for the wall. Of 400 random certificates for the critical family 60 are accepted and none
+  claims more than the exact infimum (smallest margin 0, attained by the exact one); of 300 random certificates
+  for exchange only 107 are accepted, none above 8πA|Q|. For 200 random fields with a positive Γ the pointwise
+  inequality f − N + Γ ≥ 0 holds exactly at random rational points (evaluated from the three-dimensional
+  definitions, without the reduced formulas).
+* Search, first attempts and what failed: (1) dynamic programme path smoothed by a spline: the value of the
+  programme depends strongly on the grid in a (0.630 with 200 × 900 points against 0.669 with 260 × 1500 at h = 2)
+  and 10 of 27 cells had no valid u; abandoned. (2) L-BFGS on the nodal values and slopes of a C¹ cubic φ on a
+  mesh geometric in 1 − t, objective ½∫u₋: at h = 2 the value is 0.6710 with the mesh ending at 1 − t = 2·10⁻³,
+  but the field still varies below that scale and the last cell failed. (3) The same with φ ≡ κ imposed on the
+  last cell and the mesh extended in stages (2·10⁻³, 2·10⁻⁴, 2·10⁻⁵), each stage started from the previous field:
+  one cell without a root of Π₀ between the quadrature points; repaired by damping the field towards φ ≡ κ by
+  0.3 %.
+* Result, h = 2 (A = 1/2, κ = 1, K = 0), degree −1: the certificate with 41 cells passes the exact check (0.2 s);
+
+      E[m] ≥ 8.448613244 = 4π · 0.672319      for every m ∈ 𝒜₋₁, on every bounded Lipschitz domain.
+
+  The energy of the axisymmetric skyrmion on the plane is 4π · 0.672755 [FLOAT], so the lower bound is within
+  0.07 % of it. The simple bound is 4π · 0.5. The certified upper bound on a square is still to be computed.
