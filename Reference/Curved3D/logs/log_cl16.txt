@@ -1,0 +1,157 @@
+  N=16 upper bound: 68168 boxes to solve (L=4), 1031945 to certify (L=6); octant volume between 0.934263 and 0.934838
+    cg stopped after 116 iterations, info=0
+  upper bound  K <= 1.83414895   (float value 1.83414895)   124s
+  N=16 lower bound: 19622 boxes to solve (L=3), 260156 to certify (L=5); octant volume between 0.933975 and 0.935126
+    dual assembly 0/19622  0s
+    dual assembly 480/19622  3s
+    dual assembly 960/19622  6s
+    dual assembly 1440/19622  10s
+    dual assembly 1920/19622  13s
+    dual assembly 2400/19622  16s
+    dual assembly 2880/19622  19s
+    dual assembly 3360/19622  23s
+    dual assembly 3840/19622  26s
+    dual assembly 4320/19622  29s
+    dual assembly 4800/19622  32s
+    dual assembly 5280/19622  35s
+    dual assembly 5760/19622  38s
+    dual assembly 6240/19622  41s
+    dual assembly 6720/19622  45s
+    dual assembly 7200/19622  48s
+    dual assembly 7680/19622  51s
+    dual assembly 8160/19622  54s
+    dual assembly 8640/19622  58s
+    dual assembly 9120/19622  61s
+    dual assembly 9600/19622  64s
+    dual assembly 10080/19622  67s
+    dual assembly 10560/19622  71s
+    dual assembly 11040/19622  74s
+    dual assembly 11520/19622  77s
+    dual assembly 12000/19622  80s
+    dual assembly 12480/19622  83s
+    dual assembly 12960/19622  87s
+    dual assembly 13440/19622  90s
+    dual assembly 13920/19622  93s
+    dual assembly 14400/19622  97s
+    dual assembly 14880/19622  100s
+    dual assembly 15360/19622  104s
+    dual assembly 15840/19622  107s
+    dual assembly 16320/19622  110s
+    dual assembly 16800/19622  113s
+    dual assembly 17280/19622  116s
+    dual assembly 17760/19622  120s
+    dual assembly 18240/19622  123s
+    dual assembly 18720/19622  127s
+    dual assembly 19200/19622  131s
+    cg iteration 500
+    cg iteration 1000
+    cg iteration 1500
+    cg iteration 2000
+    cg iteration 2500
+    cg iteration 3000
+    cg stopped after 3000 iterations, info=3000
+    dual certificate 0/260156  1s
+    dual certificate 2560/260156  13s
+    dual certificate 5120/260156  23s
+    dual certificate 7680/260156  34s
+    dual certificate 10240/260156  45s
+    dual certificate 12800/260156  56s
+    dual certificate 15360/260156  66s
+    dual certificate 17920/260156  76s
+    dual certificate 20480/260156  87s
+    dual certificate 23040/260156  98s
+    dual certificate 25600/260156  109s
+    dual certificate 28160/260156  119s
+    dual certificate 30720/260156  129s
+    dual certificate 33280/260156  139s
+    dual certificate 35840/260156  150s
+    dual certificate 38400/260156  160s
+    dual certificate 40960/260156  171s
+    dual certificate 43520/260156  182s
+    dual certificate 46080/260156  192s
+    dual certificate 48640/260156  203s
+    dual certificate 51200/260156  213s
+    dual certificate 53760/260156  225s
+    dual certificate 56320/260156  235s
+    dual certificate 58880/260156  245s
+    dual certificate 61440/260156  256s
+    dual certificate 64000/260156  267s
+    dual certificate 66560/260156  277s
+    dual certificate 69120/260156  287s
+    dual certificate 71680/260156  298s
+    dual certificate 74240/260156  309s
+    dual certificate 76800/260156  319s
+    dual certificate 79360/260156  330s
+    dual certificate 81920/260156  341s
+    dual certificate 84480/260156  352s
+    dual certificate 87040/260156  362s
+    dual certificate 89600/260156  372s
+    dual certificate 92160/260156  382s
+    dual certificate 94720/260156  392s
+    dual certificate 97280/260156  402s
+    dual certificate 99840/260156  413s
+    dual certificate 102400/260156  423s
+    dual certificate 104960/260156  433s
+    dual certificate 107520/260156  444s
+    dual certificate 110080/260156  454s
+    dual certificate 112640/260156  464s
+    dual certificate 115200/260156  475s
+    dual certificate 117760/260156  485s
+    dual certificate 120320/260156  495s
+    dual certificate 122880/260156  504s
+    dual certificate 125440/260156  514s
+    dual certificate 128000/260156  525s
+    dual certificate 130560/260156  535s
+    dual certificate 133120/260156  546s
+    dual certificate 135680/260156  556s
+    dual certificate 138240/260156  567s
+    dual certificate 140800/260156  577s
+    dual certificate 143360/260156  588s
+    dual certificate 145920/260156  598s
+    dual certificate 148480/260156  609s
+    dual certificate 151040/260156  620s
+    dual certificate 153600/260156  630s
+    dual certificate 156160/260156  641s
+    dual certificate 158720/260156  652s
+    dual certificate 161280/260156  664s
+    dual certificate 163840/260156  675s
+    dual certificate 166400/260156  685s
+    dual certificate 168960/260156  695s
+    dual certificate 171520/260156  707s
+    dual certificate 174080/260156  718s
+    dual certificate 176640/260156  728s
+    dual certificate 179200/260156  738s
+    dual certificate 181760/260156  749s
+    dual certificate 184320/260156  759s
+    dual certificate 186880/260156  769s
+    dual certificate 189440/260156  779s
+    dual certificate 192000/260156  789s
+    dual certificate 194560/260156  799s
+    dual certificate 197120/260156  811s
+    dual certificate 199680/260156  821s
+    dual certificate 202240/260156  832s
+    dual certificate 204800/260156  843s
+    dual certificate 207360/260156  854s
+    dual certificate 209920/260156  866s
+    dual certificate 212480/260156  876s
+    dual certificate 215040/260156  888s
+    dual certificate 217600/260156  899s
+    dual certificate 220160/260156  910s
+    dual certificate 222720/260156  921s
+    dual certificate 225280/260156  931s
+    dual certificate 227840/260156  943s
+    dual certificate 230400/260156  954s
+    dual certificate 232960/260156  966s
+    dual certificate 235520/260156  975s
+    dual certificate 238080/260156  987s
+    dual certificate 240640/260156  997s
+    dual certificate 243200/260156  1009s
+    dual certificate 245760/260156  1019s
+    dual certificate 248320/260156  1029s
+    dual certificate 250880/260156  1040s
+    dual certificate 253440/260156  1052s
+    dual certificate 256000/260156  1063s
+    dual certificate 258560/260156  1074s
+  lower bound  K >= 1.80510606   (float value 1.80510606)   1509s
+  certified:  1.805106 <= K <= 1.834149    gap 1.609 %
+total time 1508.6 s
