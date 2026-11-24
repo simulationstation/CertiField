@@ -330,7 +330,9 @@ Carried out where the log says so:
 
 Not available: a second, independently written certified programme for degree two. The degree-one programme has
 one (the Python verifier of the level-set note, reproduced to 3×10⁻¹² by the paclet); the degree-B function
-differs from the degree-one function in the five places listed in Section 5.
+differs from the degree-one function in the five places listed in Section 5. The same five changes in that
+verifier (the factor B in its three step integrals of c and in the two values of c used for heuristics), run on
+the grids of `Data/SkyrmeDegree`, would give the independent check; it reads the same grid files.
 
 ## 8. What an existence argument for degree three would need
 
