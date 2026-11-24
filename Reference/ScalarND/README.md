@@ -93,6 +93,8 @@ eleven examples by at most 5×10⁻¹³ relative.
 
 Sizes: the eleven certificates take 14 MB, of which `ramp3d_32.npz` is 8.4 MB. The four largest data files
 (`ramp2d.npz`, `saddle2d.npz`, `screened3d_48.npz`, `ramp3d_32.npz`; 12.8 MB together) are not in the repository.
-Their claims (`NAME.json`) are, and `verify_all.py` reports a certificate whose `.npz` file is absent as skipped.
-`python run_examples.py NAME` computes such a certificate again; it overwrites the stored claim, and the new bounds
-differ from the old ones in their last digits, because the optimiser takes a different path on another platform.
+They are attached to the v0.3.0 release as `CertiField-ScalarND-large-certificates.zip`; unpack it into `results/`.
+Their claims (`NAME.json`) are in the repository, and `verify_all.py` reports a certificate whose `.npz` file is
+absent as skipped. (`python run_examples.py NAME` would compute such a certificate again, but it overwrites the
+stored claim, and the new bounds differ in their last digits, because the optimiser takes a different path on
+another platform.)
