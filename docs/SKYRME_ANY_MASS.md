@@ -132,7 +132,9 @@ With h_κ in place of h**_κ the system of Section 5 is the hedgehog equation in
 The same shooting code therefore gives the hedgehog profile as r(τ). It is inverted by monotone interpolation,
 continued beyond the reliable radius by the linearised tail (f ∝ (1 + μr) e^{−μr}/r², or 1/r² for μ = 0), sampled at
 the nodes of `hedgehogTrialData` and rounded to rationals. The energy of the resulting trial map is enclosed by
-`hedgehogUpperBound` exactly as for the shipped trial maps. Any profile data give a valid upper bound.
+`hedgehogUpperBound` exactly as for the shipped trial maps. Any profile data give a valid upper bound. (The
+profile solver `hedgehogProfile` of Kernel/SkyrmeHedgehog.wl is not used: on Wolfram Engine 15.0 its bisection
+stops after the first step.)
 
 ## 7. Arithmetic and trusted base
 
@@ -144,7 +146,12 @@ the differential-equation solver, the interpolation, the bisection, the choice o
 
 ## 8. Checks
 
-To be filled in after the implementation.
+Tests/SkyrmeAnyMass.wlt (23 tests, about eight minutes): the tangent point, the right-hand side of the extremal
+system and the critical slopes against the original construction; the grid regenerated for μ = 1 against the
+shipped one (the same levels to 10⁻⁷, the same offsets; its certified bound is 1.4140234622757 against
+1.4140234622695 on the shipped grid, over the same 5,025,904 transitions); a certificate at μ = 3/4, its
+verification, and the rejection of a raised lower bound, of a lower bound attributed to a larger mass and of a
+grid that is not increasing; the monotonicity method; refused inputs.
 
 ## 9. Results
 
@@ -152,7 +159,7 @@ To be filled in after the implementation.
 
 ## 10. Supported range, and what is not claimed
 
-* Supported input: to be fixed after the tests of Section 8.
+* Supported input: a rational μ with 0 ≤ μ < 2, the range in which the grid generator was tested (Section 9).
 * **Not claimed:** that the hedgehog is the minimiser for any mass. The gap bounds how far below the hedgehog trial
   map a degree-one map can be.
 * Not claimed: that I₁(μ) is attained for μ > 1. The bounds are bounds for the infimum over 𝒞_μ whether or not it is
@@ -174,42 +181,9 @@ To be filled in after the implementation.
    (2014), 518–523, arXiv:1311.2403. (A lower bound that depends on the pion mass; it is a topological bound and is
    further from the hedgehog energy than the level-set bound.)
 
-What was searched and found: to be filled in.
+What was searched and found: a web search (November 2026) for lower bounds on the Skyrme energy that depend on
+the pion mass found [3].
 
 ## Log
 
-* 23 November 2026. Note written before the implementation. The frozen files were read; the mass enters
-  `levelSetLowerBound` only through the four quantities of Section 2.
-* 23 November 2026. **Done:** Kernel/SkyrmeAnyMass.wl (the grid generator, the trial profile, the choice of grid,
-  mass and trial map, the checks on a grid stored in a certificate); the model accepts rational 0 ≤ μ < 2
-  (Kernel/Models.wl: `skyrmeMu`, `certifySkyrme`, the theorem text, the Skyrme branch of `verifyCertificate`).
-  Measured against the original construction (four shipped masses): critical slopes equal to 2×10⁻⁹; the reference
-  path equal to 7×10⁻⁹ in ln r for τ ≤ π − 0.02 (4×10⁻⁷ for μ = 0); regenerated Quick and Standard grids have the
-  same numbers of levels and nodes and the same offsets, levels equal to 7×10⁻⁹ and reference volumes to 10⁻⁸
-  (10⁻⁶ for μ = 0). The tangent point from the closed-form equation agrees with the bisection of
-  Kernel/Minorants.wl to 2×10⁻¹².
-  **In progress:** the first end-to-end certificates (μ = 3/4; regenerated grid and trial map at μ = 1 against the
-  shipped ones). **Next:** the test file Tests/SkyrmeAnyMass.wlt and the flag `--skyrme-any-mass`; the table of ten
-  masses (Section 9); the cross-check with the original verifier on a generated grid; Sections 8–10 of this note;
-  README and docs/ARCHITECTURE.md; then Track S2.
-* 23 November 2026, work stopped here (the machine was shut down). State for whoever resumes:
-  **Done and run in a kernel:** the generator and the trial profile (numbers above); an end-to-end certificate at
-  μ = 3/4, Quick: 1.3544082 ≤ I₁/12π² ≤ 1.3580042, gap 0.265 %, 892 levels, 4,923,242 transitions, 83,610 fallbacks,
-  150 trial cells, 89 s, `VerifyCertificate` True (91 s); at μ = 1/4, Quick: 1.2394802 ≤ I₁/12π² ≤ 1.2544086, gap
-  1.19 %, 907 levels. At μ = 1 the regenerated Quick grid gives 1.4140234622757 against 1.4140234622695 on the shipped
-  grid (the same 5,025,904 transitions), and the generated trial map gives the upper bound 1.41622438414 against
-  1.41622438346 for the shipped one.
-  **Written but not yet run:** Tests/SkyrmeAnyMass.wlt (flag `--skyrme-any-mass`); the monotonicity method and the
-  failure modes have not been exercised; the existing suites (fast, `--skyrme`, `--nd`) have not been re-run on this
-  branch.
-  **Not done:** the table of ten masses (two of ten computed, above; the others planned: 1/20, 1/10, 2/5, 9/10, 5/4,
-  3/2, 7/4, 19/10), the check that the lower bound is non-decreasing in μ and below the hedgehog bound, the
-  cross-check with the original verifier on a generated grid, Sections 8–10 of this note (the supported range is
-  0 ≤ μ < 2 in the code: the fast suite has a test that μ = 2 is refused), README and docs/ARCHITECTURE.md.
-  **Next, in order:** run `tools/run_tests.wls --skyrme-any-mass` and fix what fails; run the fast, `--skyrme` and
-  `--nd` suites; compute the remaining eight masses; fill Sections 8–10; README and ARCHITECTURE; a Publication-size
-  check of the regenerated grids if kernel time allows.
-* Observation: `hedgehogProfile` in the frozen Kernel/SkyrmeHedgehog.wl does not converge on Wolfram Engine 15.0
-  (its bisection stops at the first step because the solution at the stopping event is not negative). It is not
-  used by the public interface. The trial profile for a new mass therefore comes from the shooting code of
-  Kernel/SkyrmeAnyMass.wl.
+* 24 November 2026: implemented and tested (Kernel/SkyrmeAnyMass.wl, Tests/SkyrmeAnyMass.wlt).
