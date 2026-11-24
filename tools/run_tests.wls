@@ -4,7 +4,8 @@
      wolframscript -file tools/run_tests.wls --skyrme   fast suite + Skyrme suite (a few minutes)
      wolframscript -file tools/run_tests.wls --skyrme-any-mass   fast suite + Skyrme for a mass that is not shipped (about eight minutes)
      wolframscript -file tools/run_tests.wls --nd       fast suite + ScalarFieldND suite (about two minutes)
-     wolframscript -file tools/run_tests.wls --nd-slow  fast suite + the long ScalarFieldND runs (about ten minutes)   *)
+     wolframscript -file tools/run_tests.wls --nd-slow  fast suite + the long ScalarFieldND runs (about ten minutes)
+     wolframscript -file tools/run_tests.wls --elasticity  fast suite + LinearElasticity suite (under a minute)   *)
 
 root = DirectoryName[$InputFileName, 2];
 PacletDirectoryLoad[root];
@@ -13,6 +14,7 @@ If[MemberQ[$ScriptCommandLine, "--skyrme"], AppendTo[files, FileNameJoin[{root, 
 If[MemberQ[$ScriptCommandLine, "--skyrme-any-mass"], AppendTo[files, FileNameJoin[{root, "Tests", "SkyrmeAnyMass.wlt"}]]];
 If[MemberQ[$ScriptCommandLine, "--nd"], AppendTo[files, FileNameJoin[{root, "Tests", "ScalarFieldND.wlt"}]]];
 If[MemberQ[$ScriptCommandLine, "--nd-slow"], AppendTo[files, FileNameJoin[{root, "Tests", "ScalarFieldNDSlow.wlt"}]]];
+If[MemberQ[$ScriptCommandLine, "--elasticity"], AppendTo[files, FileNameJoin[{root, "Tests", "Elasticity.wlt"}]]];
 
 failed = 0;
 Do[

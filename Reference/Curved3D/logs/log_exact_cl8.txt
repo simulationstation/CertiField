@@ -1,0 +1,9 @@
+grid 8, clamped grips: exact check of 512 cells (all)
+   500 cells   14s
+   (a) div tau = 0 exactly in 512 cells
+   (b) normal traction continuous across 1344 interior faces
+   (c) zero traction on the curved surface, as a polynomial identity, in 34 cut cells
+   (d) zero traction on 128 free-face cells; zero shear on 192 mirror-plane cells
+   (e) force through the grip (octant): potential part 0, total 1 (expected 0 and 1)
+   (f) exact integrals on 6 boxes: the interval bounds are above them, by at most 3.1e-13 (relative)
+EXACT CHECK PASSED   17s

@@ -1,0 +1,36 @@
+1. Gauss rules: rational enclosures against numpy
+   ok
+2. [clamped] random potential: equilibrium and boundary conditions of inc(rho^2 Psi)
+   max|tau| 715.7; max|div tau| by central differences, step 0.0001: 2.57e-03
+   max|tau| 715.7; max|div tau| by central differences, step 1e-05: 2.57e-05
+   sphere: max|tau| 2.32, max|tau n| 2.5e-15
+   free faces, mirror planes: tractions vanish  ok
+3. [clamped] two code paths give the same stress; the Gauss rules are exact for the integrands
+   max difference between the assembly path and the certificate path: 4.5e-13 (stress scale 913.8)
+   stress integral with 7 and 9 points: relative difference 1.4e-16;  strain integral with 3 and 5 points: 0.0e+00
+   interval upper bounds exceed the float values by 2.6e-13 and 1.1e-13 (relative)
+4. [clamped] Green identity with random fields:  int_Omega tau:eps(v) = resultant x grip displacement
+   depth 2: particular part 0.500000000 (expected 0.5);  potential part between +4.89e-03 and +7.01e-03 (expected 0; integral of |.| is 717)
+   depth 3: particular part 0.500000000 (expected 0.5);  potential part between -7.89e-05 and +3.55e-03 (expected 0; integral of |.| is 717)
+   depth 4: particular part 0.500000000 (expected 0.5);  potential part between -5.21e-04 and +1.58e-03 (expected 0; integral of |.| is 717)
+   ok   35s
+2. [frictionless] random potential: equilibrium and boundary conditions of inc(rho^2 Psi)
+   max|tau| 691.8; max|div tau| by central differences, step 0.0001: 1.81e-03
+   max|tau| 691.8; max|div tau| by central differences, step 1e-05: 1.81e-05
+   sphere: max|tau| 2.87, max|tau n| 2.3e-15
+   grip face: max|tau| 2309.4, max shear traction 1.6e-08
+   free faces, mirror planes: tractions vanish  ok
+3. [frictionless] two code paths give the same stress; the Gauss rules are exact for the integrands
+   max difference between the assembly path and the certificate path: 4.5e-13 (stress scale 851.5)
+   stress integral with 7 and 9 points: relative difference 0.0e+00;  strain integral with 3 and 5 points: 0.0e+00
+   interval upper bounds exceed the float values by 2.7e-13 and 1.1e-13 (relative)
+4. [frictionless] Green identity with random fields:  int_Omega tau:eps(v) = resultant x grip displacement
+   depth 2: particular part 0.500000000 (expected 0.5);  potential part between -1.13e-02 and -1.11e-02 (expected 0; integral of |.| is 655)
+   depth 3: particular part 0.500000000 (expected 0.5);  potential part between -3.62e-03 and -3.09e-03 (expected 0; integral of |.| is 655)
+   depth 4: particular part 0.500000000 (expected 0.5);  potential part between -9.44e-04 and -8.87e-04 (expected 0; integral of |.| is 655)
+   ok   69s
+5. known answers
+   solid cube between frictionless grips (exact K = 2):   1.9999999999992 <= K <= 2.0000000000005
+   round bar, radius 3/4 (exact K = pi R^2/2 = 0.883573), depth 2:   0.876192 <= K <= 0.919922
+   round bar, radius 3/4 (exact K = pi R^2/2 = 0.883573), depth 3:   0.877196 <= K <= 0.903320
+ALL TESTS PASSED   205s
