@@ -231,6 +231,64 @@ minimiser. The inequality is classical and no novelty is claimed for it; the pro
 checked by one author only. Scalar fields on boxes with polynomial potentials only; no source terms f(x)u yet, and
 therefore not the plain Poisson problem; the method does not extend to vector-valued fields.
 
+## Linear elasticity in two dimensions
+
+`LinearElasticity` certifies the minimal energy of a linearly elastic body in plane strain,
+
+    E[u] = ∫_Ω ½ ε(u) : C : ε(u) − b·u dx,
+
+on a rectangle Ω, with the displacement prescribed on some faces and no traction on the others. The material is
+isotropic (Lamé constants) or given by its 3×3 stiffness matrix, and the body force b is constant. The candidate
+can be a function of the coordinates, an `NDSolve` solution, or an array of nodal values. Without one, the package
+computes the finite-element solution on the grid.
+
+```wolfram
+In[13]:= block = CertiFieldModel["LinearElasticity", <|"Lame" -> {3/2, 1},
+            "Domain" -> {{0, 1}, {0, 1}}, "Cells" -> 32, "Degree" -> 2,
+            "TractionFreeFaces" -> {{2, "Lower"}, {2, "Upper"}},
+            "BoundaryData" -> Function[{x, y}, {x/10, 0}]|>];
+         cert = CertifiedVariationalBound[block];          (* under a second *)
+         cert["Summary"]
+Out[13]= "LinearElasticity: Certified  0.0150234 <= inf E <= 0.0150298  (relative gap <= 0.0418%)"
+
+In[14]:= VerifyCertificate[cert]
+Out[14]= True
+```
+
+This block is clamped on its left face, pulled by 0.1 on its right face, and free on the other two. The lower
+bound holds for **every** displacement in H¹ with these boundary values. It is the complementary-energy inequality
+of Prager and Synge: for any stress field σ that is in equilibrium with the body force and has no traction on the
+free faces,
+
+    E[u] ≥ ∫ (σν)·g over the Dirichlet faces − ½ ∫_Ω σ : C⁻¹ : σ dx.
+
+Equilibrium must hold exactly, not to rounding. The stress field is therefore derived from an Airy stress function
+in a C¹ finite-element space, which satisfies equilibrium identically for any nodal values, and its nodal values
+on the free faces are fixed in exact rational arithmetic. The right-hand side is then a polynomial in machine
+numbers with rational coefficients, and it is evaluated with outward-rounded arithmetic. The stress field comes
+from one sparse linear solve and is never trusted. The gap also bounds the energy-norm error of the candidate and
+of the stress field. Statement and proofs: [`docs/ELASTICITY.md`](docs/ELASTICITY.md).
+
+| Problem | Grid, degree | Certified bounds | Gap | Time |
+|---|---|---|---|---|
+| block: clamped on the left, pulled on the right, free sides | 16×16, 1 | 0.01501720 ≤ inf E ≤ 0.01506422 | 0.313 % | 0.3 s |
+| the same | 32×32, 2 | 0.01502346 ≤ inf E ≤ 0.01502974 | 0.042 % | 0.6 s |
+| the same | 64×64, 2 | 0.01502578 ≤ inf E ≤ 0.01502813 | 0.016 % | 1.8 s |
+| column under its own weight, clamped at the bottom, three free faces | 16×32, 2 | −0.45145662 ≤ inf E ≤ −0.45112300 | 0.074 % | 0.5 s |
+| bar in pure bending, free sides | 4×2, 2 | 0.0312499999 ≤ inf E ≤ 0.0312500001 | 2×10⁻⁷ % | 0.2 s |
+
+`"Degree"` is the polynomial degree of the candidate in each variable (1 or 2). The gap closes slowly on the block
+because the corners where a clamped face meets a free face carry stress singularities. For the bent bar the exact
+minimum 1/32 is known, and it lies inside the certified interval.
+
+**What is and is not claimed.** The bounds are theorems about the stated problem, whose boundary datum is the
+piecewise polynomial of degree `"Degree"` through the given boundary values on the grid. They do not say that the
+candidate is the minimiser. The inequality and the use of stress functions are classical ("dual analysis" with
+equilibrium finite elements), and no novelty is claimed for them; what the package adds is exact equilibrium in
+floating-point data, rigorous rounding and a certificate that can be re-checked. The proofs in
+`docs/ELASTICITY.md` have been checked by their author only. Rectangles in two dimensions, constant stiffness and
+body force only; no prescribed tractions, no roller conditions, not yet three dimensions.
+
 ## How it works
 
 ```
@@ -249,13 +307,17 @@ therefore not the plain Poisson problem; the method does not extend to vector-va
   integrated exactly in rational arithmetic; other potentials use a Taylor model of order 8 with a Lagrange remainder.
   The hedgehog energy uses Simpson enclosures with a fourth-derivative remainder in interval arithmetic. In two and
   three dimensions the competitor is the piecewise multilinear function through the candidate's nodal values: exact
-  gradient energy, midpoint rule with remainder for the potential.
+  gradient energy, midpoint rule with remainder for the potential. In linear elasticity it is the piecewise
+  polynomial displacement through the candidate's nodal values, whose energy is an exact quadratic form.
 * **Lower bounds** come from a model-specific mathematical argument, evaluated with certified arithmetic:
   * one dimension: the calibration k u′² + V + c ≥ 2√(k(V+c))|u′|, with V + c ≥ 0 on ℝ *proved* by quantifier
     elimination, and the integral of √(V+c) enclosed by adaptive interval quadrature;
   * scalar fields in two and three dimensions: a calibration field S(x, u) (Raviart–Thomas in x, B-splines in u)
     whose coefficients come from a finite-volume solve or an optimiser and are never trusted; the bound for those
     coefficients is evaluated with exact sample points and outward-rounded arrays, cell by cell and face by face;
+  * linear elasticity: the complementary-energy bound with a stress field from an Airy stress function, which is in
+    equilibrium identically and traction-free exactly; the bound is a polynomial with rational coefficients in the
+    stored machine numbers, evaluated cell by cell with outward rounding;
   * Skyrme: the level-set dynamic programme with τ-scalars as exact rationals (Taylor series with remainder, 35-digit
     π), every array operation outward-rounded, square and cube roots verified by squaring/cubing, and every entry of the
     affine-minorant table certified by a cubic positivity test.
@@ -292,17 +354,19 @@ VerifyCertificate[cert]
 | `CertifiedBound[...]["prop"]` | `"LowerBound"`, `"UpperBound"`, `"RelativeGap"`, `"Status"`, `"Theorem"`, `"AdmissibleClass"`, `"TrustedBase"`, `"NotClaimed"`, `"Report"`, ... |
 | `VerifyCertificate[cert]` | recomputes every rigorous step from the recorded inputs |
 | `CertiFieldModelInfo[name]` | energy, parameters, admissible class and methods of a model |
-| `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `ScalarFieldND`, `SkyrmeDegreeOne` |
+| `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `ScalarFieldND`, `LinearElasticity`, `SkyrmeDegreeOne` |
 
 Options: `"Resolution"` (`"Quick"`, `"Standard"`, `"Publication"` for Skyrme), `"GapTolerance"`, `"Nodes"`,
 `"Verbose"`, `WorkingPrecision`; for `ScalarFieldND` also `Method` (`Automatic`, `"Convex"`, `"Calibration"`) and
 `"RefineCandidate"` (use the given candidate as the starting point of the package's own minimisation).
+`LinearElasticity` takes `"RefineCandidate"` (replace the given candidate by the finite-element solution).
 `CertiFieldModelInfo[name]` lists the parameters of each model.
 
 **Timings** (one core, Wolfram Engine 15.0): 1D models take 0.5–10 s. Skyrme at Quick resolution takes 25–35 s per
 pion mass, including the minorant table, which is certified once (about 10 s), cached on disk and re-certified on
 load. Standard takes about 80 s, and Publication about an hour (59 min at μ = 1). `ScalarFieldND` (several threads)
 takes 1 to 7 s for convex energies up to 48³ cells and 39 s to 18 min for the non-convex examples above.
+`LinearElasticity` takes 0.2 to 2 s for grids up to 64×64.
 
 ## Validation
 
@@ -319,17 +383,26 @@ takes 1 to 7 s for convex energies up to 48³ cells and 39 s to 18 min for the n
   competitor energies and the lower bounds, and recomputes all eleven certificates stored by it. Its boundary-flux
   bound is tested from both sides against the exact flux in rational arithmetic. The reference passes an exact
   rational cross-check and falsification tests against known minima.
+* `LinearElasticity` reproduces its Python reference (`Reference/Elasticity`) on identical inputs to 10⁻¹¹ and
+  recomputes the six certificates stored by it. An independent evaluation with symbolic polynomials in rational
+  arithmetic confirms that the stress fields are in equilibrium exactly, that their tractions are continuous and
+  vanish on the free faces exactly, and that the exact values of both bounds lie inside the certified enclosures.
+  Minima known as rational numbers (homogeneous strain, uniaxial tension, a quadratic displacement with body force,
+  pure bending) lie inside the certified intervals, and random admissible stress fields and displacements never
+  give a lower bound above an energy.
 * Tampering with a stored bound, a stored field or stored boundary values makes `VerifyCertificate` return `False`.
 * Non-smooth potentials, boundary values that are not vacua, unprovable positivity and unsupported parameters return
   `Failure` objects, never numbers.
 * The test suite is in `Tests/` (`wolframscript -file tools/run_tests.wls`; add `--skyrme` for the Skyrme suite,
-  `--nd` for the two- and three-dimensional suite, `--nd-slow` for its long runs).
+  `--nd` for the two- and three-dimensional suite, `--nd-slow` for its long runs, `--elasticity` for linear
+  elasticity).
 
 ## Roadmap
 
 * **Scalar fields in 2D and 3D**: source terms f(x)u and the Poisson problem (exactly equilibrated fluxes),
   potentials that are not polynomials, domains other than boxes and `NDSolve`'s own finite-element meshes.
-* **Linear elasticity**: certified error bounds via complementary energy and exactly equilibrated stresses.
+* **Linear elasticity**: three dimensions (Beltrami stress functions), prescribed tractions and roller conditions,
+  stiffness and body forces that vary in space.
 * **Chiral magnets**: two-dimensional magnetic skyrmions and domain walls with topological lower bounds.
 * Higher-charge Skyrmions, and LibraryLink acceleration of the dynamic programme.
 
@@ -344,13 +417,16 @@ Kernel/          the paclet (CertiField.wl loads the modules below)
   SkyrmeHedgehog.wl       hedgehog trial maps and their certified energy (upper bound)
   ScalarField1D.wl        calibration lower bound, admissible competitors, exact/Taylor-model energies
   ScalarFieldND.wl        2D/3D scalar fields: calibration-field lower bound, Q1 competitor, convex and calibration modes
+  Elasticity.wl           2D linear elasticity: complementary-energy lower bound from an Airy stress function, Q_p competitor
   CertifiedBound.wl       the result object, safe decimal display, reports
   Models.wl               model registry, public entry points, VerifyCertificate
 Data/Skyrme/     grids for 4 pion masses x 3 resolutions (heuristic inputs: they affect tightness, never validity)
 Reference/ScalarND/  the Python reference of ScalarFieldND: implementation, checks, test vectors, stored certificates
+Reference/Elasticity/  the Python reference of LinearElasticity: implementation, checks, test vectors, stored certificates
 Tests/           VerificationTest suites
 tools/           test runner and syntax checks
-docs/            architecture (ARCHITECTURE.md) and the statement and proofs behind ScalarFieldND (SCALAR_ND.md)
+docs/            architecture (ARCHITECTURE.md), the statements and proofs behind ScalarFieldND (SCALAR_ND.md) and
+                 LinearElasticity (ELASTICITY.md)
 ```
 
 ## References
@@ -366,7 +442,8 @@ docs/            architecture (ARCHITECTURE.md) and the statement and proofs beh
    pion-mass conventions.
 
 References for the two- and three-dimensional bounds (calibrations, duality, complementary energy) are listed in
-`docs/SCALAR_ND.md`.
+`docs/SCALAR_ND.md`, those for linear elasticity (Prager and Synge, dual analysis, equilibrium finite elements) in
+`docs/ELASTICITY.md`.
 
 ## License
 
