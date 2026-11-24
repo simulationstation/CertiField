@@ -1,0 +1,3 @@
+lower bound (grid 24, depth 3, 48330 boxes):  K >= 1.74487810    203s
+upper bound (grid 24, depth 5, 591070 boxes):  K <= 1.75891145    253s
+VERIFIED  1.744878 <= K <= 1.758911   gap 0.804 %

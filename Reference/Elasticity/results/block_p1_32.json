@@ -49,13 +49,13 @@
   ],
   "degree": 1
  },
- "lower": "0.01502346550",
+ "lower": "0.01502346570",
  "upper": "0.01504167619",
  "reference": "0.1.0-reference",
  "info": {
   "example": "block_p1_32",
   "note": "the same",
-  "seconds": 0.19301128387451172,
+  "seconds": 0.23588132858276367,
   "exact": null
  }
 }

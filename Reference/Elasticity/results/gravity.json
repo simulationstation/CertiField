@@ -49,13 +49,13 @@
   ],
   "degree": 2
  },
- "lower": "-0.4514566146",
+ "lower": "-0.4514566136",
  "upper": "-0.4511230036",
  "reference": "0.1.0-reference",
  "info": {
   "example": "gravity",
   "note": "column clamped at the bottom under its own weight, three free faces",
-  "seconds": 0.15124011039733887,
+  "seconds": 0.1588752269744873,
   "exact": null
  }
 }
