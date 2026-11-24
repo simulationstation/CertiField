@@ -192,6 +192,23 @@ What was searched and found: to be filled in.
   shipped ones). **Next:** the test file Tests/SkyrmeAnyMass.wlt and the flag `--skyrme-any-mass`; the table of ten
   masses (Section 9); the cross-check with the original verifier on a generated grid; Sections 8–10 of this note;
   README and docs/ARCHITECTURE.md; then Track S2.
+* 23 November 2026, work stopped here (the machine was shut down). State for whoever resumes:
+  **Done and run in a kernel:** the generator and the trial profile (numbers above); an end-to-end certificate at
+  μ = 3/4, Quick: 1.3544082 ≤ I₁/12π² ≤ 1.3580042, gap 0.265 %, 892 levels, 4,923,242 transitions, 83,610 fallbacks,
+  150 trial cells, 89 s, `VerifyCertificate` True (91 s); at μ = 1/4, Quick: 1.2394802 ≤ I₁/12π² ≤ 1.2544086, gap
+  1.19 %, 907 levels. At μ = 1 the regenerated Quick grid gives 1.4140234622757 against 1.4140234622695 on the shipped
+  grid (the same 5,025,904 transitions), and the generated trial map gives the upper bound 1.41622438414 against
+  1.41622438346 for the shipped one.
+  **Written but not yet run:** Tests/SkyrmeAnyMass.wlt (flag `--skyrme-any-mass`); the monotonicity method and the
+  failure modes have not been exercised; the existing suites (fast, `--skyrme`, `--nd`) have not been re-run on this
+  branch.
+  **Not done:** the table of ten masses (two of ten computed, above; the others planned: 1/20, 1/10, 2/5, 9/10, 5/4,
+  3/2, 7/4, 19/10), the check that the lower bound is non-decreasing in μ and below the hedgehog bound, the
+  cross-check with the original verifier on a generated grid, Sections 8–10 of this note (the supported range is
+  0 ≤ μ < 2 in the code: the fast suite has a test that μ = 2 is refused), README and docs/ARCHITECTURE.md.
+  **Next, in order:** run `tools/run_tests.wls --skyrme-any-mass` and fix what fails; run the fast, `--skyrme` and
+  `--nd` suites; compute the remaining eight masses; fill Sections 8–10; README and ARCHITECTURE; a Publication-size
+  check of the regenerated grids if kernel time allows.
 * Observation: `hedgehogProfile` in the frozen Kernel/SkyrmeHedgehog.wl does not converge on Wolfram Engine 15.0
   (its bisection stops at the first step because the solution at the stopping event is not negative). It is not
   used by the public interface. The trial profile for a new mass therefore comes from the shooting code of
