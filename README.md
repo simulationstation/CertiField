@@ -243,7 +243,7 @@ minimiser. The inequality is classical and no novelty is claimed for it; the pro
 checked by one author only. Scalar fields on boxes with polynomial potentials only; no source terms f(x)u yet, and
 therefore not the plain Poisson problem.
 
-## Linear elasticity in two dimensions
+## Linear elasticity
 
 `LinearElasticity` certifies the minimal energy of a linearly elastic body in plane strain,
 
@@ -293,12 +293,25 @@ of the stress field. Statement and proofs: [`docs/ELASTICITY.md`](docs/ELASTICIT
 because the corners where a clamped face meets a free face carry stress singularities. For the bent bar the exact
 minimum 1/32 is known, and it lies inside the certified interval.
 
+**Three dimensions.** A `"Domain"` with three intervals selects the three-dimensional model. The material is
+`"Lame"` or a 6×6 `"StiffnessMatrix"` (strains in the order ∂₁u₁, ∂₂u₂, ∂₃u₃, ∂₂u₃ + ∂₃u₂, ∂₁u₃ + ∂₃u₁,
+∂₁u₂ + ∂₂u₁), `"BodyForce"` and `"BoundaryData"` have three components, and the stress field comes from six
+Beltrami stress functions in a C¹ tricubic space ([`docs/ELASTICITY_3D.md`](docs/ELASTICITY_3D.md)). The cube
+clamped on one face, pulled by 0.1 on the opposite face and free on the other four:
+
+```wolfram
+cube = CertiFieldModel["LinearElasticity", <|"Lame" -> {3/2, 1}, "Domain" -> {{0, 1}, {0, 1}, {0, 1}},
+   "Cells" -> 5, "Degree" -> 2, "TractionFreeFaces" -> {{2, "Lower"}, {2, "Upper"}, {3, "Lower"}, {3, "Upper"}},
+   "BoundaryData" -> Function[{x, y, z}, {x/10, 0, 0}]|>];
+CertifiedVariationalBound[cube]    (* 0.01375983 <= inf E <= 0.01387911, gap 0.86 %, about 10 s *)
+```
+
 **What is and is not claimed.** The bounds are theorems about the stated problem, whose boundary datum is the
 piecewise polynomial of degree `"Degree"` through the given boundary values on the grid. They do not say that the
 candidate is the minimiser. The inequality and the use of stress functions are classical ("dual analysis" with
 equilibrium finite elements), and no novelty is claimed for them; what the package adds is rigorous rounding and a
-certificate that can be re-checked. The proofs in `docs/ELASTICITY.md` have been checked by their author only. Rectangles in two dimensions, constant stiffness and
-body force only; no prescribed tractions, no roller conditions, not yet three dimensions.
+certificate that can be re-checked. The proofs in `docs/ELASTICITY.md` and `docs/ELASTICITY_3D.md` have been checked by their author only. Rectangles
+and boxes, constant stiffness and body force only; no prescribed tractions, no roller conditions.
 
 ## Unit-vector fields: magnetic skyrmions in thin films
 
@@ -443,8 +456,7 @@ takes 1 to 7 s for convex energies up to 48³ cells and 39 s to 18 min for the n
 
 * **Scalar fields in 2D and 3D**: source terms f(x)u and the Poisson problem (exactly equilibrated fluxes),
   potentials that are not polynomials, domains other than boxes and `NDSolve`'s own finite-element meshes.
-* **Linear elasticity**: three dimensions (Beltrami stress functions), prescribed tractions and roller conditions,
-  stiffness and body forces that vary in space.
+* **Linear elasticity**: prescribed tractions and roller conditions, stiffness and body forces that vary in space.
 * **Chiral magnets**: the stray field, three-dimensional textures, and degrees other than −1 with automatic competitors.
 * Higher-charge Skyrmions, and LibraryLink acceleration of the dynamic programme.
 
@@ -460,6 +472,7 @@ Kernel/          the paclet (CertiField.wl loads the modules below)
   ScalarField1D.wl        calibration lower bound, admissible competitors, exact/Taylor-model energies
   ScalarFieldND.wl        2D/3D scalar fields: calibration-field lower bound, Q1 competitor, convex and calibration modes
   Elasticity.wl           2D linear elasticity: complementary-energy lower bound from an Airy stress function, Q_p competitor
+  Elasticity3D.wl         3D linear elasticity: the same bound with Beltrami stress functions, Q_p competitor
   CertifiedBound.wl       the result object, safe decimal display, reports
   Models.wl               model registry, public entry points, VerifyCertificate
 Data/Skyrme/     grids for 4 pion masses x 3 resolutions (heuristic inputs: they affect tightness, never validity)
@@ -468,7 +481,7 @@ Reference/Elasticity/  the Python reference of LinearElasticity: implementation,
 Tests/           VerificationTest suites
 tools/           test runner and syntax checks
 docs/            architecture (ARCHITECTURE.md), the statements and proofs behind ScalarFieldND (SCALAR_ND.md) and
-                 LinearElasticity (ELASTICITY.md)
+                 LinearElasticity (ELASTICITY.md, ELASTICITY_3D.md)
 ```
 
 ## References

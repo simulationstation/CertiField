@@ -9,7 +9,7 @@ computed. It is the analytic reduction behind `Kernel/Elasticity.wl` and behind 
 novelty is claimed for either. The short proofs below have been checked by their author only. What the package adds
 is rigorous rounding (the stress field, as stored in floating-point data, is statically admissible exactly, and
 both bounds are evaluated with outward rounding) and a certificate that can be re-checked. Numbers quoted as *certified* come from outward-rounded interval arithmetic on
-exact inputs; numbers quoted as *exact* are rational numbers. Three dimensions are not implemented (Section 9).
+exact inputs; numbers quoted as *exact* are rational numbers. Three dimensions: `docs/ELASTICITY_3D.md`.
 
 ## 1. The problem
 
@@ -244,10 +244,8 @@ column under its own weight, clamped at the bottom with three free faces (16×32
 
 * **Not claimed:** that the candidate is the minimiser. The gap bounds E[u_h] − inf E, and by the remark in
   Section 2 also the energy-norm error of the candidate.
-* Three dimensions. The same theorem holds with Beltrami stress functions (σ = curl (curl Φ)ᵀ with Φ a symmetric
-  matrix of C¹ piecewise polynomials: the traction on a cell face then contains only tangential derivatives of Φ
-  and of its first derivatives, so it is continuous). What is missing is the exact treatment of traction-free
-  faces, where the admissible traces are no longer a finite-dimensional family as in Lemma 3.
+* Three dimensions: `docs/ELASTICITY_3D.md` (Beltrami stress functions; traction-free faces through exact
+  polynomial states, a sufficient condition).
 * Conditions that prescribe only some components of u on a face (rollers), prescribed non-zero tractions, body
   forces that are not constant, and stiffness that varies in space.
 * Domains other than rectangles.
