@@ -362,7 +362,8 @@ skyrmeRationalMapDescription[res_] := With[{b = res["Degree"]},
 verifySkyrmeRationalMap[a_Association] := Module[{c = a["Certificate"], z = \[FormalZ], spec, b, mu, p, q, int, ii, ub},
   spec = rationalMapSpec[a["Parameters"]];
   {b, mu, p, q} = spec;
-  If[! (c["Degree"] === b && c["Mu"] === mu && c["Map"] === {CoefficientList[p, z], CoefficientList[q, z]}), Return[False, Module]];
+  If[! (c["Degree"] === b && c["Mu"] === mu && c["Map"] === {CoefficientList[p, z], CoefficientList[q, z]} && a["LowerBound"] <= b),
+    Return[False, Module]];
   int = rationalMapIntegral[p, q, z, b];
   ii = upperDecimal[int["Upper"], 12];
   ub = rationalMapUpperBound[c["Trial"], b, ii, mu]["UpperBound"];
