@@ -1,0 +1,19 @@
+A. known minima (exact rational values)
+  E-T1 affine data, p=1, N=(2, 1, 1), beltrami         0.7070312499998624 <= 0.70703125 <= 0.707031250000016   ok
+  E-T1 affine data, p=2, N=(2, 2, 1), beltrami         0.7070312499998194 <= 0.70703125 <= 0.7070312500003144   ok
+  E-T1 affine data, p=1, N=(2, 1, 2), maxwell          0.7070312499999094 <= 0.70703125 <= 0.7070312500000249   ok
+  E-T1 affine data, p=1, N=(1, 2, 2), morera           0.7070312499996829 <= 0.70703125 <= 0.7070312500000557   ok
+  E-T1 uniaxial tension, four free faces, p=1, N=(2, 1, 1) 0.09374999999998802 <= 0.09375 <= 0.09375000000000097   ok
+  E-T1 uniaxial tension, four free faces, p=2, N=(2, 2, 2) 0.09374999999997677 <= 0.09375 <= 0.09375000000001026   ok
+  E-T1 uniaxial tension along x2, p=1                  0.09374999999998991 <= 0.09375 <= 0.09375000000000075   ok
+  E-T1 uniaxial tension along x3, p=1                  0.09374999999999169 <= 0.09375 <= 0.09375000000000062   ok
+  (body force of the manufactured solution: ['-15/8', '-15/8', '7/4']; exact energy 1.9622395833333335)
+  E-T2 quadratic displacement, body force, p=2         1.9622395833332307 <= 1.9622395833333335 <= 1.9622395833334239   ok
+  E-T2 pure bending, four free faces, p=2              0.031249999999996805 <= 0.03125 <= 0.031250000000045505   ok
+  (78 s)
+B. falsification: LB(sigma) <= E[u] for every admissible pair
+  block of E-T4, all grids and fields paired         highest LB +0.01368516   lowest E +0.01392955   (63 stress fields, 84 candidates)   ok   (187 s)
+  all Dirichlet, body force                          smallest (E - LB) over all pairs +2.489e-03   ok   (236 s)
+  five free faces, anisotropic, body force           smallest (E - LB) over all pairs +4.733e-03   ok   (321 s)
+  two opposite free faces                            smallest (E - LB) over all pairs +2.149e-02   ok   (354 s)
+  ring, twisted and sheared end, body force          smallest (E - LB) over all pairs +1.676e-03   ok   (385 s)

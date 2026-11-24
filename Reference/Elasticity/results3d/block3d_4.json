@@ -1,0 +1,112 @@
+{
+ "format": "CertiField-elasticity3d-certificate-1",
+ "problem": {
+  "name": "block3d_pull_p2_4",
+  "box": [
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ]
+  ],
+  "N": [
+   4,
+   4,
+   4
+  ],
+  "D": [
+   [
+    "7/2",
+    "3/2",
+    "3/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "3/2",
+    "7/2",
+    "3/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "3/2",
+    "3/2",
+    "7/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "1",
+    "0",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "0",
+    "1",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "1"
+   ]
+  ],
+  "b": [
+   "0",
+   "0",
+   "0"
+  ],
+  "bc": [
+   [
+    "D",
+    "D"
+   ],
+   [
+    "N",
+    "N"
+   ],
+   [
+    "N",
+    "N"
+   ]
+  ],
+  "degree": 2,
+  "functions": "beltrami",
+  "states": "resultants"
+ },
+ "lower": "0.01373380356",
+ "upper": "0.01389666661",
+ "reference": "0.1.0-reference-3d",
+ "info": {
+  "example": "block3d_4",
+  "note": "cube clamped on one face, pulled on the opposite face, four free faces",
+  "seconds": 11.154203176498413,
+  "exact": null,
+  "solver": {
+   "method": "cg",
+   "iterations": 954,
+   "flag": 0,
+   "unknowns": 3166
+  }
+ }
+}

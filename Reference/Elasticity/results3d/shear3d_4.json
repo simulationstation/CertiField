@@ -1,0 +1,112 @@
+{
+ "format": "CertiField-elasticity3d-certificate-1",
+ "problem": {
+  "name": "block3d_shear_p2_4",
+  "box": [
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ]
+  ],
+  "N": [
+   4,
+   4,
+   4
+  ],
+  "D": [
+   [
+    "7/2",
+    "3/2",
+    "3/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "3/2",
+    "7/2",
+    "3/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "3/2",
+    "3/2",
+    "7/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "1",
+    "0",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "0",
+    "1",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "1"
+   ]
+  ],
+  "b": [
+   "0",
+   "0",
+   "0"
+  ],
+  "bc": [
+   [
+    "D",
+    "D"
+   ],
+   [
+    "N",
+    "N"
+   ],
+   [
+    "N",
+    "N"
+   ]
+  ],
+  "degree": 2,
+  "functions": "beltrami",
+  "states": "resultants"
+ },
+ "lower": "0.003319208331",
+ "upper": "0.003389667068",
+ "reference": "0.1.0-reference-3d",
+ "info": {
+  "example": "shear3d_4",
+  "note": "the same cube, end face displaced sideways",
+  "seconds": 11.56847357749939,
+  "exact": null,
+  "solver": {
+   "method": "cg",
+   "iterations": 901,
+   "flag": 0,
+   "unknowns": 3166
+  }
+ }
+}

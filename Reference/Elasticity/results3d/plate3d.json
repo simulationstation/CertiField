@@ -1,0 +1,111 @@
+{
+ "format": "CertiField-elasticity3d-certificate-1",
+ "problem": {
+  "name": "plate3d",
+  "box": [
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1/2"
+   ],
+   [
+    "0",
+    "1"
+   ]
+  ],
+  "N": [
+   4,
+   2,
+   4
+  ],
+  "D": [
+   [
+    "7/2",
+    "3/2",
+    "3/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "3/2",
+    "7/2",
+    "3/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "3/2",
+    "3/2",
+    "7/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "1",
+    "0",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "0",
+    "1",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "1"
+   ]
+  ],
+  "b": [
+   "0",
+   "-1",
+   "0"
+  ],
+  "bc": [
+   [
+    "D",
+    "D"
+   ],
+   [
+    "N",
+    "N"
+   ],
+   [
+    "D",
+    "D"
+   ]
+  ],
+  "degree": 2,
+  "functions": "beltrami",
+  "states": "resultants"
+ },
+ "lower": "-0.01212271159",
+ "upper": "-0.01113753065",
+ "reference": "0.1.0-reference-3d",
+ "info": {
+  "example": "plate3d",
+  "note": "plate clamped on its four edges under its own weight, two free faces",
+  "seconds": 12.360067367553711,
+  "exact": null,
+  "solver": {
+   "method": "dense",
+   "rank": 1570,
+   "unknowns": 2000
+  }
+ }
+}
