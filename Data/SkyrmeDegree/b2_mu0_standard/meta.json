@@ -1,0 +1,47 @@
+{
+ "model": "SkyrmeDegreeTwo",
+ "certificate": "level-set lower bound in degree B (docs/SKYRME_DEGREE_TWO.md, Theorem 2)",
+ "degree": 2,
+ "mu": 0.0,
+ "mu_exact": "0",
+ "preset": "standard",
+ "params": {
+  "U1": 4.0,
+  "U2": 2.0,
+  "growth": 1.05,
+  "dumax": 0.2,
+  "ulo": -32.0,
+  "uhi": 22.0,
+  "t1": 0.03,
+  "lN": 0.02,
+  "eps1": 0.1,
+  "dtmax": 0.004,
+  "m1": 8.0,
+  "m2": 3.0,
+  "nmin": 6,
+  "table": [
+   2000,
+   900,
+   1e-10
+  ],
+  "du": 0.02,
+  "cg": 0.02
+ },
+ "N": 1438,
+ "n_u": 599,
+ "i0": 369,
+ "files": {
+  "taus": "taus.f64",
+  "vref": "vref.f64",
+  "eug": "eug.f64",
+  "ug": "ug.f64",
+  "offs": "offs.i64",
+  "ctg": "ctg.f64"
+ },
+ "note": "Grid data are heuristic; they affect the tightness of the bound, not its validity.",
+ "extremal": {
+  "parameter": 1.7555495111561354,
+  "value_float": 2.2084397911943348,
+  "note": "floating-point value of the relaxed problem along its extremal, in units of 12 pi^2; not certified"
+ }
+}
