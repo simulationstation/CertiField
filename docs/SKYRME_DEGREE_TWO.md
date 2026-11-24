@@ -298,7 +298,16 @@ Floating point (extremals of the relaxed problem, `relaxed.py`): R₂ = 2.20844 
 units of 12π²; for comparison R₁ = 1.19210 and 1.41439, which agree with the level-set note. The source quotes
 2.209 for degree two at μ = 0.
 
-Certified values: see the log; they are entered here when the runs have finished.
+Certified (`levelSetLowerBoundDegree`, Wolfram Engine 15.0, one core). Every map of degree ±2 has E/12π² at least
+
+| μ | Grid | Certified lower bound | Float value R₂ | Levels | Transitions | Fallbacks | Time |
+|---|---|---|---|---|---|---|---|
+| 0 | Quick | 2.207981 | 2.208440 | 1011 | 4,643,316 | 1,401,645 | 51 s |
+
+(The rows for μ = 1 and for the Standard grids are added when those runs have finished; see the log.) The certified
+number is 0.02 % below the floating-point value of the relaxed problem, which is the loss of the Quick grid; for
+degree one the same grid resolution loses 0.03 %. It is 10.4 % above Faddeev's bound 2 and 7.4 % below twice the
+degree-one bound (2 × 1.191748).
 
 For orientation (not results of this note): Faddeev's bound for degree two is 2; the degree-two note certifies
 I₂ ≤ 2.358835 (μ = 0) and I₂(1) ≤ 2.721257 with an axially symmetric trial map; the numerical value of
@@ -307,7 +316,7 @@ Battye and Sutcliffe [BS] for μ = 0 is 2.3582 ± 0.002. The bound of this note 
 
 ## 7. Checks
 
-Planned and, where the log says so, carried out:
+Carried out where the log says so:
 
 * B = 1: the new function returns the same lower bound, the same number of transitions and the same number of
   fallbacks as `levelSetLowerBound` on the stored grids.
@@ -390,7 +399,13 @@ Faddeev's. The last one returned only Faddeev's bound and Harland's bound for ma
   only; Theorems 1 and 2 with proofs; the end-point argument for the floors added (Lemma C). Floating-point
   extremals: R₂ = 2.20844 (μ = 0), 2.61111 (μ = 1); the stop rule (within 1 % of 2) does not fire. Grid generator
   written and compared with the stored degree-one grid. `Kernel/SkyrmeLevelSetDegree.wl` written.
-  **Done:** note, float values, generator, first grid (B = 2, μ = 0, Quick), kernel file.
-  **In progress:** first certified run (B = 1 identity and B = 2, μ = 0, Quick).
-  **Next:** grids and runs for μ = 1 and the Standard resolution; stored claims; registration of the model,
-  tests, README paragraph.
+* 23 November 2026, later. First certified run. B = 1 on the stored grid `Data/Skyrme/mu0_quick`: the new function
+  and `levelSetLowerBound` both return 1.1917480092669916 with 4,917,322 transitions and 1,457,421 fallbacks
+  (identical). B = 2, μ = 0, Quick grid: certified 2.207981318679515, floating-point value of the relaxed problem
+  2.2084398; path test passed at all 1011 levels (smallest slack 3.4×10⁻⁶·12π², at the last level; largest
+  4.5×10⁻⁴·12π², at the first). Model `SkyrmeDegreeTwo` registered, test suite `Tests/SkyrmeDegree.wlt` and
+  `tools/skyrme_degree_claims.wls` written; grids for μ = 1 (Quick) and μ = 0 (Standard) generated.
+  **Done:** audit and proofs; float values; generator; kernel file; B = 1 identity; first certified number.
+  **In progress:** the run that stores the claims for the two Quick grids (μ = 0 and μ = 1).
+  **Not yet run:** `Tests/SkyrmeDegree.wlt` as a whole; the existing suites on this branch; the Standard grids.
+  **Next:** fill the table of Section 6 and the README paragraph from the stored claims.
