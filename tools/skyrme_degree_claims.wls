@@ -34,11 +34,11 @@ If[MemberQ[args, "--write"],
       ctg = sym["readF64"][FileNameJoin[{dataDir, name, "ctg.f64"}]];
       slack = Flatten[Table[{ctg[[r[[1]] + 1]] - r[[4]], ctg[[r[[1]] + 1]] - r[[5]]}, {r, res["Trace"]}]]/(12 Pi^2);
       claim = sym["lowerString"][SetPrecision[lb, Infinity] (1 - 1/10^9), 10];
-      Print[name, ":  degree ", deg, ", mu = ", muq, ", ", preset, ":  certified E/(12 pi^2) >= ", NumberForm[lb, 16],
-        "   claim ", claim, "   float value of the relaxed problem ", NumberForm[meta["extremal"]["value_float"], 8],
+      Print[name, ":  degree ", deg, ", mu = ", muq, ", ", preset, ":  certified E/(12 pi^2) >= ", ToString[lb, InputForm],
+        "   claim ", claim, "   float value along the extremal ", ToString[NumberForm[meta["extremal"]["value_float"], 8]],
         "   levels ", res["Levels"], ", transitions ", res["Pairs"], ", fallbacks ", res["Fallbacks"], ", far ", res["FarBinding"],
-        "   path test: smallest slack ", ScientificForm[Min[slack], 3], " over ", Length[slack]/2, " levels   ",
-        Round[res["Seconds"], 0.1], " s"];
+        "   path test: smallest slack ", ToString[ScientificForm[Min[slack], 3]], " over ", Length[slack]/2, " levels   ",
+        ToString[Round[res["Seconds"]]], " s"];
       If[! (Min[slack] >= 0 && lb <= meta["extremal"]["value_float"]),
         Print["  **** PATH TEST FAILED: the certified function exceeds the cost of an admissible path ****"]; bad++];
       claims[name] = <|"degree" -> deg, "mu" -> meta["mu_exact"], "preset" -> preset, "lower" -> claim,

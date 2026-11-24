@@ -256,10 +256,11 @@ skyrmeDegreeTwoDescription[res_] := <|
   "References" -> "docs/SKYRME_DEGREE_TWO.md; the level-set inequality for degree one and its certified programme are those of SkyrmeDegreeOne."|>;
 
 verifySkyrmeDegreeTwo[a_Association] := Module[{c = a["Certificate"], lb, ub},
+  ub = 2 exactNumber[hedgehogUpperBound[c["Trial"], c["Mu"]]["UpperBound"]];
+  If[! (NumericQ[ub] && ub <= exactNumber[a["UpperBound"]]), Return[False, Module]];
   lb = levelSetLowerBoundDegree[2, c["Mu"], loadSkyrmeDegreeGrid[2, c["Mu"], c["Preset"]],
     minorantTable[$skyrmeDegreePresets[c["Preset"], "Table"]]]["LowerBound"];
-  ub = 2 exactNumber[hedgehogUpperBound[c["Trial"], c["Mu"]]["UpperBound"]];
-  NumericQ[lb] && NumericQ[ub] && exactOf[lb] >= exactNumber[a["LowerBound"]] && ub <= exactNumber[a["UpperBound"]]];
+  NumericQ[lb] && exactOf[lb] >= exactNumber[a["LowerBound"]]];
 
 (* ---- stored claims (Data/SkyrmeDegree/claims.json): recompute and compare ---- *)
 skyrmeDegreeClaims[] := Import[FileNameJoin[{$CertiFieldDirectory, "Data", "SkyrmeDegree", "claims.json"}], "RawJSON"];

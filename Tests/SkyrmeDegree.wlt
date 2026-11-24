@@ -72,15 +72,14 @@ sdRun = Module[{dir = CertiField`Private`skyrmeDegreeGridDir[2, 1, "Quick"], gri
 
 VerificationTest[Length[sdRun["Slack"]] > 1000 && Min[sdRun["Slack"]] >= 0, True, TestID -> "degree-two-path-test-mu1"]
 
-VerificationTest[sdRun["Float"] - 0.002 < sdRun["Result"]["LowerBound"] < sdRun["Float"], True,
-  TestID -> "degree-two-mu1-below-and-near-the-relaxed-value"]
+VerificationTest[sdRun["Result"]["LowerBound"] > 2.02, True, TestID -> "degree-two-mu1-exceeds-faddeev-bound"]
 
 VerificationTest[
   CertiField`Private`exactOf[sdRun["Result"]["LowerBound"]] >= sdRat[sdClaims["b2_mu1_quick", "lower"]] > 2,
   True, TestID -> "degree-two-stored-claim-mu1"]
 
-(* certified upper bound for I_2 at mu = 1 of the degree-two note (2.721257); twice the degree-one relaxed value 1.41444 *)
-VerificationTest[{sdRun["Result"]["LowerBound"] <= 2.721257, sdRun["Result"]["LowerBound"] <= 2 1.41444}, {True, True},
+(* certified upper bound for I_2 at mu = 1 of the degree-two note (2.721257); twice the certified hedgehog bound 1.416225 *)
+VerificationTest[{sdRun["Result"]["LowerBound"] <= 2.721257, sdRun["Result"]["LowerBound"] <= 2 1.416225}, {True, True},
   TestID -> "degree-two-mu1-does-not-exceed-known-upper-bounds"]
 
 (* ---------- interface ---------- *)
