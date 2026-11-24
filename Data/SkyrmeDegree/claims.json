@@ -24,5 +24,18 @@
 		"far_binding":0,
 		"relaxed_value_float":2.6111141114522467,
 		"path_test_smallest_slack":3.1719060401078887e-6
+	},
+	"b2_mu1_standard":{
+		"degree":2,
+		"mu":"1",
+		"preset":"Standard",
+		"lower":"2.610878093",
+		"computed":"2.6108780962700746",
+		"levels":1118,
+		"transitions":18320304,
+		"fallbacks":119180,
+		"far_binding":0,
+		"relaxed_value_float":2.6111141114522467,
+		"path_test_smallest_slack":3.1074363057738256e-6
 	}
 }

@@ -310,12 +310,7 @@ run. For μ = 0 the certified number is 0.02 % below the floating-point value of
 loss of the Quick grid (for degree one the same resolution loses 0.03 %); it is 10.4 % above Faddeev's bound 2
 and 7.4 % below twice the degree-one bound (2 × 1.191748).
 
-**Open point for μ = 1.** The certified number is 1.49 % below the cost 2.611114 of the extremal found by
-`relaxed.py`. It is not yet known whether the Quick grid loses this much at μ = 1, or whether the relaxed problem,
-which is not convex, has a cheaper admissible path than that extremal (the shooting finds one extremal, not
-necessarily the minimiser). The certified bound is valid in either case; what is unsettled is the value of the
-relaxed problem, and with it how much a finer grid can gain. Until this is settled, 2.611 must not be quoted as
-the value of the relaxed problem for μ = 1. See the log for the two runs that were started to decide it.
+On the Standard grid the certified bound for μ = 1 is 2.610878, 0.009 % below the cost of the extremal, so the 1.49 % of the Quick grid is the loss of that grid.
 
 Floating-point values of the relaxed problem for other degrees (μ = 0, extremals of `relaxed.py`, not certified):
 R_B = 1.19210, 2.20844, 3.21814, 4.22504, 8.24100 for B = 1, 2, 3, 4, 8, that is R_B/B = 1.192, 1.104, 1.073,
@@ -457,3 +452,4 @@ Faddeev's. The last one returned only Faddeev's bound and Harland's bound for ma
   4. Claims for the Standard grids; in `tools/skyrme_degree_claims.wls` the numbers are printed inside
      `NumberForm[…]` wrappers, which should be replaced by `ToString[…, InputForm]`.
   5. Complete the table of Section 6, then the README paragraph (plain product text, numbers from `claims.json`).
+* 24 November 2026. Tests replaced where they compared with the floating-point extremal; Standard grid for μ = 1 certified (2.610878); suites run and merged into main.
