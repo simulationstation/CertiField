@@ -26,8 +26,8 @@ tfmDyadicQ[x_] := tfmExactQ[x] && exactNumber[N[x]] == x;
 tfmSpec[params_Association] := Module[{p = exactify[params], A, k, K, h, Q, dom, cells, beta},
   A = Lookup[p, "A", 1/2]; k = Lookup[p, "DMI", 0]; K = Lookup[p, "K", 0]; h = Lookup[p, "Field", 0]; Q = Lookup[p, "Degree", -1];
   dom = Lookup[p, "Domain", Missing[]]; cells = Lookup[p, "Cells", 200]; beta = Lookup[p, "Grading", Automatic];
-  If[! (tfmExactQ[A] && A > 0 && tfmExactQ[k] && k >= 0 && tfmExactQ[K] && tfmExactQ[h] && h >= 0),
-    Throw[failure["BadModel", "\"A\" > 0, \"DMI\" >= 0, \"K\" and \"Field\" >= 0 must be rational numbers."], "CertiField"]];
+  If[! (tfmExactQ[A] && A > 0 && tfmExactQ[k] && tfmExactQ[K] && tfmExactQ[h] && h >= 0),
+    Throw[failure["BadModel", "\"A\" > 0, \"DMI\", \"K\" and \"Field\" >= 0 must be rational numbers."], "CertiField"]];
   If[! IntegerQ[Q], Throw[failure["BadModel", "\"Degree\" must be an integer."], "CertiField"]];
   If[! (MatchQ[dom, {{_, _}, {_, _}}] && And @@ (tfmDyadicQ /@ Flatten[dom]) && dom[[1, 1]] < dom[[1, 2]] && dom[[2, 1]] < dom[[2, 2]]),
     Throw[failure["BadModel", "\"Domain\" must be a rectangle {{a1, b1}, {a2, b2}} whose corners are dyadic rationals (exact machine numbers), e.g. {{-4, 4}, {-4, 4}}."], "CertiField"]];
@@ -78,14 +78,13 @@ tfmCheckDual[dual_Association] := Catch[Module[{mesh = dual["Mesh"], A = dual["M
     Throw[False, "tfm"]];
   Do[p1 = tfmPoly[dual["Phi"][[i]]]; p2 = tfmPoly[dual["Phi"][[i + 1]]]; t = mesh[[i + 1]];
     If[(p1 /. tfmT -> t) != (p2 /. tfmT -> t) || (D[p1, tfmT] /. tfmT -> t) != (D[p2, tfmT] /. tfmT -> t), Throw[False, "tfm"]], {i, n - 1}];
-  Do[c = tfmCellPolys[dual, i]; t0 = mesh[[i]]; t1 = mesh[[i + 1]];
-    If[! Which[
-        c["u"] === 0, c["P"] === 0 && tfmNonneg[4 A c["VG"] - c["R"], t0, t1],
-        c["w"] === 0, c["R"] === 0 && tfmNonneg[4 A c["VG"] - c["P"], t0, t1],
-        True, tfmNonneg[c["u"], t0, t1] && tfmNonneg[c["w"], t0, t1] &&
-          tfmNonneg[-(c["P"] c["w"] + c["R"] c["u"] - c["VG"] c["u"] c["w"]), t0, t1]],
-      Throw[False, "tfm"]], {i, n}];
+  Do[If[! tfmCellOK[tfmCellPolys[dual, i], A, mesh[[i]], mesh[[i + 1]]], Throw[False, "tfm"]], {i, n}];
   True], "tfm"];
+
+tfmCellOK[c_, A_, t0_, t1_] := Which[
+  c["u"] === 0, c["P"] === 0 && tfmNonneg[4 A c["VG"] - c["R"], t0, t1],
+  c["w"] === 0, c["R"] === 0 && tfmNonneg[4 A c["VG"] - c["P"], t0, t1],
+  True, tfmNonneg[c["u"], t0, t1] && tfmNonneg[c["w"], t0, t1] && tfmNonneg[-(c["P"] c["w"] + c["R"] c["u"] - c["VG"] c["u"] c["w"]), t0, t1]];
 
 tfmIntegralU[dual_] := Module[{m = dual["Mesh"]},
   Sum[With[{c = dual["U"][[i]]}, Sum[c[[j]] (m[[i + 1]]^j - m[[i]]^j)/j, {j, Length[c]}]], {i, Length[m] - 1}]];
@@ -108,6 +107,7 @@ tfmSimpleDuals[mod_, Q_] := Module[{A = mod["A"], k = mod["DMI"], K = mod["K"], 
     If[h == -2 K && h > 0 && 2 k^2/h <= 4 A, AppendTo[out, mk[{k}, {2 k^2/h}, 0]]];
     v0 = Min[h, h + 2 K];
     If[v0 > 0 && 2 k^2/v0 <= 4 A, AppendTo[out, mk[{k}, {k^2/v0, -k^2/v0}, 0]]];
+    AppendTo[out, mk[{k}, {4 A}, 0]];
     AppendTo[out, mk[{k}, {4 A}, k^2/A + g0]]];
   out];
 
@@ -118,21 +118,144 @@ tfmImportDual[file_String] := Module[{d = Quiet@Import[file, "RawJSON"], mod},
   <|"Model" -> mod, "Mesh" -> ndRational /@ d["mesh"], "Phi" -> Map[ndRational, d["phi"], {2}], "U" -> Map[ndRational, d["u"], {2}],
     "Gamma" -> ndRational[d["Gamma"]], "Source" -> FileNameTake[file]|>];
 
-tfmShippedDuals[mod_] := Module[{files = FileNames["*.json", FileNameJoin[{$CertiFieldDirectory, "Data", "Magnetisation"}]]},
-  Select[tfmImportDual /@ files, #["Model"] === mod &]];
+(* the cache: certificates for this model, or for the model with -kappa with phi -> -phi (P and R are unchanged) *)
+tfmShippedDuals[mod_] := Module[{files = FileNames["*.json", FileNameJoin[{$CertiFieldDirectory, "Data", "Magnetisation"}]], all},
+  all = tfmImportDual /@ files;
+  Join[Select[all, tfmSameModel[#["Model"], mod, 1] &], If[mod["DMI"] != 0, tfmFlipDual[#, mod] & /@ Select[all, tfmSameModel[#["Model"], mod, -1] &], {}]]];
+
+tfmSameModel[m1_, m2_, sign_] := m1["A"] == m2["A"] && m1["DMI"] == sign m2["DMI"] && m1["K"] == m2["K"] && m1["Field"] == m2["Field"];
+
+tfmFlipDual[dual_, mod_] := Join[dual, <|"Model" -> mod, "Phi" -> -dual["Phi"], "Source" -> dual["Source"] <> " (\[Phi] \[RightArrow] -\[Phi])"|>];
 
 (* the best certificate that passes the exact check *)
 tfmChooseDual[spec_, given_] := Module[{mod = tfmModelOf[spec], cands, valid, vals},
   cands = Which[
-    given === Automatic, Join[tfmShippedDuals[mod], tfmSimpleDuals[mod, spec["Degree"]]],
+    given === Automatic, Module[{cache = tfmShippedDuals[mod]},
+      Join[cache, If[cache === {} && spec["Degree"] < 0 && mod["DMI"] != 0, tfmSearchDual[mod], {}], tfmSimpleDuals[mod, spec["Degree"]]]],
     StringQ[given], {tfmImportDual[given]},
     AssociationQ[given], {Join[<|"Gamma" -> 0, "Source" -> "given"|>, given, <|"Model" -> mod|>]},
     True, Throw[failure["BadModel", "\"DualField\" must be Automatic, a file written by the Python reference, or an association with \"Mesh\", \"Phi\", \"U\" (and \"Gamma\")."], "CertiField"]];
-  If[given =!= Automatic && cands[[1]]["Model"] =!= mod, Throw[failure["BadModel", "The dual certificate belongs to a different model."], "CertiField"]];
+  If[given =!= Automatic && ! tfmSameModel[cands[[1]]["Model"], mod, 1], Throw[failure["BadModel", "The dual certificate belongs to a different model."], "CertiField"]];
+  If[given =!= Automatic, cands = {Append[cands[[1]], "Model" -> mod]}];
   valid = Select[cands, tfmCheckDual];
   If[valid === {}, Throw[failure["Inconclusive", "No dual certificate passed the exact check."], "CertiField"]];
   vals = N[tfmLowerExact[#, spec["Degree"], spec["Area"]]] & /@ valid;
   valid[[First[Ordering[vals, -1]]]]];
+
+(* ================================================================================================ *)
+(* the dual search (heuristic, port of Reference/Magnetisation/dual_opt.py; the result is checked    *)
+(* exactly like any other certificate)                                                               *)
+(* ================================================================================================ *)
+
+(* Gauss-Legendre rule on [0, 1] (Golub-Welsch) *)
+tfmGaussRule[n_Integer] := tfmGaussRule[n] = Module[{b = Table[j/Sqrt[4. j^2 - 1], {j, n - 1}], vals, vecs, ord},
+  {vals, vecs} = Eigensystem[Normal[SparseArray[{Band[{1, 2}] -> b, Band[{2, 1}] -> b}, {n, n}]]];
+  ord = Ordering[vals];
+  {(vals[[ord]] + 1)/2, vecs[[ord, 1]]^2}];
+
+(* knots t = 1 - s, s = 2, 2 (3/4), 2 (3/4)^2, ... > sLast, and t = 1; phi = kappa on the last cell *)
+tfmDualMesh[sLast_] := Module[{s = {2.}}, While[Last[s] 0.75 > sLast, AppendTo[s, Last[s] 0.75]]; Append[1. - s, 1.]];
+
+(* 1/2 Integral u_-(t) dt and its gradient; unknowns: values and scaled slopes (1 - t) phi' at the knots but the last two *)
+tfmDualFG[z_, d_] := Module[{n = d["n"], hk = d["hk"], sk = d["sk"], A = d["A"], k = d["k"], K = d["K"], h = d["h"], eps = d["eps"],
+   H0, H1, H2, H3, dH0, dH1, dH2, dH3, val, slope, t, phi, dphi, a1, b1, P, R, V, B, Dd, good, sq, u, dPf, dPp, dRf, dRp, dBf, dBp, dDf, dDp,
+   duf, dup, W, Gf, Gp, dval, dslope},
+  {H0, H1, H2, H3} = d["H"]; {dH0, dH1, dH2, dH3} = d["dH"];
+  val = Join[z[[1 ;; n - 1]], {k, k}];
+  slope = Join[z[[n ;; 2 n - 2]]/sk[[1 ;; n - 1]], {0., 0.}];
+  t = d["t"];
+  phi = Outer[Times, val[[1 ;; n]], H0] + Outer[Times, hk slope[[1 ;; n]], H1] + Outer[Times, val[[2 ;; n + 1]], H2] + Outer[Times, hk slope[[2 ;; n + 1]], H3];
+  dphi = (Outer[Times, val[[1 ;; n]], dH0] + Outer[Times, hk slope[[1 ;; n]], dH1] + Outer[Times, val[[2 ;; n + 1]], dH2] + Outer[Times, hk slope[[2 ;; n + 1]], dH3])/hk;
+  a1 = (phi + k) + (1 + t) dphi; b1 = -(phi - k) + (1 - t) dphi;
+  P = ((1 - t) a1)^2/4; R = ((1 + t) b1)^2/4;
+  V = (1 - eps) (K (1 - t^2) + h (1 - t));
+  B = 4 A V + P - R; Dd = B^2 - 16 A V P;
+  good = UnitStep[Dd] (1 - UnitStep[-B]);
+  sq = Sqrt[Ramp[Dd]];
+  dPf = (1 - t)^2 a1/2; dPp = dPf (1 + t); dRf = -(1 + t)^2 b1/2; dRp = (1 + t)^2 b1 (1 - t)/2;
+  dBf = dPf - dRf; dBp = dPp - dRp; dDf = 2 B dBf - 16 A V dPf; dDp = 2 B dBp - 16 A V dPp;
+  (* where there is no root: a penalty, as in the reference *)
+  u = good (B - sq)/(2 V) + (1 - good) (Abs[B]/(2 V) + 50. Ramp[-Dd]/(4 A V)^2 4 A + 10. Ramp[-B]/V);
+  duf = good (dBf - dDf/(2 (sq + 10.^-300)))/(2 V) + (1 - good) (Sign[B] dBf/(2 V) - 200. A (1 - UnitStep[Dd]) dDf/(4 A V)^2 - 10. UnitStep[-B] dBf/V);
+  dup = good (dBp - dDp/(2 (sq + 10.^-300)))/(2 V) + (1 - good) (Sign[B] dBp/(2 V) - 200. A (1 - UnitStep[Dd]) dDp/(4 A V)^2 - 10. UnitStep[-B] dBp/V);
+  W = d["W"];
+  Gf = W duf; Gp = W dup;
+  dval = Join[Gf . H0 + (Gp . dH0)/hk, {0.}] + Join[{0.}, Gf . H2 + (Gp . dH2)/hk];
+  dslope = Join[hk (Gf . H1) + Gp . dH1, {0.}] + Join[{0.}, hk (Gf . H3) + Gp . dH3];
+  {Total[W u, 2], Join[dval[[1 ;; n - 1]], dslope[[1 ;; n - 1]]/sk[[1 ;; n - 1]]]}];
+
+tfmDualData[mod_, sLast_, eps_] := Module[{tk = tfmDualMesh[sLast], gx, gw, hk, n},
+  {gx, gw} = tfmGaussRule[10]; n = Length[tk] - 1; hk = Differences[tk];
+  <|"n" -> n, "tk" -> tk, "hk" -> hk, "sk" -> 1. - tk, "A" -> N[mod["A"]], "k" -> N[mod["DMI"]], "K" -> N[mod["K"]], "h" -> N[mod["Field"]], "eps" -> eps,
+    "t" -> Most[tk] + Outer[Times, hk, gx], "W" -> 0.5 Outer[Times, hk, gw],
+    "H" -> {2 gx^3 - 3 gx^2 + 1, gx^3 - 2 gx^2 + gx, -2 gx^3 + 3 gx^2, gx^3 - gx^2},
+    "dH" -> {6 gx^2 - 6 gx, 3 gx^2 - 4 gx + 1, -6 gx^2 + 6 gx, 3 gx^2 - 2 gx}|>];
+
+(* mesh continuation: the last cell (where phi = kappa) is subdivided stage by stage, each stage starting from the last *)
+tfmOptimiseDual[mod_, eps_ : 2.*^-3] := Module[{z = None, d, z0, m, res},
+  Do[
+    d = tfmDualData[mod, sLast, eps];
+    z0 = Join[ConstantArray[d["k"], d["n"] - 1], ConstantArray[0., d["n"] - 1]];
+    If[z =!= None, m = Length[z]/2; z0[[1 ;; m]] = z[[1 ;; m]]; z0[[d["n"] ;; d["n"] + m - 1]] = z[[m + 1 ;; 2 m]]];
+    res = ndLBFGS[tfmDualFG[#, d] &, z0, 3000];
+    z = res[[1]],
+    {sLast, {2.*^-3, 2.*^-4, 2.*^-5}}];
+  {d, z}];
+
+tfmHermiteCell[t0_, t1_, f0_, d0_, f1_, d1_] := Module[{hh = t1 - t0, s},
+  s = (tfmT - t0)/hh;
+  CoefficientList[Expand[f0 (2 s^3 - 3 s^2 + 1) + d0 hh (s^3 - 2 s^2 + s) + f1 (-2 s^3 + 3 s^2) + d1 hh (s^3 - s^2)], tfmT, 4]];
+
+(* on every cell a polynomial u of degree 4 slightly above the smaller root, checked exactly cell by cell *)
+tfmFitU[mod_, mesh_, phis_] := Module[{n = Length[mesh] - 1, A = mod["A"], k = mod["DMI"], K = mod["K"], h = mod["Field"], us = {}, bad = 0,
+   t0, t1, nodes, ph, dph, a1, b1, P, R, V, B, Dd, um, up, ok, target, c, upoly, v0, cheb, vand},
+  cheb = 0.5 (1 - Cos[Pi (Range[0, 4] + 0.5)/5]);
+  vand = Outer[Power, cheb, Range[0, 4]];
+  Do[
+    t0 = mesh[[i]]; t1 = mesh[[i + 1]]; ok = False;
+    If[i == n,
+      v0 = h + K (1 + If[K >= 0, t0, 1]);
+      If[v0 > 0 && 2 k^2/v0 <= 4 A, upoly = {k^2/v0, -k^2/v0}; ok = True],
+      nodes = N[t0] + N[t1 - t0] cheb;
+      ph = polyAt[N[phis[[i]]], nodes]; dph = polyAt[N[polyD[phis[[i]]]], nodes];
+      a1 = (ph + N[k]) + (1 + nodes) dph; b1 = -(ph - N[k]) + (1 - nodes) dph;
+      P = ((1 - nodes) a1)^2/4; R = ((1 + nodes) b1)^2/4; V = N[K] (1 - nodes^2) + N[h] (1 - nodes);
+      B = 4 N[A] V + P - R; Dd = B^2 - 16 N[A] V P;
+      If[Min[Dd] > 0 && Min[B] > 0 && Min[V] > 0,
+        um = (B - Sqrt[Dd])/(2 V); up = (B + Sqrt[Dd])/(2 V);
+        Do[
+          target = If[mg > 0, um (1 + mg) + 10.^-3 mg Max[um], um + (-mg) (up - um)];
+          c = Rationalize[LinearSolve[vand, target], 0];
+          upoly = CoefficientList[Expand[c . ((tfmT - t0)/(t1 - t0))^Range[0, 4]], tfmT, 5];
+          If[tfmCellOK[tfmCellPolys[<|"Model" -> mod, "Phi" -> {phis[[i]]}, "U" -> {upoly}, "Gamma" -> 0|>, 1], A, t0, t1], ok = True; Break[]],
+          {mg, {10.^-6, 10.^-5, 10.^-4, 10.^-3, 10.^-2, -0.02, -0.1, -0.3, -0.5}}]]];
+    If[! ok, bad++; upoly = {4 A}];
+    AppendTo[us, upoly],
+    {i, n}];
+  {us, bad}];
+
+(* the optimiser's field, rounded to rationals; if some cell fails, damped towards phi = kappa *)
+tfmBuildDual[mod_, d_, z_] := Module[{n = d["n"], k = mod["DMI"], kf = d["k"], sk = d["sk"], mesh, zv, zs, vals, slopes, phis, us, bad, best = None},
+  mesh = Rationalize[d["tk"], 0]; mesh[[1]] = -1; mesh[[-1]] = 1;
+  Do[
+    zv = kf + (1 - th) (z[[1 ;; n - 1]] - kf);
+    zs = (1 - th) z[[n ;; 2 n - 2]]/sk[[1 ;; n - 1]];
+    vals = Join[Rationalize[zv, 0], {k, k}]; slopes = Join[Rationalize[zs, 0], {0, 0}];
+    phis = Table[tfmHermiteCell[mesh[[i]], mesh[[i + 1]], vals[[i]], slopes[[i]], vals[[i + 1]], slopes[[i + 1]]], {i, n}];
+    {us, bad} = tfmFitU[mod, mesh, phis];
+    If[best === None || bad < best[[2]], best = {<|"Model" -> mod, "Mesh" -> mesh, "Phi" -> phis, "U" -> us, "Gamma" -> 0, "Source" -> "search"|>, bad}];
+    If[bad == 0, Break[]],
+    {th, {0, 10^-4, 10^-3, 3 10^-3, 10^-2, 3 10^-2, 10^-1}}];
+  If[best[[2]] == 0, {best[[1]]}, {}]];
+
+(* for degree < 0 and kappa != 0, with V > 0 on (-1, 1); the search runs for |kappa| and phi -> -phi gives the field
+   for -kappa.  Remembered for the session. *)
+tfmSearchDual[mod_] := tfmSearchDual[mod] = Module[{m = Append[mod, "DMI" -> Abs[mod["DMI"]]], d, z, out},
+  If[! (mod["Field"] > 0 && mod["Field"] + 2 mod["K"] > 0), Return[{}, Module]];
+  {d, z} = Quiet[tfmOptimiseDual[m]];
+  If[! VectorQ[z, Internal`RealValuedNumericQ], Return[{}, Module]];
+  out = tfmBuildDual[m, d, z];
+  If[mod["DMI"] < 0, tfmFlipDual[#, mod] & /@ out, out]];
 
 (* ================================================================================================ *)
 (* the upper bound: energy and degree of the normalised bilinear interpolant (rigorous)             *)
@@ -287,15 +410,17 @@ tfmProfile[mod_, L_, n_ : 3000] := Module[
     If[! accepted, Break[]]];
   Interpolation[Transpose[{r, th}], InterpolationOrder -> 1]];
 
-(* nodal vectors of the axisymmetric field (-sin(theta) y/r, sin(theta) x/r, cos(theta)) about the centre of the
-   domain; e3 on the boundary and outside the inscribed circle *)
-tfmRadialNodes[spec_, x1_, x2_, theta_] := Module[{dom = spec["Domain"], cx, cy, L, X, Y, r, th, s, inside, Mn},
+(* nodal vectors of an axisymmetric field about the centre of the domain, e3 on the boundary and outside the inscribed
+   circle: degree -1: (-sin(theta) y/r, sin(theta) x/r, cos(theta)) for kappa >= 0 and its image under
+   (m1, m2) -> (-m1, -m2) for kappa < 0; degree +1: (sin(theta) x/r, -sin(theta) y/r, cos(theta)) *)
+tfmRadialNodes[spec_, x1_, x2_, theta_] := Module[{dom = spec["Domain"], cx, cy, L, X, Y, r, th, s, inside, Mn, m1, m2},
   cx = N[Mean[dom[[1]]]]; cy = N[Mean[dom[[2]]]]; L = N[Min[(dom[[1, 2]] - dom[[1, 1]])/2, (dom[[2, 2]] - dom[[2, 1]])/2]];
   X = Transpose[ConstantArray[x1 - cx, Length[x2]]]; Y = ConstantArray[x2 - cy, Length[x1]];
   r = Sqrt[X^2 + Y^2];
   th = ArrayReshape[tfmEvalList[theta, Flatten[Clip[r, {0., L}]]], Dimensions[r]];
   s = Sin[th]/(r + UnitStep[-r]);
-  Mn = Transpose[{-s Y, s X, Cos[th]}, {3, 1, 2}];
+  {m1, m2} = Which[spec["Degree"] > 0, {s X, -s Y}, spec["DMI"] < 0, {s Y, -s X}, True, {-s Y, s X}];
+  Mn = Transpose[{m1, m2, Cos[th]}, {3, 1, 2}];
   inside = 1 - UnitStep[r - L];
   inside[[1]] = inside[[-1]] = 0 inside[[1]]; inside[[All, 1]] = 0; inside[[All, -1]] = 0;
   Mn = Mn inside + Transpose[{0. inside, 0. inside, 1. - inside}, {3, 1, 2}];
@@ -311,11 +436,18 @@ tfmAutoGrading[spec_, theta_, n_] := Module[{L, rr, core, f},
   f[beta_?NumericQ] := L beta/(n Sinh[beta]) - core/40;
   If[f[0.01] <= 0, 0., Quiet@Check[beta /. FindRoot[f[beta], {beta, 2., 0.01, 30.}], 4.]]];
 
-tfmCompetitor[spec_, cand_] := Module[{n = spec["Cells"]/2, theta, beta, x1, x2, Mn, f},
+(* a Belavin-Polyakov profile of small radius, cut off at the inscribed circle (energy just above 8 pi A) *)
+tfmSmallBP[spec_, L_] := Module[{stiff = N[spec["Field"] + 2 Abs[spec["K"]]], R},
+  R = Min[N[L]/40, If[stiff > 0, 0.05/Sqrt[stiff], Infinity]];
+  With[{RR = R, LL = N[L]}, Function[r, 2 ArcTan[r, RR (1 - (r/LL)^2)^2]]]];
+
+tfmCompetitor[spec_, cand_] := Module[{n = spec["Cells"]/2, theta, beta, x1, x2, Mn, f, L},
+  L = Min[(spec["Domain"][[1, 2]] - spec["Domain"][[1, 1]])/2, (spec["Domain"][[2, 2]] - spec["Domain"][[2, 1]])/2];
   theta = Which[
     cand === Automatic,
-      If[spec["Degree"] =!= -1, Throw[failure["BadCandidate", "The automatic competitor has degree -1; for other degrees give a field Function[{x, y}, {m1, m2, m3}]."], "CertiField"]];
-      tfmProfile[tfmModelOf[spec], Min[(spec["Domain"][[1, 2]] - spec["Domain"][[1, 1]])/2, (spec["Domain"][[2, 2]] - spec["Domain"][[2, 1]])/2]],
+      If[! MemberQ[{-1, 1}, spec["Degree"]], Throw[failure["BadCandidate", "The automatic competitor has degree -1 or +1; for other degrees give a field Function[{x, y}, {m1, m2, m3}]."], "CertiField"]];
+      (* degree -1 with a Dzyaloshinskii-Moriya term: the radial minimiser; otherwise a small Belavin-Polyakov map *)
+      If[spec["Degree"] == -1 && spec["DMI"] != 0, tfmProfile[Append[tfmModelOf[spec], "DMI" -> Abs[spec["DMI"]]], L], tfmSmallBP[spec, L]],
     True, None];
   f = If[theta === None && ! MatchQ[cand, _Function | _InterpolatingFunction], Throw[failure["BadCandidate", "The candidate must be Automatic, a profile Function[r, theta] or a field Function[{x, y}, {m1, m2, m3}]."], "CertiField"], cand];
   If[theta === None && NumericQ[Quiet[f[0.5]]], theta = f];

@@ -59,6 +59,19 @@ VerificationTest[
    VerifyCertificate[CertifiedBound[ReplacePart[tfmM1["Association"], {"Certificate", "Dual", "U"} -> tfmM1["Association"]["Certificate"]["Dual"]["U"] (1 - 1/10^6)]]]},
   {False, False, False}, TestID -> "tfm-verify-rejects-tampering"]
 
+(* a field value that is not in the cache: the package finds its own dual field (Python reference: 10.830954365) *)
+tfmH4 = CertifiedVariationalBound[CertiFieldModel["ThinFilmMagnet", <|"DMI" -> 1, "Field" -> 4, "Domain" -> {{-3, 3}, {-3, 3}}, "Cells" -> 240|>]];
+VerificationTest[
+  {tfmH4["Status"], tfmH4["Certificate"]["Dual"]["Source"], tfmH4["LowerBound"] >= 10.830954365 (1 - 10^-3), tfmH4["RelativeGap"] < 0.005},
+  {"Certified", "search", True, True}, TestID -> "tfm-dual-search-field-not-in-cache"]
+
+(* kappa < 0: the cached field for |kappa| with phi -> -phi, checked exactly for the model itself; degree +1 *)
+VerificationTest[
+  Module[{neg = CertifiedVariationalBound[CertiFieldModel["ThinFilmMagnet", <|"DMI" -> -1, "Field" -> 2, "Domain" -> {{-4, 4}, {-4, 4}}, "Cells" -> 240|>]],
+      plus = CertifiedVariationalBound[CertiFieldModel["ThinFilmMagnet", <|"DMI" -> 1, "Field" -> 2, "Degree" -> 1, "Domain" -> {{-4, 4}, {-4, 4}}, "Cells" -> 240|>]]},
+    {neg["LowerBound"] == tfmM1["LowerBound"], neg["RelativeGap"] < 0.005, plus["LowerBound"] <= 4 Pi <= plus["LowerBound"] + 10^-14, plus["RelativeGap"] < 0.02}],
+  {True, True, True, True}, TestID -> "tfm-negative-kappa-and-degree-plus-one"]
+
 (* failure modes *)
 VerificationTest[
   {FailureQ[CertifiedVariationalBound[CertiFieldModel["ThinFilmMagnet", <|"DMI" -> 1, "Field" -> 2, "Domain" -> {{-1/3, 1/3}, {-1, 1}}|>]]],
