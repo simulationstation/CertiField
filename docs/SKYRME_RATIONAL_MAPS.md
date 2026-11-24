@@ -184,3 +184,25 @@ What was searched and found: to be filled in.
 * 23 November 2026. Note written before the implementation. The energy formula of the task description was
   compared with [1] (2.10)–(2.11) and with [3] (1), (5), (6), and with the density in Kernel/SkyrmeHedgehog.wl at
   B = 1, ℐ = 1: they agree, including the factor 2μ² of the mass term.
+* 23 November 2026, work stopped here (the machine was shut down). State for whoever resumes:
+  **Written, never run in a kernel:** Kernel/SkyrmeRationalMaps.wl (interval arithmetic on second-order Taylor
+  data, the adaptive midpoint rule for ℐ, the radial bound, the maps, the Newton solver for the profile, and the
+  model functions `certifySkyrmeRationalMap`, `verifySkyrmeRationalMap`, `skyrmeRationalMapDescription`,
+  `exportRationalMapCertificate`, `verifyRationalMapCertificateFile`). Expect bugs. The file is not yet loaded by
+  Kernel/CertiField.wl and the model is not yet registered in Kernel/Models.wl.
+  **Run (floating point only):** Reference/SkyrmeRationalMaps/check_rational_maps.py, function `angular`, on the
+  maps of the kernel file: ℐ = 1.000000, 5.808259, 13.577235, 20.649626, 35.753385, 50.761040, 60.868042 for
+  B = 1, …, 7 (literature: 1, π + 8/3, 13.58, 20.65, 35.75, 50.76, 60.87) and 85.63 near a = 0.136 for B = 8, each
+  with degree B to twelve digits. **Error found in [1]:** for (3.17) the paper prints a = −3; that value gives
+  ℐ = 216.53 (float), and a = −1/7 (which satisfies the same Wronskian condition) gives the icosahedral map with
+  ℐ = 60.868; the kernel file uses a = −1/7. For B = 8 the paper's a = 0.14 gives 85.66; 0.136 gives 85.63.
+  **Next, in order:** (1) load the kernel file in a script and run ℐ for B = 1, 2 against 1 and π + 8/3, then
+  B = 3, …, 8; (2) one radial bound (B = 2, μ = 0, published 1.208 per unit of degree), and
+  `rationalMapUpperBound[trial, 1, 1, μ]` against `hedgehogUpperBound` on the shipped trial data (must be equal);
+  (3) add "SkyrmeRationalMaps.wl" to Kernel/CertiField.wl, the name "SkyrmeRationalMap" to `$CertiFieldModels`, the
+  branches in `assembleCertificate` (raw and description) and in `verifyCertificate` of Kernel/Models.wl;
+  (4) Tests/SkyrmeRationalMaps.wlt and a flag in tools/run_tests.wls: soundness of the Taylor arithmetic against
+  exact derivatives at rational points, ℐ(z) = 1 and ℐ(z²) = π + 8/3 inside the enclosures, B = 1 against the
+  hedgehog, published energies to 0.001, tampering, failure modes; (5) store certificates as
+  Reference/SkyrmeRationalMaps/certificates/*.json and run check_rational_maps.py on them; (6) Sections 8–10 of
+  this note, README, docs/ARCHITECTURE.md, a CI step for the Python check.

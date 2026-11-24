@@ -290,4 +290,108 @@ rationalMapTrialData[b_Integer, ii_, mu_] := Module[{core, rmax, nodes, f, p, n,
   rat[v_] := Rationalize[SetPrecision[v, 22], 10^-18];
   <|"Degree" -> b, "Mu" -> mu, "r" -> nodes, "p" -> Join[{0}, rat /@ p[[2 ;; n]]], "dp" -> rat /@ dp|>];
 
+(* ------------------------------------------------------------------------------------------------ *)
+(* the model SkyrmeRationalMap                                                                       *)
+(* ------------------------------------------------------------------------------------------------ *)
+
+CertiFieldModelInfo["SkyrmeRationalMap"] := <|
+  "Name" -> "SkyrmeRationalMap",
+  "Energy" -> "E(U) = \[Integral] |dU|^2 + |\[CapitalLambda]^2 dU|^2 + 2\[Mu]^2 (1 - cos f) over \[DoubleStruckCapitalR]^3, f = dist(U, 1); reported as E/(12\[Pi]^2)",
+  "Parameters" -> <|"Degree" -> "B, a positive integer (default 2); maps are built in for B = 1, ..., 8",
+    "PionMass" -> "a rational \[Mu] with 0 \[LessEqual] \[Mu] < 2 (default 0)",
+    "RationalMap" -> "optional: a pure function of z giving a rational map of degree B with Gaussian rational coefficients; it replaces the built-in map"|>,
+  "AdmissibleClass" -> "finite-energy maps U: \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 of degree B with U - 1 \[Element] L^6",
+  "LowerBound" -> "the topological bound E \[GreaterEqual] 12\[Pi]^2 |B| (not tight)",
+  "UpperBound" -> "energy of the field of the rational-map ansatz, U = exp(i f(r) n_R\[CenterDot]\[Sigma]): certified enclosure of the angular integral of the map and rigorous quadrature of the radial integral",
+  "Reference" -> "docs/SKYRME_RATIONAL_MAPS.md",
+  "Status" -> "Supported"|>;
+
+(* {B, mu, p, q}: p, q polynomials in \[FormalZ] *)
+rationalMapSpec[params_Association] := Module[{b = Lookup[params, "Degree", 2], mu = Lookup[params, "PionMass", 0],
+   map = Lookup[params, "RationalMap", Automatic], z = \[FormalZ], r, pq},
+  mu = If[InexactNumberQ[mu], Rationalize[mu, 10^-12], mu];
+  If[! (MatchQ[mu, _Integer | _Rational] && 0 <= mu < 2),
+    Throw[failure["BadModel", "The pion mass must be a rational number with 0 \[LessEqual] \[Mu] < 2."], "CertiField"]];
+  If[! (IntegerQ[b] && b >= 1), Throw[failure["BadModel", "\"Degree\" must be a positive integer."], "CertiField"]];
+  pq = If[map === Automatic,
+    If[b > 8, Throw[failure["BadModel", "Maps are built in for the degrees 1 to 8; give \"RationalMap\" for another degree."], "CertiField"]];
+    rationalMapOfDegree[b, z],
+    r = Quiet@Together[map[z]];
+    {Numerator[r], Denominator[r]}];
+  If[! (ListQ[pq] && Length[pq] == 2 && TrueQ[rationalMapQ[pq[[1]], pq[[2]], z, b]]),
+    Throw[failure["BadModel", "\"RationalMap\" must be a pure function of z giving a quotient of two polynomials with Gaussian rational coefficients and no common zero, of degree \"Degree\" as a map."], "CertiField"]];
+  {b, mu, pq[[1]], pq[[2]]}];
+
+rationalMapIntegralCached[p_, q_, z_, b_] := rationalMapIntegralCached[p, q, z, b] = rationalMapIntegral[p, q, z, b];
+
+(* The stored upper bound is the computed one weakened by one part in 10^9. *)
+certifySkyrmeRationalMap[params_Association, cand_, opts_List] := Module[
+  {spec = rationalMapSpec[params], verbose = TrueQ[OptionValue[CertifiedVariationalBound, opts, "Verbose"]], z = \[FormalZ],
+   b, mu, p, q, int, ii, trial, ub, t0 = AbsoluteTime[]},
+  {b, mu, p, q} = spec;
+  If[verbose, Print["  enclosing the angular integral of the map"]];
+  int = rationalMapIntegralCached[p, q, z, b];
+  ii = upperDecimal[int["Upper"], 12];
+  If[verbose, Print["  angular integral in [", N[int["Lower"], 12], ", ", N[int["Upper"], 12], "], ", int["Cells"], " cells"]];
+  trial = Which[
+    cand === Automatic, rationalMapTrialData[b, ii, mu],
+    AssociationQ[cand] && KeyExistsQ[cand, "r"], cand,
+    True, Throw[failure["BadCandidate", "The candidate must be trial data <|\"r\" -> ..., \"p\" -> ..., \"dp\" -> ...|> (rational numbers, p = \[Pi] - f)."], "CertiField"]];
+  trial = KeyTake[trial, {"r", "p", "dp"}];
+  ub = rationalMapUpperBound[trial, b, ii, mu];
+  <|"LowerBound" -> b, "UpperBound" -> SetPrecision[ub["UpperBound"], Infinity] (1 + 1/10^9), "Seconds" -> AbsoluteTime[] - t0,
+    "Degree" -> b, "Mu" -> mu, "Map" -> {CoefficientList[p, z], CoefficientList[q, z]},
+    "AngularIntegral" -> {lowerDecimal[int["Lower"], 12], ii}, "AngularCells" -> int["Cells"], "Trial" -> trial,
+    "Radial" -> KeyDrop[ub, "Enclosure"], "ComputedUpperBound" -> ub["UpperBound"]|>];
+
+skyrmeRationalMapDescription[res_] := With[{b = res["Degree"]},
+  <|"Units" -> "12\[Pi]^2 (Faddeev\[Dash]Bogomolny units), Battye\[Dash]Sutcliffe normalisation",
+    "Theorem" -> Row[{"Every finite-energy map U: \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 of degree ", b, " with pion mass \[Mu] = ", exactString[res["Mu"]],
+      " has E(U)/(12\[Pi]^2) \[GreaterEqual] ", b, " (the topological bound).  The field of the rational-map ansatz with the stored map and profile has degree ", b,
+      " and E/(12\[Pi]^2) \[LessEqual] ", upperString[res["UpperBound"], 8], ", that is ", upperString[res["UpperBound"]/b, 8], " per unit of degree."}],
+    "AdmissibleClass" -> "all finite-energy maps \[DoubleStruckCapitalR]^3 \[RightArrow] S^3 of the given degree (no symmetry assumed)",
+    "LowerBoundMethod" -> "the topological bound E \[GreaterEqual] 12\[Pi]^2 |B| (inequality of the arithmetic and geometric means); it is not attained, so the interval is wide",
+    "UpperBoundMethod" -> Row[{"rational-map ansatz: the angular integral of the map lies in [", lowerString[res["AngularIntegral"][[1]], 10], ", ",
+      upperString[res["AngularIntegral"][[2]], 10], "] (midpoint rule with enclosures of the second derivatives, ", res["AngularCells"],
+      " cells); radial integral for a profile with ", res["Radial", "Cells"], " cubic cells, rigorous quadrature"}],
+    "TrustedBase" -> "IEEE-754 machine arithmetic (+, \[Minus], \[Times], \[Divide]) with outward rounding, exact rational arithmetic, Wolfram Language Interval arithmetic, and docs/SKYRME_RATIONAL_MAPS.md",
+    "NotClaimed" -> "that the field of the ansatz is a minimiser or a critical point of the energy, or that the infimum is attained; the lower end of the interval is only the topological bound",
+    "References" -> "Houghton, Manton, Sutcliffe, Nucl. Phys. B 510 (1998) 507 (the ansatz and the maps); docs/SKYRME_RATIONAL_MAPS.md"|>];
+
+(* recompute both integrals from the stored map and profile; the model's parameters must describe the stored map *)
+verifySkyrmeRationalMap[a_Association] := Module[{c = a["Certificate"], z = \[FormalZ], spec, b, mu, p, q, int, ii, ub},
+  spec = rationalMapSpec[a["Parameters"]];
+  {b, mu, p, q} = spec;
+  If[! (c["Degree"] === b && c["Mu"] === mu && c["Map"] === {CoefficientList[p, z], CoefficientList[q, z]}), Return[False, Module]];
+  int = rationalMapIntegral[p, q, z, b];
+  ii = upperDecimal[int["Upper"], 12];
+  ub = rationalMapUpperBound[c["Trial"], b, ii, mu]["UpperBound"];
+  NumericQ[ub] && a["LowerBound"] <= b && ub <= a["UpperBound"]];
+
+(* ---- certificates on disk (JSON with exact numbers as strings), for the cross-check in Reference/SkyrmeRationalMaps ---- *)
+rmString[x_] := ToString[x, InputForm];
+rmParse[s_String] := If[StringMatchQ[s, RegularExpression["-?[0-9]+(/[0-9]+)?"]], ToExpression[s],
+  Throw[failure["BadCertificate", "Not a rational number: " <> s], "CertiField"]];
+
+exportRationalMapCertificate[file_String, cert_CertifiedBound] := Module[{c = cert["Certificate"], pair},
+  pair[v_] := {rmString[Re[v]], rmString[Im[v]]};
+  Export[file, <|"format" -> "CertiField-rational-map-certificate-1", "degree" -> c["Degree"], "mu" -> rmString[c["Mu"]],
+    "map" -> <|"p" -> (pair /@ c["Map"][[1]]), "q" -> (pair /@ c["Map"][[2]])|>,
+    "angular_integral" -> <|"lower" -> rmString[c["AngularIntegral"][[1]]], "upper" -> rmString[c["AngularIntegral"][[2]]]|>,
+    "trial" -> (rmString /@ # & /@ c["Trial"]),
+    "upper_bound" -> rmString[upperDecimal[cert["UpperBound"], 12]],
+    "upper_bound_per_degree" -> ToString[N[upperDecimal[cert["UpperBound"], 12]/c["Degree"], 8]]|>, "RawJSON"]];
+
+(* True if the bounds recomputed from the stored map and profile are at least as strong as the stored claim *)
+verifyRationalMapCertificateFile[file_String] := Catch[Module[{j = Import[file, "RawJSON"], z = \[FormalZ], b, mu, p, q, trial, int, ii, ub, cpoly},
+  cpoly[list_] := (rmParse[#[[1]]] + I rmParse[#[[2]]] & /@ list) . z^Range[0, Length[list] - 1];
+  b = j["degree"]; mu = rmParse[j["mu"]];
+  p = cpoly[j["map", "p"]]; q = cpoly[j["map", "q"]];
+  If[! (IntegerQ[b] && b >= 1 && mu >= 0 && rationalMapQ[p, q, z, b]), Throw[False, "CertiField"]];
+  trial = Association[# -> (rmParse /@ j["trial", #]) & /@ {"r", "p", "dp"}];
+  int = rationalMapIntegral[p, q, z, b];
+  ii = upperDecimal[int["Upper"], 12];
+  ub = rationalMapUpperBound[trial, b, ii, mu]["UpperBound"];
+  TrueQ[NumericQ[ub] && ub <= rmParse[j["upper_bound"]] && ii <= rmParse[j["angular_integral", "upper"]]]], "CertiField"] === True;
+
 End[];
