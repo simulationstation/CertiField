@@ -135,7 +135,7 @@ rmPieceBound[piece_, tol_, maxLevel_] := Module[
     ok = ok0 ok2;
     If[! (VectorQ[cell[[1]], Developer`MachineRealQ] && VectorQ[cell[[2]], Developer`MachineRealQ] && Max[Abs[cell[[2]]]] < $big),
       Throw[failure["Inconclusive", "The enclosure of the angular integral overflowed."], "CertiField"]];
-    If[est === None, est = Max[Total[ok Abs[ivMul[{h1 h2, h1 h2}, g0][[2]]]], $MinMachineNumber]];
+    If[est === None, est = Max[Total[ok0 Abs[ivMul[{h1 h2, h1 h2}, g0][[2]]]], $MinMachineNumber]];
     w = cell[[2]] - cell[[1]];
     acc = Unitize[ok If[level >= maxLevel, one, leMask[w, 0.5 tol est h1 h2]]];
     If[level >= maxLevel && Total[ok] < n,
@@ -162,7 +162,7 @@ rmPieces[p_, q_, z_, b_] := Module[{a = PadRight[CoefficientList[p, z], b + 1], 
     {rmCoefIv /@ aa, rmCoefIv /@ cc, rmCoefIv /@ PadRight[CoefficientList[Expand[D[pp, z] qq - pp D[qq, z]], z], Max[2 b - 1, 1]]}];
   {mk[a, c], mk[sgn a, sgn c], mk[Reverse[a], Reverse[c]], mk[sgn Reverse[a], sgn Reverse[c]]}];
 
-Options[rationalMapIntegral] = {"Tolerance" -> 10^-6, "MaxLevel" -> 9};
+Options[rationalMapIntegral] = {"Tolerance" -> 10^-5, "MaxLevel" -> 9};
 (* enclosure of the angular integral: <|"Lower" -> rational, "Upper" -> rational, "Cells" -> number of cells|> *)
 rationalMapIntegral[p_, q_, z_Symbol, b_Integer, OptionsPattern[]] := Module[{res, lo, hi},
   If[! rationalMapQ[p, q, z, b],

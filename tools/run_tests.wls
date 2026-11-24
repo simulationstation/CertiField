@@ -2,6 +2,7 @@
 (* Run the CertiField test suites from the repository root.
      wolframscript -file tools/run_tests.wls            fast suite
      wolframscript -file tools/run_tests.wls --skyrme   fast suite + Skyrme suite (a few minutes)
+     wolframscript -file tools/run_tests.wls --skyrme-rational-maps   fast suite + rational-map upper bounds (a few minutes)
      wolframscript -file tools/run_tests.wls --nd       fast suite + ScalarFieldND suite (about two minutes)
      wolframscript -file tools/run_tests.wls --nd-slow  fast suite + the long ScalarFieldND runs (about ten minutes)   *)
 
@@ -9,6 +10,7 @@ root = DirectoryName[$InputFileName, 2];
 PacletDirectoryLoad[root];
 files = {FileNameJoin[{root, "Tests", "CertiField.wlt"}]};
 If[MemberQ[$ScriptCommandLine, "--skyrme"], AppendTo[files, FileNameJoin[{root, "Tests", "Skyrme.wlt"}]]];
+If[MemberQ[$ScriptCommandLine, "--skyrme-rational-maps"], AppendTo[files, FileNameJoin[{root, "Tests", "SkyrmeRationalMaps.wlt"}]]];
 If[MemberQ[$ScriptCommandLine, "--nd"], AppendTo[files, FileNameJoin[{root, "Tests", "ScalarFieldND.wlt"}]]];
 If[MemberQ[$ScriptCommandLine, "--nd-slow"], AppendTo[files, FileNameJoin[{root, "Tests", "ScalarFieldNDSlow.wlt"}]]];
 
