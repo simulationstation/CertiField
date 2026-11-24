@@ -293,12 +293,14 @@ statements and proofs are in `docs/SCALAR_ND_2.md`; the statements of `docs/SCAL
   implemented. (5) "A different potential in each cell" is two things: a finite list of materials with an integer
   per cell, and a table per cell that is piecewise linear in u.
 
-**In progress.** Nothing is half-written in the code: `scalarnd.py`, `ia.py` and `Kernel/ScalarFieldND.wl` are as
-in version 0.3.0.
+* `ia.py`: `ln` (Lemma 12), `xlnx` (s ln s on intervals that may start at 0), `sqrt_up` (verified square root),
+  `pi_lower` (Machin). New functions only; nothing existing changed. `check_ia.py` compares each with exact
+  rational arithmetic (607 + 303 + 3000 points): all enclosures hold, relative width of ln 4e-15.
+
+**In progress.** Step 2 below. `Kernel/ScalarFieldND.wl` is as in version 0.3.0.
 
 **Next, in this order.**
-1. `ia.py`: `ln` (Lemma 12), `sqrt_up` (verified square root), a rational lower bound for pi (Machin). New
-   functions only.
+1. (done, see above)
 2. `scalarnd.py`, the rigorous evaluators first. Plan that keeps every existing result bit for bit: potentials
    become objects (`Poly`, `PolyLog`, `Table`, a list with a material map) behind methods of `Problem` that return
    a scalar for one polynomial, exactly as now, and arrays over the cells otherwise; `Problem` gains `lin`
