@@ -50,6 +50,9 @@ def _cells(x1, x2, Mn):
     x1, x2 = np.asarray(x1, dtype=np.float64), np.asarray(x2, dtype=np.float64)
     Mn = np.asarray(Mn, dtype=np.float64)
     assert Mn.shape == (x1.size, x2.size, 3) and np.all(np.diff(x1) > 0) and np.all(np.diff(x2) > 0) and np.all(np.isfinite(Mn))
+    edge = np.concatenate([Mn[0], Mn[-1], Mn[:, 0], Mn[:, -1]])
+    if not np.all(edge == np.array([0.0, 0.0, 1.0])):
+        raise ValueError("the boundary nodes must be exactly (0, 0, 1)")
     B = {(0, 0): [I(Mn[:-1, :-1, c]) for c in range(3)], (1, 0): [I(Mn[1:, :-1, c]) for c in range(3)],
          (0, 1): [I(Mn[:-1, 1:, c]) for c in range(3)], (1, 1): [I(Mn[1:, 1:, c]) for c in range(3)]}
     h1 = (I(x1[1:]) - I(x1[:-1]))[:, None]
@@ -201,7 +204,7 @@ def degree(x1, x2, Mn):
     cell = I(dlo, dhi) * I(wlo, whi)
     lo, hi = _sum_dn(cell.lo), _sum_up(cell.hi)
     fourpi_lo, fourpi_hi = 4 * Fr(314159265358979323846264338327950288, 10 ** 35), 4 * Fr(314159265358979323846264338327950289, 10 ** 35)
-    cands = [n for n in range(math.floor(lo / 12.0) - 2, math.ceil(hi / 12.0) + 3)
+    cands = [n for n in range(math.floor(min(lo / 12.0, lo / 13.0)) - 2, math.ceil(max(hi / 12.0, hi / 13.0)) + 3)
              if not (max(fourpi_lo * n, fourpi_hi * n) < Fr(lo) or min(fourpi_lo * n, fourpi_hi * n) > Fr(hi))]
     return (cands[0] if len(cands) == 1 else None), (lo, hi)
 
