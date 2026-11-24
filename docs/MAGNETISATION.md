@@ -1,11 +1,9 @@
 # Magnetisation in thin films: certified bounds for unit-vector fields
 
 This note states and proves what the magnetisation track certifies and describes how the two bounds are computed.
-It is the analytic reduction behind `Reference/Magnetisation` (the Python reference).
-
-**State of the work (23 November 2026).** Sections 1 to 5 (statements and proofs) are written. The reference
-implementation and the tests are in progress; Sections 7 and 8 are filled in as they are completed.
-`Reference/Magnetisation/LOG.md` is the running log.
+It is the analytic reduction behind the model `ThinFilmMagnet` (`Kernel/ThinFilmMagnet.wl`) and its Python
+reference (`Reference/Magnetisation`). Both implement Proposition 5 and Section 5. Of Section 4 (the strip and the
+cube) only the wall lower bound is implemented, in the reference.
 
 **Status.** The method is a calibration (null-Lagrangian) argument. Its ingredients are classical: the degree of
 maps into the sphere, the Belavin–Polyakov inequality, the helical-derivative factorisation used for chiral
@@ -226,7 +224,9 @@ The weights 1/D², 1/D, 1/D^{1/2} are convex functions of D. On [a, b] they are 
 with rational coefficients:
 
     1/D² ≤ (a² + ab + b² − (a + b)D)/(a²b²),     1/D ≤ (a + b − D)/(ab),     1/D ≥ 2/d₀ − D/d₀²  (any d₀ > 0),
-    (3 − D)/2 ≤ 1/D^{1/2} ≤ ½(1 + (a + b − D)/(ab)).
+    1/D^{1/2} = (3 − D)/2 + ρ,   0 ≤ ρ ≤ (1 − D)²/(2D) ≤ max over {a, b} of (1 − D)²/(2D).
+
+(For the Zeeman term the remainder ρ is multiplied by −M₃ and is counted only where M₃ can be negative.)
 
 With these, each term of the energy on a cell is bounded above by the integral of a polynomial, which is an exact
 combination of the corner values (products of Bernstein polynomials integrate to ratios of binomial
@@ -250,12 +250,26 @@ numerically computed axisymmetric profile on a graded grid.
 
 ## 7. Checks
 
-To be completed with the implementation.
+`check_dual.py`: known bounds (8πA|Q|, 4π(1 − 2r²) at critical coupling, 4π(1 − 1/h), the wall) are reproduced
+exactly and certificates that would claim more are rejected; random certificates never exceed a known infimum;
+`pointwise.py` verifies f − N + Γ ≥ 0 exactly at random rational points from the three-dimensional definitions.
+`check_competitor.py`: known answers from above (exchange only, critical coupling), the enclosure lies above an
+independent Gauss quadrature of the same interpolant and the certified degree agrees with it, and stored lower
+bounds lie below competitor energies. `Tests/ThinFilmMagnet.wlt`: the Wolfram Language model agrees with the
+reference on a test vector, reproduces the known answers and rejects tampered certificates.
 
 ## 8. Results
 
-To be completed with the implementation. Floating-point values of the optimised dual of Proposition 5 for the
-Zeeman model are in `Reference/Magnetisation/LOG.md`.
+The model of Li and Melcher (A = 1/2, κ = 1, K = 0), degree −1, m = e₃ on the boundary of the square:
+
+| h | Square | Certified: lower ≤ inf E ≤ upper | Gap |
+|---|---|---|---|
+| 2 | (−4, 4)² | 8.448613243 ≤ inf E ≤ 8.455823992 | 0.085 % |
+| 10 | (−2, 2)² | 12.014250830 ≤ inf E ≤ 12.016674188 | 0.020 % |
+| 20 | (−3/2, 3/2)² | 12.332262059 ≤ inf E ≤ 12.333556137 | 0.010 % |
+
+The lower bounds hold on every domain. Further certified lower bounds: 6.697023218 (h = 3/2), 10.079480953
+(h = 3), 11.256616244 (h = 5).
 
 ## 9. What is not claimed, and what is not covered
 

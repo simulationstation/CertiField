@@ -307,8 +307,8 @@ tfmAutoGrading[spec_, theta_, n_] := Module[{L, rr, core, f},
   L = N[Min[(spec["Domain"][[1, 2]] - spec["Domain"][[1, 1]])/2, (spec["Domain"][[2, 2]] - spec["Domain"][[2, 1]])/2]];
   rr = Subdivide[0., L, 4000];
   core = Max[rr[[Replace[Flatten[Position[UnitStep[Pi/2 - tfmEvalList[theta, rr]], 1, 1, 1]], {} -> {2}][[1]]]], L/1000];
-  (* smallest cell about core/15 *)
-  f[beta_?NumericQ] := L beta/(n Sinh[beta]) - core/15;
+  (* smallest cell about core/40 *)
+  f[beta_?NumericQ] := L beta/(n Sinh[beta]) - core/40;
   If[f[0.01] <= 0, 0., Quiet@Check[beta /. FindRoot[f[beta], {beta, 2., 0.01, 30.}], 4.]]];
 
 tfmCompetitor[spec_, cand_] := Module[{n = spec["Cells"]/2, theta, beta, x1, x2, Mn, f},
@@ -346,11 +346,10 @@ certifyThinFilmMagnet[params_Association, cand_, opts_List] := Module[{spec = tf
     "BoundCoefficients" -> tfmBoundCoefficients[dual, spec["Degree"], spec["Area"]], "Grid" -> {x1, x2}, "Grading" -> beta, "Nodal" -> Mn,
     "DegreeEnclosure" -> deg[[2]], "Spec" -> spec|>];
 
-tfmDescription[params_, res_] := Module[{sp = res["Spec"], d = Max[displayDigits[res], 8], cd = res["BoundCoefficients"]},
+tfmDescription[params_, res_] := Module[{sp = res["Spec"], d = Max[displayDigits[res], 8]},
   <|"Units" -> "energy units of the model",
     "Theorem" -> Row[{"Every m in H^1 of the rectangle ", exactString[sp["Domain"]], " with values in S^2, m = (0, 0, 1) on the boundary and degree ", sp["Degree"],
-      " has E[m] \[GreaterEqual] ", lowerString[res["LowerBound"], d], " (exactly: E[m] \[GreaterEqual] ", exactString[cd[[1]]], " \[Pi]",
-      If[cd[[2]] == 0, "", Row[{" + (", exactString[cd[[2]]], ")"}]], "); the competitor, of certified degree ", sp["Degree"], ", has E \[LessEqual] ", upperString[res["UpperBound"], d], "."}],
+      " has E[m] \[GreaterEqual] ", lowerString[res["LowerBound"], d], "; the competitor, of certified degree ", sp["Degree"], ", has E \[LessEqual] ", upperString[res["UpperBound"], d], "."}],
     "Energy" -> Row[{"E[m] = \[Integral] ", exactString[sp["A"]], " |\[Del]m|^2 + ", exactString[sp["DMI"]], " m\[CenterDot](\[Del]\[Times]m) + ", exactString[sp["K"]],
       " (1 - m3^2) + ", exactString[sp["Field"]], " (1 - m3) dx"}],
     "AdmissibleClass" -> Row[{"all m in H^1 of the rectangle ", exactString[sp["Domain"]], " with |m| = 1, m = (0, 0, 1) on the boundary (trace) and degree ",
