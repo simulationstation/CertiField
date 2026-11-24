@@ -11,7 +11,7 @@ from fractions import Fraction as Fr
 
 import magnet as M
 import dual_opt as O
-from check_dual import pointwise_ok
+from pointwise import pointwise_ok
 
 sys.stdout.reconfigure(encoding="utf-8")
 os.makedirs('results', exist_ok=True)
