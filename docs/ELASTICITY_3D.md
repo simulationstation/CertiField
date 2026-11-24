@@ -152,7 +152,7 @@ coefficient of x₁^γ₁ x₂^γ₂ x₃^γ₃ in the f-th function has the num
 * The conditions of Corollary 4 are linear equations for the coefficients (equate the coefficients of the
   monomials in the two variables of each traction-free face). The reduced row echelon form of this system is
   computed; it is unique. Ψ_b is the solution with all free unknowns equal to zero. If the system has no solution
-  the problem is refused; this does not happen for any of the 63 arrangements of the faces (Section 7). The space
+  the problem is refused; this did not happen in any arrangement of the faces tried (Section 7). The space
   𝒫 of solutions of the homogeneous system gets the echelon basis, one vector per free unknown in increasing
   order.
 * **Default rule.** Call Γ_N a *ring* if it consists of the four faces around one axis x_a and the two faces normal
@@ -181,8 +181,8 @@ Nothing in this subsection is used for the validity of a bound.
   multiply connected bodies is due to Volterra). Correspondingly six states are needed, carrying the resultant
   force and moment through the cross-section. Examples for a bar along x₁ with the cross-section (−w,w) × (−h,h):
   tension, Φ₃₃ = x₂²/2; bending, Φ₃₃ = x₂³/6; torsion, Φ₃₃ = −2x₁x₃(x₂³/3 − w²x₂), Φ₂₂ = 2x₁x₂(x₃³/3 − h²x₃).
-* *The alternative rule* finds 18 states for a ring, 12 for two opposite traction-free faces (with or without one
-  further face between them), and none otherwise. The additional ones are face data of fields ½(∇w + ∇wᵀ) with
+* *The alternative rule* finds 18 states for a ring, 12 for two opposite traction-free faces, 6 when a third face
+  joins them, and none in the other arrangements tried. The additional ones are face data of fields ½(∇w + ∇wᵀ) with
   different polynomials w on different faces. A w that interpolates between them is not a polynomial, so they are
   not face data of polynomial null sextuples; but the free nodal values can nearly reproduce them, they make the
   system for the stress field badly conditioned, and in the experiments of Section 8 they do not change the bound
@@ -224,3 +224,122 @@ As in two dimensions: rigorous code uses +, −, × of IEEE-754 doubles with out
 exact rational arithmetic (the coefficients of the two quadratic polynomials, the grid, D, S, b, the polynomials
 Ψ). No linear solver and no library function enters a certified number. Trusted: IEEE-754 arithmetic; exact
 rational arithmetic; this note.
+
+## 7. Checks
+
+All with the Python reference (`Reference/Elasticity`, files with `3d` in their names).
+
+* **Exact cross-check** (`check_exact3d.py`, log in `logs3d/`). For twelve problems on grids of two to eight cells
+  (all faces Dirichlet; one, two adjacent, two opposite, three, four and five traction-free faces; with and
+  without body force; isotropic and fully anisotropic stiffness; p = 1 and 2; six, Maxwell's three and Morera's
+  three stress functions; both rules for the states), with the computed fields and with random ones, both fields
+  are rebuilt cell by cell as polynomials in three variables in rational arithmetic. The stress formulas are typed
+  in from Section 3.2, not taken from the table that the reference generates from the ε-formula. Verified exactly
+  in all 24 cases: div σ + b = 0 in every cell; the traction is the same from both sides of every interior cell
+  face; it vanishes identically on the traction-free faces; the candidate is continuous. The exact values of both
+  bounds lie inside the computed enclosures, which are 10⁻¹¹ wide or less. The identity
+  E[u_h] − LB(σ) = ½∫(e − Ss)ᵀD(e − Ss) holds as an equality of rational numbers.
+* **Known minima** (`check_theorem3d.py`, part A). Homogeneous strain with all faces Dirichlet (six, three and three
+  stress functions); uniaxial tension of a bar with four traction-free faces along each of the three axes; a
+  quadratic displacement with constant body force; pure bending of a bar with four traction-free faces. Data,
+  grids and compliance are dyadic, so the stored nodal values are exactly the data. The exact rational minimum
+  lies inside the certified interval in all ten cases, and both bounds equal it to 10⁻⁹ (the exact fields are in
+  the spaces).
+* **Falsification** (part B). The block of Section 8 has the same datum on every grid, so every lower bound is
+  compared with every upper bound: optimal and perturbed fields on seven grids, with six and with three stress
+  functions and both rules for the states (63 stress fields, 84 candidates). Four further problems (body force, anisotropic stiffness, five
+  and two traction-free faces, a twisted and sheared end face) are tested within each grid. No pair has
+  LB(σ) > E[u].
+* **States** (part C; this part of the script had not finished when the work was interrupted, see the log). For
+  the eight arrangements tried by hand, with and without body force, the particular sextuple Ψ_b exists, a ring
+  has six states with independent resultants, and the alternative rule finds 12 states for two opposite
+  traction-free faces, 6 when a third face joins them, 18 for a ring and none otherwise.
+* **Stored certificates** (`verify_all3d.py`) recompute both bounds from the stored fields.
+
+## 8. Results (Python reference)
+
+Certified numbers; times on one desktop machine, several of them measured while other jobs were running.
+
+**E-T4.** Unit cube, λ = 3/2, μ = 1, clamped on the face x₁ = 0, displaced by (0.1, 0, 0) on the face x₁ = 1, no
+traction on the four other faces; p = 2, six stress functions, default rule for the states (r = 6):
+
+| Grid | Certified: lower ≤ inf E ≤ upper | Gap | Time |
+|---|---|---|---|
+| 2×2×2 | 0.01356377 ≤ inf E ≤ 0.01400734 | 3.167 % | 9 s |
+| 3×3×3 | 0.01368516 ≤ inf E ≤ 0.01392955 | 1.754 % | 10 s |
+| 4×4×4 | 0.01373380 ≤ inf E ≤ 0.01389667 | 1.172 % | 10 s |
+| 5×5×5 | 0.01375984 ≤ inf E ≤ 0.01387910 | 0.859 % | 10 s |
+| 6×6×6 | 0.01377585 ≤ inf E ≤ 0.01386834 | 0.667 % | 14 s |
+
+The gap is below 1 % from 5×5×5 on. It falls roughly like h^1.4, as in two dimensions: the edges where the clamped
+faces meet the traction-free faces carry stress singularities. Of the time, about 4 s is the exact local matrix of
+the stress functions (384 × 384 rationals) and 2 s the rigorous evaluation; the rest is the two heuristic solves
+(conjugate gradients for the stress field: 954, 1422 and 2288 iterations on the last three grids).
+
+**Other loads on the same cube** (4×4×4, p = 2): end face displaced sideways by (0, 0.1, 0),
+0.00331920 ≤ inf E ≤ 0.00338967 (2.08 %); end face rotated about the axis,
+0.00072267 ≤ inf E ≤ 0.00073014 (1.02 %).
+
+**Other arrangements.** Pure bending of a bar with four traction-free faces (2×2×2, exact minimum 1/32):
+0.03124999996 ≤ inf E ≤ 0.03125000004. A column 1 × 1 × 2 clamped at the bottom under its own weight, five
+traction-free faces (3×3×6): −0.49544773 ≤ inf E ≤ −0.48957355 (1.20 %). A plate 1 × ½ × 1 clamped on its four
+edges under its own weight, two traction-free faces: gap 21.0 % (2×1×2), 8.85 % (4×2×4), 3.93 % (6×3×6).
+
+**Six functions against three, and the two rules for the states** (lower bounds; the upper bound is the same):
+
+| Problem | Grid | Six functions, default rule | Six functions, all states | Maxwell's three, all states | Maxwell's three, default rule |
+|---|---|---|---|---|---|
+| cube, pulled | 3×3×3 | 0.01368516 | 0.01368516 | 0.01368510 | 0.01368510 |
+| cube, end displaced sideways | 3×3×3 | 0.00329906 | 0.00329906 | 0.00329680 | 0.00329677 |
+| cube, end rotated | 2×2×2 | 0.00070966 | 0.00071860 | 0.00070660 | 0.00015452 |
+| cube, end rotated | 3×3×3 | 0.00071902 | 0.00072146 | 0.00071746 | 0.00015615 |
+| plate under its weight | 4×2×4 | −0.01212271 | −0.01206074 | −0.01451176 | |
+| plate under its weight | 6×3×6 | −0.01178063 | −0.01178063 | −0.01422838 | |
+
+(Upper bounds: 0.01392955, 0.00341047, 0.00074705, 0.00073401, −0.01113753, −0.01133525.) With six functions the
+additional states of the alternative rule matter only on coarse grids. With Maxwell's three functions the bound
+for the plate stays 25 % away under refinement, and with the default rule the bound for the rotated end face is
+useless: these are the cases that Section 3.5 predicts. All four columns are valid lower bounds.
+
+## 9. What is not covered
+
+* **Not claimed:** that the candidate is the minimiser. The gap bounds E[u_h] − inf E and, by Section 2, the
+  energy-norm errors of the candidate and of the stress field.
+* **Not claimed:** that the bound converges to the infimum under refinement. Section 3.5 gives the reasons to
+  expect it and is a sketch; the tables of Section 8 are the evidence.
+* A Wolfram Language model. `testvectors3d/` holds inputs, expected outputs and the polynomial states for a port.
+* Conditions that prescribe only some components of u on a face (rollers), prescribed non-zero tractions, body
+  forces that are not constant, stiffness that varies in space, domains other than boxes.
+* Edges where a Dirichlet face meets a traction-free face carry stress singularities. Both bounds remain valid,
+  but the gap closes slowly under refinement, and the grids are uniform.
+* Nearly incompressible materials: the bounds remain valid; the candidate locks and the gap grows.
+* Cost. The stress field has 48 unknowns per node. The dual solve by conjugate gradients needs a number of
+  iterations that grows with the grid; beyond about 8³ cells a better preconditioner or nested iteration would be
+  needed.
+
+## References
+
+1. W. Prager, J. L. Synge, *Approximations in elasticity based on the concept of function space*, Quart. Appl. Math.
+   5 (1947), 241–269.
+2. M. E. Gurtin, *The linear theory of elasticity*, in Handbuch der Physik VIa/2, Springer, 1972. (The stress
+   functions of Maxwell, Morera and Beltrami; the standard reference. Not consulted directly: cited through
+   the secondary sources found.)
+3. M. E. Gurtin, *A generalization of the Beltrami stress functions in continuum mechanics*, Arch. Rational Mech.
+   Anal. 13 (1963), 321–329. (Completeness for self-equilibrated stress fields.)
+4. R. Rostamian, *The completeness of Maxwell's stress function representation*, J. Elasticity 9 (1979), 349–356.
+5. V. Volterra, *Sur l'équilibre des corps élastiques multiplement connexes*, Ann. Sci. École Norm. Sup. (3) 24
+   (1907), 401–517. (Many-valued displacements in multiply connected bodies: the six parameters of Section 3.5.)
+6. M. Křížek, *An equilibrium finite element method in three-dimensional elasticity*, Apl. Mat. 27 (1982), 46–75.
+   (An equilibrium element on tetrahedra for the dual problem.)
+7. J. P. Moitinho de Almeida, E. A. W. Maunder, *Equilibrium Finite Element Formulations*, Wiley, 2017.
+8. F. Key, L. Freinberger, *A spline-based stress function approach for the principle of minimum complementary
+   energy*, Comput. Methods Appl. Mech. Engrg. 448 (2025) 118492, arXiv:2506.19534. (Smooth stress functions in two
+   dimensions.)
+
+A brief web search (November 2026) confirmed the bibliographic data of items 3 to 6 and 8 (items 1 and 7 were
+confirmed for the two-dimensional note). Completeness of the representations (items 2 to 4) concerns how good the
+bound can be and is not used here. The search found equilibrium finite elements for three dimensions built
+directly in stress spaces (items 6, 7), and stress functions in smooth spline spaces in two dimensions (item 8).
+It did not find an implementation with Beltrami stress functions in a C¹ tensor-product space, nor one that
+enforces static admissibility exactly in floating-point data and evaluates the bound with rigorous arithmetic.
+That search is not a literature review, and the absence of a result is not a claim of novelty.

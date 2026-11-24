@@ -3,7 +3,46 @@
 Branch `elasticity-3d`. Note: `docs/ELASTICITY_3D.md`. Code: `Reference/Elasticity/elasticity3d.py`.
 Entries are dated; the newest state is at the top.
 
-## State (23 November 2026)
+## State when the work was interrupted (23 November 2026, evening)
+
+**Done and committed**
+
+* Note `docs/ELASTICITY_3D.md`: statements and proofs (written first), states, solver, checks, results, limits,
+  references and what was searched. Section 3.5 is a sketch about tightness and says so.
+* `elasticity3d.py`: complete for the Python reference (problem, exact local matrices, states, rigorous
+  `upper_bound` and `lower_bound`, heuristic solvers, certificates, raw export).
+* `check_exact3d.py`: 24 exact checks, all passed with the final evaluator (`logs3d/check_exact3d.txt`, 4 min).
+* `check_theorem3d.py`: parts A (ten known minima) and B (falsification) passed with the final evaluator
+  (`logs3d/check_theorem3d_partial.txt`).
+* `run_examples3d.py` and seven stored certificates in `results3d/`, each re-verified when written
+  (`logs3d/run_examples3d.txt`).
+* Acceptance: E-T4 gap 0.859 % at 5×5×5 in about 10 s and 0.667 % at 6×6×6 in about 14 s. The stop rule does
+  not apply.
+
+**Half-done: exact state**
+
+1. `check_theorem3d.py`, part C (number of states for all 63 arrangements of faces, with and without body force)
+   was stopped while running. It had crashed once before on a missing attribute, which is fixed (`_all_states` is
+   now set when there is no traction-free face), and it has not completed since. Run the script again (about 8
+   minutes alone) and replace `logs3d/check_theorem3d_partial.txt`; if it passes, restore the statement about all
+   63 arrangements in Sections 3.4 and 7 of the note.
+2. `verify_all3d.py` and `make_testvectors3d.py` are written and have never been run. `testvectors3d/` does not
+   exist yet. Run `python make_testvectors3d.py` (under a minute), check the output, add the directory.
+3. The table in Section 8 of the note was assembled from runs made while other jobs were running; the times are
+   upper estimates. An 8×8×8 run of E-T4 was planned (about 5000 iterations, 3 minutes) and not made.
+
+**Next, in order**
+
+1. Items 1 to 3 above.
+2. `python verify_all3d.py`, and a CI step for the three scripts (the exact check takes 4 minutes; `--quick` runs
+   four of the twelve problems).
+3. Faster exact local matrix (integer arithmetic) and a better preconditioner or nested iteration for grids
+   beyond 8×8×8; optional.
+4. The Wolfram Language port. The states are reproducible with `RowReduce` (the echelon form is unique; columns
+   numbered 64f + 16γ₁ + 4γ₂ + γ₃) and the exact resultant rule; `testvectors3d/*/states.json` will hold them.
+
+## Earlier state (23 November 2026)
+
 
 **Done**
 

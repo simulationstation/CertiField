@@ -1,0 +1,112 @@
+{
+ "format": "CertiField-elasticity3d-certificate-1",
+ "problem": {
+  "name": "block3d_twist_p2_4",
+  "box": [
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ],
+   [
+    "0",
+    "1"
+   ]
+  ],
+  "N": [
+   4,
+   4,
+   4
+  ],
+  "D": [
+   [
+    "7/2",
+    "3/2",
+    "3/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "3/2",
+    "7/2",
+    "3/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "3/2",
+    "3/2",
+    "7/2",
+    "0",
+    "0",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "1",
+    "0",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "0",
+    "1",
+    "0"
+   ],
+   [
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "1"
+   ]
+  ],
+  "b": [
+   "0",
+   "0",
+   "0"
+  ],
+  "bc": [
+   [
+    "D",
+    "D"
+   ],
+   [
+    "N",
+    "N"
+   ],
+   [
+    "N",
+    "N"
+   ]
+  ],
+  "degree": 2,
+  "functions": "beltrami",
+  "states": "resultants"
+ },
+ "lower": "0.0007226778542",
+ "upper": "0.0007301379598",
+ "reference": "0.1.0-reference-3d",
+ "info": {
+  "example": "twist3d_4",
+  "note": "the same cube, end face rotated about the axis",
+  "seconds": 10.92274284362793,
+  "exact": null,
+  "solver": {
+   "method": "cg",
+   "iterations": 967,
+   "flag": 0,
+   "unknowns": 3166
+  }
+ }
+}

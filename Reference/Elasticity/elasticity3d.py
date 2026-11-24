@@ -462,7 +462,7 @@ class Problem3D:
         faces = self.free_faces()
         ncol = self.nf * 64
         if not faces:
-            self._states = ({}, [])
+            self._states = self._all_states = ({}, [])
             return self._states
         # 1. the traction conditions
         ech = Echelon()
@@ -684,8 +684,9 @@ _ROWS_CACHE = {}                 # id of a local matrix -> (the matrix, its rows
 
 
 def _pairs(K):
-    """the quadratic form sum K[k, l] X[k] X[l] with K exact and symmetric, as a list of rows
-    (k, [(l, enclosure of the coefficient), ...]) over l >= k, the coefficient doubled for l > k"""
+    """the quadratic form sum K[k, l] X[k] X[l] with K exact and symmetric, prepared for _quadratic:
+    (keys, rows), a row being (position of k, enclosure of K[k, k] or None, positions of the l > k with K[k, l] != 0,
+    lower and upper ends of enclosures of 2 K[k, l])"""
     keys = sorted({k for (k, l) in K} | {l for (k, l) in K})
     pos = {k: q for q, k in enumerate(keys)}
     rows = {}
@@ -693,26 +694,58 @@ def _pairs(K):
         assert K.get((l, k)) == v, "the matrix is not symmetric"
         if pos[l] < pos[k]:
             continue
-        rows.setdefault(k, []).append((l, fr(v if l == k else 2 * v)))
-    return [(k, rows[k]) for k in keys if k in rows]
+        e = fr(v if l == k else 2 * v)
+        rows.setdefault(pos[k], []).append((pos[l], float(e.lo), float(e.hi)))
+    out = []
+    for q in sorted(rows):
+        diag = [(lo, hi) for (l, lo, hi) in rows[q] if l == q]
+        off = [(l, lo, hi) for (l, lo, hi) in rows[q] if l != q]
+        out.append((q, diag[0] if diag else None, np.array([x[0] for x in off], dtype=np.int64),
+                    np.array([x[1] for x in off], dtype=np.float64), np.array([x[2] for x in off], dtype=np.float64)))
+    return keys, out
+
+
+def _tree_sum(lo, hi):
+    """enclosure of the sum along the first axis: pairwise additions, each rounded outward"""
+    while lo.shape[0] > 1:
+        m = lo.shape[0] // 2
+        l2 = dn(lo[0:2 * m:2] + lo[1:2 * m:2])
+        h2 = up(hi[0:2 * m:2] + hi[1:2 * m:2])
+        if lo.shape[0] % 2:
+            l2 = np.concatenate([l2, lo[-1:]])
+            h2 = np.concatenate([h2, hi[-1:]])
+        lo, hi = l2, h2
+    return lo[0], hi[0]
 
 
 def _quadratic(rows, X):
-    """enclosure, entry by entry, of  sum_{k, l} K[k, l] X[k] X[l]  (rows from _pairs, X a dict of interval arrays)"""
-    acc = None
-    for k, lst in rows:
-        inner = None
-        for l, c in lst:
-            if l == k:
-                term = X[k].sqr() * c
-                acc = term if acc is None else acc + term
-            else:
-                term = X[l] * c
-                inner = term if inner is None else inner + term
-        if inner is not None:
-            term = X[k] * inner
-            acc = term if acc is None else acc + term
-    return acc
+    """enclosure, entry by entry, of  sum_{k, l} K[k, l] X[k] X[l]  (rows from _pairs, X a dict of interval arrays of
+    one shape).  Every floating-point operation is followed by outward rounding, as in ia.py; the products with the
+    coefficients of one row are formed together and summed pairwise."""
+    keys, rws = rows
+    shape = np.broadcast(X[keys[0]].lo, X[keys[0]].hi).shape
+    lo = np.stack([np.broadcast_to(X[k].lo, shape).ravel() for k in keys])
+    hi = np.stack([np.broadcast_to(X[k].hi, shape).ravel() for k in keys])
+    tl, th = [], []
+    for (q, diag, L, clo, chi) in rws:
+        xk = I(lo[q], hi[q])
+        if diag is not None:
+            t = xk.sqr() * I(diag[0], diag[1])
+            tl.append(t.lo * np.ones(lo.shape[1]))
+            th.append(t.hi * np.ones(lo.shape[1]))
+        if L.size:
+            a, b = lo[L], hi[L]
+            p1, p2, p3, p4 = a * clo[:, None], a * chi[:, None], b * clo[:, None], b * chi[:, None]
+            il = dn(np.minimum(np.minimum(p1, p2), np.minimum(p3, p4)))
+            ih = up(np.maximum(np.maximum(p1, p2), np.maximum(p3, p4)))
+            sl, sh = _tree_sum(il, ih)
+            t = xk * I(sl, sh)
+            tl.append(t.lo * np.ones(lo.shape[1]))
+            th.append(t.hi * np.ones(lo.shape[1]))
+    if not tl:
+        return None
+    sl, sh = _tree_sum(np.stack(tl), np.stack(th))
+    return I(sl.reshape(shape), sh.reshape(shape))
 
 
 # ================================================================================================================
