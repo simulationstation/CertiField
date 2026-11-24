@@ -58,8 +58,10 @@ Get[FileNameJoin[{DirectoryName[$InputFileName], #}]] & /@ {
   "SkyrmeLevelSet.wl",
   "SkyrmeHedgehog.wl",
   "SkyrmeAnyMass.wl",
+  "SkyrmeLevelSetDegree.wl",
   "ScalarField1D.wl",
   "ScalarFieldND.wl",
+  "ThinFilmMagnet.wl",
   "Elasticity.wl",
   "CertifiedBound.wl",
   "Models.wl"};

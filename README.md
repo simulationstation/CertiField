@@ -116,6 +116,13 @@ In[6]:= c0 = CertifiedVariationalBound["SkyrmeDegreeOne", "PionMass" -> 0];
 Out[6]= {1.1917480092669916, True}
 ```
 
+### Degree two
+
+`CertifiedVariationalBound["SkyrmeDegreeTwo", "PionMass" -> 0]` (μ = 0 or 1) runs the same level-set programme with the
+flux of each level surface doubled and bounds the energy of every map of degree ±2 from below: E/12π² ≥ 2.207981 for
+μ = 0 and ≥ 2.572283 for μ = 1, about a minute each (`"Resolution" -> "Standard"`: ≥ 2.610878 for μ = 1). The argument is in `docs/SKYRME_DEGREE_TWO.md`. The upper bound
+it reports is the energy of two separated hedgehogs, so the interval is about 10% wide.
+
 ### Reproduced independently, in your kernel
 
 The Skyrme certificate was first produced by a Python/NumPy verifier. CertiField re-implements it from scratch in
@@ -234,7 +241,7 @@ one-dimensional value 0.94496743. All three lie inside the certified intervals.
 piecewise multilinear interpolant of the given boundary values on the grid. They do not say that the candidate is the
 minimiser. The inequality is classical and no novelty is claimed for it; the proofs in `docs/SCALAR_ND.md` have been
 checked by one author only. Scalar fields on boxes with polynomial potentials only; no source terms f(x)u yet, and
-therefore not the plain Poisson problem; the method does not extend to vector-valued fields.
+therefore not the plain Poisson problem.
 
 ## Linear elasticity in two dimensions
 
@@ -292,6 +299,37 @@ candidate is the minimiser. The inequality and the use of stress functions are c
 equilibrium finite elements), and no novelty is claimed for them; what the package adds is rigorous rounding and a
 certificate that can be re-checked. The proofs in `docs/ELASTICITY.md` have been checked by their author only. Rectangles in two dimensions, constant stiffness and
 body force only; no prescribed tractions, no roller conditions, not yet three dimensions.
+
+## Unit-vector fields: magnetic skyrmions in thin films
+
+`ThinFilmMagnet` certifies the minimal energy of a magnetisation m : Ω → S² on a rectangle,
+
+    E[m] = ∫_Ω A|∇m|² + κ m·(∇×m) + K(1 − m₃²) + h(1 − m₃) dx,
+
+over all maps with m = e₃ on the boundary and a prescribed degree Q (the skyrmion number). The lower bound comes from
+null Lagrangians of degree and divergence type with a dual field that is checked in exact rational arithmetic; it
+holds on every domain. The upper bound is the certified energy and certified degree of a normalised interpolant of
+the axisymmetric skyrmion, or of any field you supply.
+
+```wolfram
+In[15]:= sk = CertiFieldModel["ThinFilmMagnet", <|"A" -> 1/2, "DMI" -> 1, "Field" -> 2, "Degree" -> -1,
+            "Domain" -> {{-4, 4}, {-4, 4}}, "Cells" -> 240|>];
+         CertifiedVariationalBound[sk]["Summary"]
+Out[15]= "ThinFilmMagnet: Certified  8.44861 <= inf E <= 8.45567  (relative gap <= 0.0835%)"
+```
+
+For the model of Li and Melcher (A = 1/2, κ = 1, K = 0, degree −1):
+
+| Field h | Square | Grid | Certified bounds | Gap | Time |
+|---|---|---|---|---|---|
+| 2 | (−4, 4)² | 240×240 | 8.448613 ≤ inf E ≤ 8.455669 | 0.0835 % | 4 s |
+| 10 | (−2, 2)² | 400×400 | 12.014250 ≤ inf E ≤ 12.016743 | 0.0208 % | 30 s |
+| 20 | (−3/2, 3/2)² | 400×400 | 12.332262 ≤ inf E ≤ 12.333540 | 0.0104 % | 29 s |
+
+Dual fields for h = 3/2, 2, 3, 5, 10 and 20 ship with the paclet; for other parameters closed-form ones are used,
+which are exact at critical coupling and weaker elsewhere, and `Reference/Magnetisation` computes a dual field for
+any field h. Statements and proofs: [`docs/MAGNETISATION.md`](docs/MAGNETISATION.md). Not claimed: that the
+axisymmetric skyrmion is a minimiser. The stray field is not included.
 
 ## How it works
 
@@ -358,7 +396,7 @@ VerifyCertificate[cert]
 | `CertifiedBound[...]["prop"]` | `"LowerBound"`, `"UpperBound"`, `"RelativeGap"`, `"Status"`, `"Theorem"`, `"AdmissibleClass"`, `"TrustedBase"`, `"NotClaimed"`, `"Report"`, ... |
 | `VerifyCertificate[cert]` | recomputes every rigorous step from the recorded inputs |
 | `CertiFieldModelInfo[name]` | energy, parameters, admissible class and methods of a model |
-| `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `ScalarFieldND`, `LinearElasticity`, `SkyrmeDegreeOne` |
+| `$CertiFieldModels` | `ScalarField1D`, `Phi4Kink`, `SineGordonKink`, `MagneticDomainWall`, `ScalarFieldND`, `LinearElasticity`, `ThinFilmMagnet`, `SkyrmeDegreeOne`, `SkyrmeDegreeTwo` |
 
 Options: `"Resolution"` (`"Quick"`, `"Standard"`, `"Publication"` for Skyrme), `"GapTolerance"`, `"Nodes"`,
 `"Verbose"`, `WorkingPrecision`; `Method` (`"Monotonicity"`, `"GeneratedGrid"`) for `SkyrmeDegreeOne`; for `ScalarFieldND` also `Method` (`Automatic`, `"Convex"`, `"Calibration"`) and
@@ -399,7 +437,7 @@ takes 1 to 7 s for convex energies up to 48³ cells and 39 s to 18 min for the n
   `Failure` objects, never numbers.
 * The test suite is in `Tests/` (`wolframscript -file tools/run_tests.wls`; add `--skyrme` for the Skyrme suite,
   `--nd` for the two- and three-dimensional suite, `--nd-slow` for its long runs, `--elasticity` for linear
-  elasticity).
+  elasticity, `--magnet` for `ThinFilmMagnet`).
 
 ## Roadmap
 
@@ -407,7 +445,7 @@ takes 1 to 7 s for convex energies up to 48³ cells and 39 s to 18 min for the n
   potentials that are not polynomials, domains other than boxes and `NDSolve`'s own finite-element meshes.
 * **Linear elasticity**: three dimensions (Beltrami stress functions), prescribed tractions and roller conditions,
   stiffness and body forces that vary in space.
-* **Chiral magnets**: two-dimensional magnetic skyrmions and domain walls with topological lower bounds.
+* **Chiral magnets**: the stray field, three-dimensional textures, and degrees other than −1 with automatic competitors.
 * Higher-charge Skyrmions, and LibraryLink acceleration of the dynamic programme.
 
 ## Repository layout
