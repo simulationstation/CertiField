@@ -120,6 +120,35 @@ The port reproduces `upper_enclosure`, `boundary`, `intQ` and `lower` to better 
   exact rational arithmetic, 1.2×10⁻¹¹ of the bound on the 16×16 block and 1.8×10⁻¹⁰ on the 64×64 block.
   Certificates and test vectors regenerated once more; all checks and the 90 tests pass.
 
+* 23 November 2026, 17:45. **Work paused here (machine shut down). Exact state:**
+  * *Done and tested:* everything in "Done" of Section 1. Last full run of `Tests/Elasticity.wlt`: 90 passed,
+    0 failed (at commit `aa7a716`, with the regenerated test vectors). Fast suite `Tests/CertiField.wlt`: 23 passed
+    (run at the first kernel commit, `6c99fbc`; `Models.wl` has not changed since). Python: `check_exact.py`,
+    `check_theorem.py`, `verify_all.py` pass at `59fcf0e`.
+  * *Changed after the last test run, not yet run:* (a) `Kernel/Elasticity.wl`: the wording of the datum in the
+    theorem text of `elasticityDescription` ("the continuous piecewise polynomial of degree p through the nodal
+    boundary values on the N1xN2 grid (a polynomial of degree p along every cell face)") and the names of four
+    `With` variables in `elLowerBound` (`xa, xb, ya, yb`; no change of meaning); (b) `Tests/Elasticity.wlt`: the
+    string expected by `el-theorem-states-the-certified-problem`, to match (a). Both are small; run
+    `tools/run_tests.wls --elasticity` first when resuming.
+  * *Not run at all on this branch:* `tools/run_tests.wls --nd` and `--skyrme` (the kernel seat was taken), and
+    `tools/build_paclet.wls`, `Examples/Elasticity.wls`, `tools/parse_check.wls`. No kernel file of those models
+    was touched; `Kernel/CertiField.wl` gained one line in the load list and a changed usage string,
+    `Kernel/Models.wl` four dispatch lines.
+  * *Half-written:* `docs/ELASTICITY.md` has no Section 8.2 (results of the Wolfram Language model) yet, and the
+    rounding figures at the end of "Evaluation on differences" in Section 3 predate the last reordering. The
+    README table of the elasticity section was filled from the reference's numbers and the first Wolfram Language
+    run (same digits expected, not re-measured); its times are from an unloaded first run.
+  * *Next, in order:* 1. `tools/run_tests.wls --elasticity`, then `--nd`, `--skyrme`. 2. Run the scratch script
+    logic again: for the block (p = 1: 8, 16, 32, 64, 128; p = 2: 16, 32, 64, 128), the column and the bar print
+    lower bound rounded down and upper bound rounded up to 8 decimals, gap rounded up, time, time of
+    `VerifyCertificate`; write Section 8.2 from it and correct the README table and times if a digit differs.
+    3. Measure (exact rational evaluation of the bound against `elLowerBound`, 16×16 to 64×64) the rounding slack
+    after the reordering and replace the figures in Section 3 of the note. 4. `tools/build_paclet.wls`,
+    `Examples/Elasticity.wls`, `tools/parse_check.wls`. 5. Report to the coordinator; at the merge the version
+    number, the paclet description and the README sentence "Three kinds of problem are supported" are still to be
+    updated.
+
 ## 7. Observations
 
 * The first row of the results table in `docs/ELASTICITY.md` had its lower bound rounded to nearest

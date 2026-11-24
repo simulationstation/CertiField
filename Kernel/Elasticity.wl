@@ -355,9 +355,9 @@ elLowerBound[spec_, field_] := ndQuiet@Module[
         coef = ndAdd[ndAdd[ivC[w[[1]]], ndMul[x1, ivC[w[[2]]]]], ndMul[x2, ivC[w[[3]]]]];
         q = ndAdd[q, ivK[ndMul[dc[keep[[j]]], coef], 2]]],
       {j, Length[keep]}]];
-  qb = With[{a1 = dom[[1, 1]], c1 = dom[[1, 2]], a2 = dom[[2, 1]], c2 = dom[[2, 2]]},
-    sm[[1, 1]] b[[1]]^2 (c1^3 - a1^3)/3 (c2 - a2) + 2 sm[[1, 2]] b[[1]] b[[2]] (c1^2 - a1^2)/2 (c2^2 - a2^2)/2 +
-      sm[[2, 2]] b[[2]]^2 (c1 - a1) (c2^3 - a2^3)/3];
+  qb = With[{xa = dom[[1, 1]], xb = dom[[1, 2]], ya = dom[[2, 1]], yb = dom[[2, 2]]},
+    sm[[1, 1]] b[[1]]^2 (xb^3 - xa^3)/3 (yb - ya) + 2 sm[[1, 2]] b[[1]] b[[2]] (xb^2 - xa^2)/2 (yb^2 - ya^2)/2 +
+      sm[[2, 2]] b[[2]]^2 (xb - xa) (yb^3 - ya^3)/3];
   intq = {exactTotal[q[[1]]], exactTotal[q[[2]]]} + qb;
   (* the boundary term.  On a Dirichlet face {x_i = a}, with t the other variable: (s nu).g =
      +-((d_tt phi - b_i a) g_i - d_t(d_i phi) g_t); phi and d_i phi are cubic on every cell face, g_i and g_t have
@@ -595,8 +595,8 @@ elFaceString[dom_, {i_, side_}] := "x" <> ToString[i] <> " = " <> exactString[do
 elasticityDescription[params_, res_] := Module[{sp = res["Spec"], d = Max[displayDigits[res], 8], nat, grid, datum, free},
   nat = Flatten[Table[If[sp["Dirichlet"][[i, s]], Nothing, {i, If[s == 1, "Lower", "Upper"]}], {i, 2}, {s, 2}], 1];
   grid = ndGridString[sp["Cells"]];
-  datum = "the continuous function that is a polynomial of degree " <> ToString[sp["p"]] <> " in each variable on every cell of the " <> grid <>
-    " grid and takes the nodal boundary values";
+  datum = "the continuous piecewise polynomial of degree " <> ToString[sp["p"]] <> " through the nodal boundary values on the " <> grid <>
+    " grid (a polynomial of degree " <> ToString[sp["p"]] <> " along every cell face)";
   free = If[nat === {}, "", "; no traction on the faces " <> StringRiffle[elFaceString[sp["Domain"], #] & /@ nat, ", "]];
   <|"Units" -> "energy units of the model",
     "Theorem" -> Row[{"Every u in H^1 of the rectangle ", exactString[sp["Domain"]], " with values in \[DoubleStruckCapitalR]^2 whose trace on the Dirichlet faces is ", datum,

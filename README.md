@@ -284,9 +284,8 @@ minimum 1/32 is known, and it lies inside the certified interval.
 **What is and is not claimed.** The bounds are theorems about the stated problem, whose boundary datum is the
 piecewise polynomial of degree `"Degree"` through the given boundary values on the grid. They do not say that the
 candidate is the minimiser. The inequality and the use of stress functions are classical ("dual analysis" with
-equilibrium finite elements), and no novelty is claimed for them; what the package adds is exact equilibrium in
-floating-point data, rigorous rounding and a certificate that can be re-checked. The proofs in
-`docs/ELASTICITY.md` have been checked by their author only. Rectangles in two dimensions, constant stiffness and
+equilibrium finite elements), and no novelty is claimed for them; what the package adds is rigorous rounding and a
+certificate that can be re-checked. The proofs in `docs/ELASTICITY.md` have been checked by their author only. Rectangles in two dimensions, constant stiffness and
 body force only; no prescribed tractions, no roller conditions, not yet three dimensions.
 
 ## How it works

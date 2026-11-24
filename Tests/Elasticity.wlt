@@ -381,7 +381,7 @@ VerificationTest[
 (* ---------- presentation ---------- *)
 
 VerificationTest[
-  {StringQ[elCert["Summary"]], StringStartsQ[elCert["Summary"], "LinearElasticity: Certified"], StringContainsQ[ToString[elCert["Theorem"]], "polynomial of degree 2 in each variable"],
+  {StringQ[elCert["Summary"]], StringStartsQ[elCert["Summary"], "LinearElasticity: Certified"], StringContainsQ[ToString[elCert["Theorem"]], "piecewise polynomial of degree 2 through the nodal boundary values on the 16x16 grid"],
    StringContainsQ[ToString[elCert["Theorem"]], "{{7/2, 3/2, 0}, {3/2, 7/2, 0}, {0, 0, 1}}"], StringContainsQ[ToString[elCert["Theorem"]], "no traction on the faces x2 = 0, x2 = 1"],
    StringContainsQ[ToString[elCert["NotClaimed"]], "minimiser"], StringContainsQ[ToString[elCert["TrustedBase"]], "docs/ELASTICITY.md"]},
   {True, True, True, True, True, True, True}, TestID -> "el-theorem-states-the-certified-problem"]

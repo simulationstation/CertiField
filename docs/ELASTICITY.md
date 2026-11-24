@@ -7,8 +7,8 @@ computed. It is the analytic reduction behind `Kernel/Elasticity.wl` and behind 
 **Status.** Two dimensions (plane strain). The inequality is the complementary-energy principle of Prager and Synge
 (1947) and the construction of the stress field by an Airy function in a C¹ finite-element space is classical; no
 novelty is claimed for either. The short proofs below have been checked by their author only. What the package adds
-is exact static admissibility of the stress field in floating-point data, outward-rounded evaluation, and a
-certificate that can be re-checked. Numbers quoted as *certified* come from outward-rounded interval arithmetic on
+is rigorous rounding (the stress field, as stored in floating-point data, is statically admissible exactly, and
+both bounds are evaluated with outward rounding) and a certificate that can be re-checked. Numbers quoted as *certified* come from outward-rounded interval arithmetic on
 exact inputs; numbers quoted as *exact* are rational numbers. Three dimensions are not implemented (Section 9).
 
 ## 1. The problem
@@ -136,8 +136,10 @@ interval arithmetic and form d·A·d; three of the sixteen differences are zero.
 for the cross term with σ^b, on the cell faces of Γ_D (differences from the affine function through the value and
 the slope at one end), and in the upper bound (differences from the value at the lower corner; the element matrix
 annihilates constants). The identities A v = 0 are checked in rational arithmetic when the matrices are built.
-With this the certified value stays within about 10⁻¹² (relative) of the exact value of the bound on all grids
-tried (Section 7).
+Measured against exact rational arithmetic, the certified lower bound of the block of Section 8 was 1.2×10⁻¹¹
+(relative) below the exact value of the bound on the 16×16 grid and 1.8×10⁻¹⁰ on the 64×64 grid; formed from the
+nodal values themselves it had been 7×10⁻⁹ below on the 16×16 grid. (These figures predate a further improvement,
+subtracting the corner value first, whose effect has not been measured yet: `Reference/Elasticity/PORTING.md`.)
 
 ## 4. The upper bound
 
