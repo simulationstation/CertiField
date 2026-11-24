@@ -202,6 +202,8 @@ def sqrt_up(x):
         raise ValueError("sqrt_up: needs a finite non-negative number")
     if x == 0.0:
         return 0.0
+    if x < 1e-300:                                   # near the subnormal range the verification below cannot succeed
+        return 1e-150                                # in a reasonable number of steps; (1e-150)^2 = 1e-300 > x
     s = float(up(math.sqrt(x)))
     while not float(dn(s * s)) >= x:
         s = float(up(s))

@@ -557,12 +557,16 @@ class Calibration:
 
     def __init__(self, P, tlo, thi, K, affine=None):
         self.tlo, self.thi, self.K = Fr(tlo), Fr(thi), int(K)
-        sup = is_superlinear(P.W)
+        sup = all(p.domain is None and is_superlinear(p.W) for p in P.pots) or (P.linear and self.K == 0)
         self.affine = sup if affine is None else (bool(affine) and sup)
         if self.K == 0:
-            assert self.tlo == self.thi and self.affine, "K = 0 needs tlo = thi and a superlinear potential"
+            assert self.tlo == self.thi and self.affine, "K = 0 needs tlo = thi and a superlinear or linear potential"
         else:
             assert self.thi > self.tlo
+            assert P.domain is None or (self.tlo, self.thi) == P.domain, "the t-range must be the value range of the potential"
+        self.lam = 0.0                    # the multiplier of a prescribed mean (Corollary 9 of docs/SCALAR_ND_2.md)
+        self.opt_lam = False              # whether the optimiser treats lam as an unknown
+        self.periodic = list(P.periodic)
         nb = self.K + 2 if self.K > 0 else 0
         self.C = [np.zeros(P.face_shape(i) + (nb,)) for i in range(P.n)]
         self.S0 = [np.zeros(P.face_shape(i)) for i in range(P.n)]
@@ -575,31 +579,54 @@ class Calibration:
                     self.mask[i][tuple(sl)] = 0.0
 
     def pack(self):
-        return np.concatenate([c.ravel() for c in self.C] + [s.ravel() for s in self.S0])
+        return np.concatenate([c.ravel() for c in self.C] + [s.ravel() for s in self.S0]
+                              + ([np.array([self.lam])] if self.opt_lam else []))
 
     def unpack(self, x):
         o = 0
         for i, c in enumerate(self.C):
-            self.C[i] = x[o:o + c.size].reshape(c.shape) * self.mask[i][..., None]
+            self.C[i] = self.tie(x[o:o + c.size].reshape(c.shape) * self.mask[i][..., None], i)
             o += c.size
         for i, s in enumerate(self.S0):
             if not self.freeze_affine:
-                self.S0[i] = (x[o:o + s.size].reshape(s.shape) * self.mask[i]) if self.affine else np.zeros(s.shape)
+                self.S0[i] = self.tie((x[o:o + s.size].reshape(s.shape) * self.mask[i]) if self.affine else np.zeros(s.shape), i)
             o += s.size
+        if self.opt_lam:
+            self.lam = float(x[o])
 
     def size(self):
-        return sum(c.size for c in self.C) + (sum(s.size for s in self.S0) if self.affine else 0)
+        return (sum(c.size for c in self.C) + (sum(s.size for s in self.S0) if self.affine else 0)
+                + (1 if self.opt_lam else 0))
 
     def copy(self, P):
         new = Calibration(P, self.tlo, self.thi, self.K, affine=self.affine)
         new.freeze_affine = self.freeze_affine
         new.C = [c.copy() for c in self.C]
         new.S0 = [s.copy() for s in self.S0]
+        new.lam, new.opt_lam = self.lam, self.opt_lam
         return new
+
+    def tie(self, a, i):
+        """a: a face array of direction i.  If direction i is periodic, its faces at the two ends of the box are one
+        face: copy the first onto the last."""
+        if self.periodic[i]:
+            first = [slice(None)] * a.ndim
+            first[i] = 0
+            last = [slice(None)] * a.ndim
+            last[i] = -1
+            a[tuple(last)] = a[tuple(first)]
+        return a
 
     def respects_natural_faces(self):
         return all(np.all(c[m == 0.0] == 0.0) and np.all(s[m == 0.0] == 0.0)
                    for c, s, m in zip(self.C, self.S0, self.mask))
+
+    def respects_periodic_faces(self):
+        """in a periodic direction i the face array of direction i has N_i + 1 entries along i, and the last must be
+        equal to the first (they are the same face)"""
+        return all(not self.periodic[i] or (np.array_equal(np.take(self.C[i], 0, axis=i), np.take(self.C[i], -1, axis=i))
+                                            and np.array_equal(np.take(self.S0[i], 0, axis=i), np.take(self.S0[i], -1, axis=i)))
+                   for i in range(len(self.C)))
 
 
 def spline_tables(K, tlo, thi, Qo):
@@ -1070,6 +1097,96 @@ def flux_lower(P, cal, r=8):
     return float(dn(math.fsum(total))) if total else 0.0
 
 
+def _tails_shifted(P, cal, tilt, d0):
+    """RIGOROUS upper bounds, for every vertex v of every cell, for the tail suprema of Lemma 4 at the shifted
+    arguments:  T^-(d0 + lam - a_v) and T^+(d0 + lam - a_v), with d0 = div sigma0 (None: no affine part).
+    Returns two dicts  v -> array over the cells."""
+    assert all(p.domain is None and is_superlinear(p.W) for p in P.pots), \
+        "a term a(x) u or a multiplier needs a potential of superlinear growth outside the t-range"
+    args = [tilt[v] if d0 is None else d0 + tilt[v] for v in P.verts]
+    A = I(np.stack([np.broadcast_to(a.lo, P.N) for a in args]), np.stack([np.broadcast_to(a.hi, P.N) for a in args]))
+    out = []
+    for t0, side in ((cal.tlo, -1), (cal.thi, +1)):
+        T = [conj_cells(p, A, t0, side) for p in P.pots]
+        Ts = T[0]
+        for j in range(1, len(T)):
+            Ts = np.where(P.mat[None] == j, T[j], Ts)
+        out.append({v: Ts[q] for q, v in enumerate(P.verts)})
+    return out[0], out[1]
+
+
+def poisson_lower(P, cal, return_parts=False):
+    """RIGOROUS lower bound for a potential without growth, W(x, t) = w0 + (w1 + a(x)) t  (Proposition 16 of
+    docs/SCALAR_ND_2.md), for any lowest-order Raviart-Thomas field sigma0 = cal.S0:
+
+        E[u] >= w0 |Omega| + flux - ( ||sigma0|| + (h_max/pi) R1 + C2 ||rho|| )^2 / (4k) - c0 ,
+
+    rho_c = div sigma0 - (cell mean of A), A = w1 + a - lam, R1^2 = sum_c int_c (A - mean)^2.
+    With a prescribed mean (multiplier lam = cal.lam): C2 = L_max/pi, c0 = m sum_c |c| rho_c, and lam m |Omega| is
+    added.  Otherwise a Dirichlet face orthogonal to e_i is needed: C2 = L_i/sqrt 2, c0 = ||rho|| sqrt|Omega| max|g|."""
+    n = P.n
+    assert cal.K == 0 and P.linear
+    W = list(P.W) + [Fr(0), Fr(0)]
+    w0, w1 = W[0], W[1]
+    S0 = [I(s) for s in cal.S0]
+    invh = [fr(1 / h) for h in P.h]
+    third = fr(Fr(1, 3))
+    d0 = sig2 = None
+    for i in range(n):
+        lo, hi = P.fslice(i, 0), P.fslice(i, 1)
+        term = (S0[i][hi] - S0[i][lo]) * invh[i]
+        d0 = term if d0 is None else d0 + term
+        term = (S0[i][lo].sqr() + S0[i][lo] * S0[i][hi] + S0[i][hi].sqr()) * third        # (1/|c|) int_c sigma_i^2
+        sig2 = term if sig2 is None else sig2 + term
+    shift = fr(w1) - I(cal.lam)
+    Av = {v: (I(P.av[v]) + shift) if P.av is not None else shift for v in P.verts}
+    Abar = None
+    for v in P.verts:
+        Abar = Av[v] if Abar is None else Abar + Av[v]
+    Abar = Abar * fr(Fr(1, 2 ** n))
+    rho = d0 - Abar
+    if P.lin_nodes is None:                              # A is constant on every cell
+        R1sq = 0.0
+    else:
+        acc = None
+        for v in P.verts:
+            for v2 in P.verts:
+                w = math.prod((Fr(1, 3) if a == b else Fr(1, 6)) for a, b in zip(v, v2))
+                term = (Av[v].sqr() if v == v2 else Av[v] * Av[v2]) * fr(w)
+                acc = term if acc is None else acc + term
+        dev = acc - Abar.sqr()                           # (1/|c|) int_c (A - mean)^2, enclosed
+        const = np.ones(P.N, dtype=bool)
+        for v in P.verts[1:]:
+            const &= (P.av[v] == P.av[P.verts[0]])
+        R1sq = float((I(0.0, _fsum_up(np.where(const, 0.0, np.maximum(dev.hi, 0.0)))) * fr(P.cellvol)).hi)
+    r2 = rho.sqr()
+    s_rho = sqrt_up(float((I(0.0, _fsum_up(r2.hi * np.ones(P.N))) * fr(P.cellvol)).hi))
+    s_sig = sqrt_up(float((I(0.0, _fsum_up(sig2.hi)) * fr(P.cellvol)).hi))
+    s_R = sqrt_up(R1sq)
+    inv_pi = fr(1 / pi_lower())                          # an upper bound for 1/pi, enclosed
+    fl = flux_lower(P, cal)
+    const_term = fr(w0 * P.vol)
+    if P.mean is not None:
+        C2 = fr(max(b - a for a, b in P.box)) * inv_pi
+        rsum = I(_fsum_dn(rho.lo * np.ones(P.N)), _fsum_up(rho.hi * np.ones(P.N))) * fr(P.cellvol)
+        c0 = float((rsum * fr(P.mean)).hi)
+        const_term = const_term + I(cal.lam) * fr(P.mean * P.vol)
+    else:
+        faces = [(P.box[i][1] - P.box[i][0], i, side) for i in range(n) for side in (0, 1) if P.bc[i][side] == 'D']
+        if not faces:
+            raise ValueError("a potential without growth needs a Dirichlet face or a prescribed mean")
+        Li, i, side = min(faces)
+        C2 = I(0.0, sqrt_up(frac_enclosure(Li * Li / 2)[1]))
+        gmax = float(np.max(np.abs(np.take(P.gval, 0 if side == 0 else -1, axis=i))))
+        c0 = float((I(s_rho) * I(sqrt_up(frac_enclosure(P.vol)[1])) * I(gmax)).hi)
+    B = I(s_sig) + fr(max(P.h)) * inv_pi * I(s_R) + C2 * I(s_rho)
+    pen = float((I(0.0, float(B.hi)).sqr() * fr(1 / (4 * P.k))).hi)
+    lb = float((const_term + I(fl) - I(pen) - I(c0)).lo)
+    if return_parts:
+        return lb, dict(flux_lo=fl, sigma_norm=s_sig, rho_norm=s_rho, R1=s_R, penalty=pen, c0=c0)
+    return lb
+
+
 def lower_bound(P, cal, Qs=16, return_parts=False):
     """RIGOROUS lower bound  flux - int_Omega sup_t Phi  for the calibration field cal (any coefficients).
 
@@ -1085,6 +1202,10 @@ def lower_bound(P, cal, Qs=16, return_parts=False):
     n, K = P.n, cal.K
     tlo, thi = cal.tlo, cal.thi
     assert cal.respects_natural_faces(), "the field must have zero normal component on the natural faces"
+    assert cal.respects_periodic_faces(), "the field takes two values on a face that a periodic direction identifies"
+    assert P.mean is not None or cal.lam == 0.0, "a multiplier without a prescribed mean"
+    if K == 0 and P.linear:
+        return poisson_lower(P, cal, return_parts=return_parts)
     invh = [fr(1 / h) for h in P.h]
     inv4k = fr(1 / (4 * P.k))
     S0 = [I(s) for s in cal.S0]
@@ -1097,13 +1218,23 @@ def lower_bound(P, cal, Qs=16, return_parts=False):
         term = (S0[i][hi] - S0[i][lo]) * invh[i]
         d0 = term if d0 is None else d0 + term
         A0.append((S0[i][lo].sqr() * inv4k, S0[i][hi].sqr() * inv4k))
-    if cal.affine:
+    # the terms -a(x) t of the potential and +lam t of the multiplier: at the vertex v of a cell the factor of t
+    shifted = P.av is not None or cal.lam != 0.0
+    tilt = None
+    if shifted:
+        tilt = {v: I(cal.lam) - (I(P.av[v]) if P.av is not None else I(0.0)) for v in P.verts}
+    if P.domain is not None:                         # the t-range is the value range: no tails
+        Tl = Th = None
+    elif shifted:                                    # Lemma 4 with shifted arguments, one array per vertex
+        Tl, Th = _tails_shifted(P, cal, tilt, d0 if cal.affine else None)
+    elif cal.affine:
         Tl = conj_cells(P, d0, tlo, -1)
         Th = conj_cells(P, d0, thi, +1)
     else:
         Tl = np.full(P.N, -tail_inf(P, tlo, -1))
         Th = np.full(P.N, -tail_inf(P, thi, +1))
     fl = flux_lower(P, cal)
+    lam_term = float((I(cal.lam) * fr(P.mean * P.vol)).lo) if P.mean is not None else 0.0     # lam m |Omega|
     if K == 0:
         a0 = None
         third = fr(Fr(1, 3))
@@ -1111,11 +1242,20 @@ def lower_bound(P, cal, Qs=16, return_parts=False):
             lo, hi = P.fslice(i, 0), P.fslice(i, 1)
             term = (S0[i][lo].sqr() + S0[i][lo] * S0[i][hi] + S0[i][hi].sqr()) * third * inv4k
             a0 = term if a0 is None else a0 + term
-        Mc = up(a0.hi + np.maximum(Tl, Th))
+        if shifted:                                  # Proposition 6 with a linear term: the mean of the vertex values
+            Tm = None
+            for v in P.verts:
+                t = I(np.maximum(Tl[v], Th[v]))
+                Tm = t if Tm is None else Tm + t
+            Mc = up(a0.hi + (Tm * fr(Fr(1, 2 ** n))).hi)
+        else:
+            Mc = up(a0.hi + np.maximum(Tl, Th))
         if not np.all(np.isfinite(Mc)):
             return (-INF, None) if return_parts else -INF
         intM = I(_fsum_dn(Mc), _fsum_up(Mc)) * fr(P.cellvol)
         lb = float(dn(fl - float(intM.hi)))
+        if P.mean is not None:
+            lb = float(dn(lb + lam_term))
         return (lb, dict(flux_lo=fl, intM_hi=float(intM.hi))) if return_parts else lb
     Mup = {v: np.full(P.N, -INF) for v in P.verts}
     Dl = (thi - tlo) / K
@@ -1160,32 +1300,41 @@ def lower_bound(P, cal, Qs=16, return_parts=False):
                 Dv = term if Dv is None else Dv + term
                 q = ds.sqr() * inv4k
                 A.append((q[lo], q[hi]))
-            base = Dv - fr(sum(cf * t ** q for q, cf in enumerate(P.W)))     # exact W(t), enclosed
+            base = Dv - P.Wenc(t)                                            # W_c(t) at the exact t, enclosed
             cur = {}
+            tt = fr(t) if shifted else None
             for v in P.verts:
                 ph = base
                 for i in range(n):
                     ph = ph + A[i][v[i]]
+                if shifted:
+                    ph = ph + tilt[v] * tt                                   # (lam - a_v) t
                 cur[v] = ph.hi
             if prev is not None:
-                ta = frac_enclosure(tlo + (kap + Fr(j - 1, Qs)) * Dl)[0]
-                tb = frac_enclosure(t)[1]
-                W2hi = float(horner(P.W2, I(ta, tb)).hi)
+                W2hi, ca, cb = P.sub_bound(tlo + (kap + Fr(j - 1, Qs)) * Dl, t)
                 corr = ((I(W2hi) - D2).pos() * w28).hi
-                for v in P.verts:
-                    Mup[v] = np.maximum(Mup[v], up(np.maximum(prev[v], cur[v]) + corr))
+                if np.any(np.asarray(ca) != 0.0) or np.any(np.asarray(cb) != 0.0):      # Lemma 11: a singular end
+                    for v in P.verts:
+                        Mup[v] = np.maximum(Mup[v], up(np.maximum(up(prev[v] + ca), up(cur[v] + cb)) + corr))
+                else:
+                    for v in P.verts:
+                        Mup[v] = np.maximum(Mup[v], up(np.maximum(prev[v], cur[v]) + corr))
             prev = cur
-    for v in P.verts:
-        a0 = None
-        for i in range(n):
-            a0 = A0[i][v[i]] if a0 is None else a0 + A0[i][v[i]]
-        Mup[v] = np.maximum(Mup[v], (Dend[0] + a0 + I(Tl)).hi)
-        Mup[v] = np.maximum(Mup[v], (Dend[1] + a0 + I(Th)).hi)
+    if P.domain is None:
+        for v in P.verts:
+            a0 = None
+            for i in range(n):
+                a0 = A0[i][v[i]] if a0 is None else a0 + A0[i][v[i]]
+            Tlv, Thv = (Tl[v], Th[v]) if shifted else (Tl, Th)
+            Mup[v] = np.maximum(Mup[v], (Dend[0] + a0 + I(Tlv)).hi)
+            Mup[v] = np.maximum(Mup[v], (Dend[1] + a0 + I(Thv)).hi)
     allM = np.concatenate([Mup[v].ravel() for v in P.verts])
     if not np.all(np.isfinite(allM)):
         return (-INF, None) if return_parts else -INF
     intM = I(_fsum_dn(allM), _fsum_up(allM)) * fr(P.cellvol / 2 ** n)
     lb = float(dn(fl - float(intM.hi)))
+    if P.mean is not None:
+        lb = float(dn(lb + lam_term))
     if return_parts:
         return lb, dict(flux_lo=fl, intM_hi=float(intM.hi), Mmax=float(allM.max()), Mmin=float(allM.min()))
     return lb
