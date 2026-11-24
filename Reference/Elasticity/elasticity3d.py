@@ -122,6 +122,7 @@ def _beltrami_table():
 
 
 BELTRAMI = _beltrami_table()
+_LOCAL_CACHE = {}                # exact local matrices, shared by problems with the same cells and material
 FUNCTION_SETS = {'beltrami': [0, 1, 2, 3, 4, 5], 'maxwell': [0, 1, 2], 'morera': [3, 4, 5]}
 
 
@@ -353,6 +354,9 @@ class Problem3D:
     def stiffness_local(self):
         """exact element matrix K[(a, P), (c, Q)] of  int_cell e^T D e  and load vector f[(a, P)] = int_cell b_a phi_P,
         P = (i1, i2, i3) the local node"""
+        key = ('K', tuple(self.h), tuple(map(tuple, self.D)), self.p, tuple(self.b))
+        if not hasattr(self, '_Kloc') and key in _LOCAL_CACHE:
+            self._Kloc = _LOCAL_CACHE[key]
         if not hasattr(self, '_Kloc'):
             L = lagrange(self.p)
             IL = [[imat(L, a, L, c) for c in range(2)] for a in range(2)]
@@ -377,7 +381,7 @@ class Problem3D:
                                 K[key] = K.get(key, Fr(0)) + pref * v
             intL = [pint01(q) for q in L]
             f = {(a, P): self.b[a] * vol * intL[P[0]] * intL[P[1]] * intL[P[2]] for a in range(3) for P in loc}
-            self._Kloc = ({k: v for k, v in K.items() if v != 0}, f, loc)
+            self._Kloc = _LOCAL_CACHE[key] = ({k: v for k, v in K.items() if v != 0}, f, loc)
         return self._Kloc
 
     def stress_local(self):
@@ -385,6 +389,9 @@ class Problem3D:
         functions (f the function, k = (k1, k2, k3), k_i = 2 e_i + d_i), and vectors w0, w1, w2, w3 with
         int_cell s^T S s_b = w0 + x_c1 w1 + x_c2 w2 + x_c3 w3  (x_c the lower corner of the cell,
         s_b = (-b1 x1, -b2 x2, -b3 x3, 0, 0, 0))"""
+        key = ('A', tuple(self.h), tuple(map(tuple, self.S)), tuple(self.funcs), tuple(self.b))
+        if not hasattr(self, '_Aloc') and key in _LOCAL_CACHE:
+            self._Aloc = _LOCAL_CACHE[key]
         if not hasattr(self, '_Aloc'):
             h, S, b = self.h, self.S, self.b
             loc = [(f, k) for f in range(self.nf) for k in itertools.product(range(4), repeat=3)]
@@ -430,7 +437,7 @@ class Problem3D:
                             v = cc * h[n] * j1[0] * j1[1] * j1[2]
                             if v != 0:
                                 w[0][(f, k)] = w[0].get((f, k), Fr(0)) + v
-            self._Aloc = ({k: v for k, v in A.items() if v != 0}, w, loc)
+            self._Aloc = _LOCAL_CACHE[key] = ({k: v for k, v in A.items() if v != 0}, w, loc)
         return self._Aloc
 
     def face_local(self):
@@ -673,6 +680,9 @@ def _total(x):
     return I(_fsum_dn(x.lo * np.ones(x.shape)), _fsum_up(x.hi * np.ones(x.shape)))
 
 
+_ROWS_CACHE = {}                 # id of a local matrix -> (the matrix, its rows): the matrix is kept alive with its id
+
+
 def _pairs(K):
     """the quadratic form sum K[k, l] X[k] X[l] with K exact and symmetric, as a list of rows
     (k, [(l, enclosure of the coefficient), ...]) over l >= k, the coefficient doubled for l > k"""
@@ -722,7 +732,9 @@ def upper_bound(P, U):
     assert np.array_equal(U[:, P.fixed], P.gval[:, P.fixed]), "Dirichlet nodal values are not imposed exactly"
     K, f, loc = P.stiffness_local()
     if not hasattr(P, '_Krows'):
-        P._Krows = _pairs(K)
+        if id(K) not in _ROWS_CACHE:
+            _ROWS_CACHE[id(K)] = (K, _pairs(K))
+        P._Krows = _ROWS_CACHE[id(K)][1]
     X = {k: I(v) for k, v in _ucells(P, U).items()}
     en = _quadratic(P._Krows, X) * fr(Fr(1, 2))
     for k, v in f.items():
@@ -858,7 +870,9 @@ def lower_bound(P, st, return_parts=False):
     A, w, loc = P.stress_local()
     HL, LI = P.face_local()
     if not hasattr(P, '_Arows'):
-        P._Arows = _pairs(A)
+        if id(A) not in _ROWS_CACHE:
+            _ROWS_CACHE[id(A)] = (A, _pairs(A))
+        P._Arows = _ROWS_CACHE[id(A)][1]
     X = nodal_enclosure(P, st)
     Xc = _xcells(P, X)
     # the cell integrals:  int s^T S s = Q_phi + 2 Q_cross + Q_b
