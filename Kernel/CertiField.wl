@@ -58,6 +58,7 @@ Get[FileNameJoin[{DirectoryName[$InputFileName], #}]] & /@ {
   "SkyrmeHedgehog.wl",
   "ScalarField1D.wl",
   "ScalarFieldND.wl",
+  "ScalarFieldND2.wl",
   "CertifiedBound.wl",
   "Models.wl"};
 
