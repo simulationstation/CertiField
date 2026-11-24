@@ -134,9 +134,11 @@ that depend on x can only gain through the boundary; this has not been quantifie
   | 3/2 | 6.697023218 | 0.532932 | 0.533166 | 0.333333 | `results/zeeman_h3o2.json` |
   | 2 | 8.448613244 | 0.672319 | 0.672755 | 0.500000 | `results/zeeman_h2.json` |
   | 3 | 10.079480953 | 0.802100 | 0.802490 | 0.666667 | `results/zeeman_h3.json` |
+  | 5 | 11.256616244 | 0.895773 | 0.895823 | 0.800000 | `results/zeeman_h5.json` |
 
-  The lower bounds are within 0.04 % to 0.07 % of the floating-point skyrmion energy. The runs for h = 5 and
-  h = 10 were stopped before they finished.
+  The lower bounds are within 0.04 % to 0.07 % of the floating-point skyrmion energy. The run for h = 10 was
+  stopped before it finished; the file for h = 5 was written just before the stop and passes the exact check
+  when loaded again.
 
 **Half-written (exact state).**
 
