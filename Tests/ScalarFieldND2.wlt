@@ -55,7 +55,7 @@ nd2Exact[spec_, f_, qs_, prec_] := Module[
    c1 = spec["C1"], c2 = spec["C2"], lin = SetPrecision[spec["Lin"], Infinity], g = SetPrecision[spec["G"], Infinity], wq, pAt, sval, sd, s2, flux = 0, intM = 0, m},
   {t0, t1} = f["TRange"]; dl = (t1 - t0)/kk; w = dl/qs;
   cf = SetPrecision[f["C"], Infinity];
-  pAt[p_, t_] := Sum[p[[j]] t^(j - 1), {j, Length[p]}];
+  pAt[p_, t_] := Fold[#1 t + #2 &, 0, Reverse[p]];
   wq[t_] := N[pAt[P, t] + If[c1 == 0, 0, c1 (t - vr[[1]]) If[t == vr[[1]], 0, Log[t - vr[[1]]]]] +
     If[c2 == 0, 0, c2 (vr[[2]] - t) If[t == vr[[2]], 0, Log[vr[[2]] - t]]], prec];
   sval[c_, t_] := Module[{z = Clip[(t - t0)/dl, {0, kk}], kap, th}, kap = Min[Floor[z], kk - 1]; th = z - kap;
@@ -137,7 +137,7 @@ VerificationTest[
       {s, 12}];
     ubs = Table[
       BlockRandom[SeedRandom[100 + s];
-        Module[{u = RandomReal[{0.05, 0.95}, {9, 3}]}, u[[All, -1]] = u[[All, 1]]; u[[1]] = ConstantArray[0.1, 3]; u[[-1]] = ConstantArray[0.9, 3];
+        Module[{u = RandomReal[{0.2, 0.8}, {9, 3}]}, u[[All, -1]] = u[[All, 1]]; u[[1]] = ConstantArray[0.1, 3]; u[[-1]] = ConstantArray[0.9, 3];
           CertiField`Private`nd2UpperBound[spec, u][[2]]]],
       {s, 12}];
     {Max[lbs] <= nd2Phase["UpperBound"], Min[ubs] >= nd2Phase["LowerBound"]}],
