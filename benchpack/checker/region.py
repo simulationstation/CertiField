@@ -233,16 +233,29 @@ def _subs_G(Gx, fn, y0, k):
     if kind == 'circle':
         R2 = par
         nb = len(Gx)
-        # t = (sigma - y0)/k ; t^b = sum_j C(b,j) sigma^j (-y0)^(b-j) / k^b
-        W = [[] for _ in range(nb)]
+        # t = (sigma - y0)/k ; t^b = sum_j C(b,j) sigma^j (-y0)^(b-j) / k^b.  W_j = sum_b Gx[b] C(b,j)(-y0)^(b-j)/k^b,
+        # accumulated in integers: Gx[b] = GI[b]/DG, and the coefficient = cI[b][j]/DC with DC = (qy pk)^(nb-1).
+        nd = max(len(g) for g in Gx)
+        GI, DG = X._ints([c for g in Gx for c in list(g) + [Fr(0)] * (nd - len(g))])
+        GI = [GI[b * nd:(b + 1) * nd] for b in range(nb)]
+        py, qy = Fr(y0).numerator, Fr(y0).denominator
+        pk, qk = Fr(k).numerator, Fr(k).denominator
+        N = nb - 1
+        DC = (qy * pk) ** N
+        Wi = [[0] * nd for _ in range(nb)]
         for b in range(nb):
-            if not X.ptrim(Gx[b]):
+            if not any(GI[b]):
                 continue
-            kb = k ** b
             for j in range(b + 1):
-                coef = X.binom(b, j) * (-y0) ** (b - j) / kb
-                if coef:
-                    W[j] = X.padd(W[j], X.pscale(Gx[b], coef))
+                # C(b,j) (-py/qy)^(b-j) (qk/pk)^b * DC  (an integer)
+                cI = X.binom(b, j) * (-py) ** (b - j) * qy ** (N - (b - j)) * qk ** b * pk ** (N - b)
+                if cI:
+                    row = Wi[j]
+                    for i, g in enumerate(GI[b]):
+                        if g:
+                            row[i] += cI * g
+        den = DC * DG
+        W = [[Fr(v, den) for v in row] if any(row) else [] for row in Wi]
         w = [R2, Fr(0), Fr(-1)]
         E, O = [], []
         wp = [Fr(1)]

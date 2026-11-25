@@ -75,7 +75,7 @@ def cell_points(x0, x1, y0, y1, ng, hole, depth=4):
     return tuple(np.concatenate([o[i] for o in out]) for i in range(3))
 
 
-def patch_points(name, n=48):
+def patch_points(name, bx=None, by=None, n=48):
     if name == 'P1':
         gx, gw = gauss(n)
         r = 0.5 + 0.05 * gx
@@ -83,12 +83,19 @@ def patch_points(name, n=48):
         R, T = np.meshgrid(r, th, indexing='ij')
         W = np.outer(gw * 0.05, gw * 0.1) * R
         return (R * np.cos(T)).ravel(), (R * np.sin(T)).ravel(), W.ravel(), float(D.P1_QUARTER['half_patch_area'])
-    # P2: [0, 1/10]^2, split at 1/20 (a knot or not, the error only affects the quality of the fields)
-    gx, gw = gauss(n)
-    xs = np.concatenate([0.05 * gx, 0.05 + 0.05 * gx])
-    ws = np.concatenate([0.05 * gw, 0.05 * gw])
-    Xp, Yp = np.meshgrid(xs, xs, indexing='ij')
-    return Xp.ravel(), Yp.ravel(), np.outer(ws, ws).ravel(), float(D.P2['patch_area'])
+    # P2: [0, 1/10]^2 split at the cell lines; Gauss rule on each piece (exact for the polynomial pieces)
+    gx, gw = gauss(12)
+    cut = lambda b: sorted(set([0.0, 0.1] + [s[1] for s in b.spans if 0 < s[1] < 0.1]))
+    xs, ws = [], []
+    for brk in (cut(bx), cut(by)):
+        pts, wts = [], []
+        for a, b in zip(brk[:-1], brk[1:]):
+            pts.append(a + (b - a) * gx)
+            wts.append((b - a) * gw)
+        xs.append(np.concatenate(pts))
+        ws.append(np.concatenate(wts))
+    Xp, Yp = np.meshgrid(xs[0], xs[1], indexing='ij')
+    return Xp.ravel(), Yp.ravel(), np.outer(ws[0], ws[1]).ravel(), float(D.P2['patch_area'])
 
 
 def points_by_cell(bx, by, X_, Y_, W):
@@ -146,7 +153,7 @@ def solve_primal(name, variant, kx, ky, p, kappa):
             K[np.ix_(idx, idx)] += np.einsum('q,qkm,qkn->mn', Wq, G, CG)
             bvec[idx] += np.einsum('q,qkm,k->m', Wq, CG, E0)
     L = np.zeros(ndof)
-    Xp, Yp, Wp, meas = patch_points(name)
+    Xp, Yp, Wp, meas = patch_points(name, bx, by)
     for i, j, s, t, _, _, w in points_by_cell(bx, by, Xp, Yp, Wp):
         G, idx = disp_G(bx, by, i, j, s, t, ny)
         L[idx] += np.einsum('q,qkm,k->m', w, G, Cm[0]) / meas
@@ -255,7 +262,7 @@ def solve_dual(name, variant, kx, ky, p, kappa, gexp=(), gbase=None):
             ST = np.einsum('kl,qlm->qkm', Sm, Tall)
             M[np.ix_(ia, ia)] += np.einsum('q,qkm,qkn->mn', Wq, Tall, ST)
     Lt = np.zeros(nd)
-    Xp, Yp, Wp, meas = patch_points(name)
+    Xp, Yp, Wp, meas = patch_points(name, bx, by)
     for i, j, s, t, x, y, w in points_by_cell(bx, by, Xp, Yp, Wp):
         T, idx = stress_T(bx, by, i, j, s, t, x, y, ny, weight)
         Lt[idx] += (T[:, 0, :] * w[:, None]).sum(0) / meas

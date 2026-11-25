@@ -7,11 +7,14 @@ file is the problem definition `benchpack/problems/definitions.py`.
 ## Use
 
     cd benchpack/checker
-    python check.py ../certificates/STEM [--procs 8] [--log logs/STEM.txt]
+    python check.py ../certificates/STEM [--procs 2] [--log logs/STEM.txt]
     python tests.py
 
 `check.py` prints every check with `[pass]` or `[FAIL]`, the recomputed integrals and bounds, and ends with
 `RESULT: ALL CHECKS PASSED` (exit code 0) or the list of failures (exit code 1). Needs Python 3 with NumPy and mpmath.
+It runs 2 processes by default (2 threads each). Per-cell results are saved in `cache/` (one folder per certificate,
+keyed by the bytes of the certificate and of the checker's per-cell code); an interrupted run resumes where it stopped.
+The P1 certificate `P1_frictionless_N16_p9` takes about a minute on one process.
 
 ## What is checked
 

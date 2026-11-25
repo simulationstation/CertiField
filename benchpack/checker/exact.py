@@ -62,15 +62,27 @@ def pscale(a, c):
     return [c * v for v in a]
 
 
+def _ints(a):
+    """integer numerators over one common denominator: a = [n / D for n in ns]"""
+    D = 1
+    for v in a:
+        D = lcm(D, v.denominator)
+    return [v.numerator * (D // v.denominator) for v in a], D
+
+
 def pmul(a, b):
+    """exact product (integer arithmetic over a common denominator inside)"""
     if not a or not b:
         return []
-    out = [ZERO] * (len(a) + len(b) - 1)
-    for i, u in enumerate(a):
+    ai, da = _ints(a)
+    bi, db = _ints(b)
+    out = [0] * (len(a) + len(b) - 1)
+    for i, u in enumerate(ai):
         if u:
-            for j, v in enumerate(b):
+            for j, v in enumerate(bi):
                 out[i + j] += u * v
-    return out
+    d = da * db
+    return [Fr(v, d) for v in out]
 
 
 def ppow(a, n):
@@ -97,12 +109,26 @@ def peval(a, x):
 
 
 def pcompose_lin(a, c0, c1):
-    """a(c0 + c1 x) as a polynomial in x"""
-    out = []
-    lin = [c0, c1]
-    for c in reversed(a):
-        out = padd(pmul(out, lin), [c])
-    return out
+    """a(c0 + c1 x) as a polynomial in x, exactly: with c0 = n0/dl, c1 = n1/dl and a = ai/Da,
+    a(c0 + c1 x) = sum_m ai_m (n0 + n1 x)^m dl^(A-m) / (Da dl^A), by Horner in integers"""
+    a = list(a)
+    if not a:
+        return []
+    c0, c1 = Fr(c0), Fr(c1)
+    dl = lcm(c0.denominator, c1.denominator)
+    n0, n1 = c0.numerator * (dl // c0.denominator), c1.numerator * (dl // c1.denominator)
+    ai, Da = _ints(a)
+    A = len(a) - 1
+    R = [ai[A]]
+    for m in range(A - 1, -1, -1):
+        nxt = [0] * (len(R) + 1)
+        for i, u in enumerate(R):
+            nxt[i] += u * n0
+            nxt[i + 1] += u * n1
+        nxt[0] += ai[m] * dl ** (A - m)
+        R = nxt
+    den = Da * dl ** A
+    return [Fr(v, den) for v in R]
 
 
 # ------------------------------------------------------------------------------------------------- B-splines
