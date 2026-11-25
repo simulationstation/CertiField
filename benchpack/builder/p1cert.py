@@ -6,7 +6,10 @@ usage:
                                                                     evaluator; the independent checker is separate)
 """
 import limits  # noqa: F401  (thread and process limits; must come before numpy)
+import json
 import math
+import os
+import shutil
 import sys
 import time
 from fractions import Fraction as Fr
@@ -75,17 +78,39 @@ def check_ties(S, fields):
             assert np.all(np.isfinite(C)) and np.all(np.isfinite(f['par'])), name
 
 
-def evaluate(S, fields, kappa, verbose=True):
-    """rigorous balls of every functional and of the bounds"""
+def _ball_store(b):
+    lo, hi = cio.arb_bounds(b) if hasattr(cio, 'arb_bounds') else (cio.ball_lo(b), cio.ball_hi(b))
+    return [str(lo), str(hi)]
+
+
+def _ball_load(v):
+    """a ball containing the stored rational interval [lo, hi]"""
+    return arb(q(Fr(v[0]))).union(arb(q(Fr(v[1]))))
+
+
+def evaluate(S, fields, kappa, verbose=True, checkpoint=None):
+    """rigorous balls of every functional and of the bounds; with a checkpoint directory the enclosures of each
+    evaluated field are stored there (as rational intervals) and reused when rerun"""
     R = Rig(S)
     out = {}
     t0 = time.time()
     for name, f in fields.items():
+        fn = os.path.join(checkpoint, f'field_{name}.json') if checkpoint else None
+        if fn and os.path.exists(fn):
+            with open(fn) as fh:
+                d = json.load(fh)
+            out[name] = {k: (Fr(v) if k == 'Fexact' else _ball_load(v)) for k, v in d.items()}
+            continue
         if 'A' in f:
             out[name] = dict(a=R.a(f['A'], f['B']), l=R.l_v(f['A'], f['B']))
         else:
             F = R.F(f['par'])
             out[name] = dict(Q=R.Q(f['C'], f['par']), F=arb(q(F)), Fexact=F, l=R.l_tau(f['C'], f['par']))
+        if fn:
+            d = {k: (str(v) if k == 'Fexact' else _ball_store(v)) for k, v in out[name].items()}
+            with open(fn + '.tmp', 'w') as fh:
+                json.dump(d, fh)
+            os.replace(fn + '.tmp', fn)
         if verbose:
             print(f"    {name}: evaluated ({time.time() - t0:.0f}s)", flush=True)
     res = {}
@@ -106,8 +131,26 @@ def evaluate(S, fields, kappa, verbose=True):
 
 
 def build(stem, par, verbose=True):
+    """resumable: rerun the same command; the solved fields and the evaluated fields are kept in
+    benchpack/work/STEM and reused"""
     t0 = time.time()
     S = setup_from_params(par)
+    wd = os.path.join(limits.WORK_DIR, stem) if stem else None
+    fp = json.dumps({k: (str(v) if not isinstance(v, list) else [str(x) for x in v]) for k, v in sorted(par.items())})
+    sol = os.path.join(wd, 'fields.npz') if wd else None
+    if verbose and wd:
+        print(f"  to resume after a stop rerun the same command (checkpoints in benchpack/work/{stem})", flush=True)
+    if sol and os.path.exists(sol) and str(np.load(sol)['fp']) == fp:
+        d = np.load(sol)
+        kappa = Fr(str(d['kappa']))
+        fields = {}
+        for name in ('v0', 'vp', 'vm'):
+            fields[name] = dict(A=d[name + '_A'], B=d[name + '_B'])
+        for name in ('tau0', 'tp', 'tm'):
+            fields[name] = dict(par=d[name + '_par'], C=d[name + '_C'])
+        if verbose:
+            print("  solved fields loaded from the checkpoint", flush=True)
+        return _finish(stem, S, fields, kappa, wd, t0, verbose)
     A, f = S.assemble_dual()
     Pr = S.stress_ties()
     lt = S.patch_dual()
@@ -142,8 +185,22 @@ def build(stem, par, verbose=True):
     for name, z in (('tau0', Z[:, 0]), ('tp', Z[:, 0] + kk * Z[:, 1]), ('tm', Z[:, 0] - kk * Z[:, 1])):
         g, C = split_stress(S, z)
         fields[name] = dict(par=g, C=C)
+    if sol:
+        if os.path.isdir(wd):
+            shutil.rmtree(wd)
+        os.makedirs(wd)
+        arrs = {'fp': fp, 'kappa': str(kappa)}
+        for name, fd in fields.items():
+            for k, v in fd.items():
+                arrs[name + '_' + k] = v
+        np.savez(sol + '.tmp.npz', **arrs)
+        os.replace(sol + '.tmp.npz', sol)
+    return _finish(stem, S, fields, kappa, wd, t0, verbose)
+
+
+def _finish(stem, S, fields, kappa, wd, t0, verbose):
     check_ties(S, fields)
-    out, res = evaluate(S, fields, kappa, verbose)
+    out, res = evaluate(S, fields, kappa, verbose, checkpoint=wd)
     K_lo, K_hi = cio.ball_lo(res['K_low']), cio.ball_hi(res['K_up'])
     Q2_lo, Q2_hi = cio.ball_lo(res['Q2_low']), cio.ball_hi(res['Q2_up'])
     assert K_lo <= K_hi and Q2_lo <= Q2_hi
@@ -210,14 +267,21 @@ PRESETS = {
 }
 
 
-def params(N, ps, pu, grip='frictionless', Lg=0, m=1):
+def params(N, ps, pu, grip='frictionless', Lg=0, m=1, Lp=0):
     """uniform N x N cells; Lg > 0 adds geometric layers (m per halving) towards x = 1 and y = 1 (the corner where a
-    clamped grip meets the free edge, P1c)"""
-    br = uniform_breaks(N)
+    clamped grip meets the free edge, P1c); Lp > 0 adds Lp layers on both sides of x = 21/400 and y = 11/20 (near the
+    ray and the outer arc of the patch, where the adjoint stress jumps)"""
+    from p2float import graded_breaks
+    tx, ty = [], []
     if Lg:
-        from p2float import graded_breaks
-        br = graded_breaks(0, 1, Fr(1, N), [(1, (-1,), Lg, m)])
-    return dict(sbx=br, sby=br, ps=ps, ubx=br, uby=br, pu=pu, grip=grip)
+        tx.append((1, (-1,), Lg, m))
+        ty.append((1, (-1,), Lg, m))
+    if Lp:
+        tx.append((Fr(21, 400), (-1, 1), Lp, 1))
+        ty.append((Fr(11, 20), (-1, 1), Lp, 1))
+    bx = graded_breaks(0, 1, Fr(1, N), tx)
+    by = graded_breaks(0, 1, Fr(1, N), ty)
+    return dict(sbx=bx, sby=by, ps=ps, ubx=bx, uby=by, pu=pu, grip=grip)
 
 
 if __name__ == '__main__':
@@ -227,6 +291,7 @@ if __name__ == '__main__':
         grip = sys.argv[6] if len(sys.argv) > 6 else 'frictionless'
         Lg = int(sys.argv[7]) if len(sys.argv) > 7 else 0
         m = int(sys.argv[8]) if len(sys.argv) > 8 else 1
-        build(stem, params(N, ps, pu, grip, Lg, m))
+        Lp = int(sys.argv[9]) if len(sys.argv) > 9 else 0
+        build(stem, params(N, ps, pu, grip, Lg, m, Lp))
     elif sys.argv[1] == 'verify':
         sys.exit(0 if verify(sys.argv[2]) else 1)

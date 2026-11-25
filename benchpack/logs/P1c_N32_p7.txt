@@ -1,0 +1,11 @@
+  to resume after a stop rerun the same command (checkpoints in benchpack/work/P1c_N32_p7)
+  float: K in [0.595719624971, 0.595722280058], kappa 6.353e-04 -> 5/8192 (37s)
+    v0: evaluated (4s)
+    vp: evaluated (9s)
+    vm: evaluated (13s)
+    tau0: evaluated (40s)
+    tp: evaluated (67s)
+    tm: evaluated (94s)
+  CERTIFIED  0.595719616964 <= K  <= 0.595722280058   rel width 4.47e-06
+  CERTIFIED  1.0450481089 <= Q2 <= 1.0460953984   rel width 1.00e-03
+  claims: K in [0.5957196143, 0.5957222828],  Q2 in [1.045047061, 1.046096446]   (131s)
