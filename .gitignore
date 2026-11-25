@@ -53,3 +53,8 @@ __pycache__/
 # drafts for the owner only (benchmark-pack prompt: no outside actions; the repository is public)
 outreach/
 audit/drafts/
+
+# numerical accuracy audit: defect reports and the local venv stay on this machine
+audit/summary.md
+audit/.venv/
+audit/results/
