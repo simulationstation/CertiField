@@ -53,8 +53,9 @@ Bounds (FORMAT.md sections 3.4 and 4.4) are recomputed from scratch:
   (square roots, `asin`, `sin(1/10)`, `cos(1/10)`) are evaluated, with `mpmath.iv` (outward rounding) at 1200 bits;
 - the bounds `K >= F^2/Q`, `K <= 4 a_q` (P1) or `a` (P2), and the two Q2 quotients, in interval arithmetic.
 
-P3 (`p3check.py`, with `exact3.py` and `ball.py`): the stress `g(y,z) e_x e_x + inc(rho^2 Psi)` and the displacement
-are rebuilt per cell as trivariate rational polynomials; exact checks of equilibrium, traction continuity across all
+P3 (`p3check.py`, with `exact3.py` and `ball.py`): the cells are the products of the knot spans (uniform `k/N`, or
+graded towards x, y, z = 1 with the JSON key `grade`; the edges are checked against FORMAT.md section 9); the stress
+`g(y,z) e_x e_x + inc(rho^2 Psi)` and the displacement are rebuilt per cell as trivariate rational polynomials; exact checks of equilibrium, traction continuity across all
 faces meeting the domain, divisibility of `tau grad(rho)` by `rho` on every cell cut by the sphere, the free faces, the
 mirror planes and the grip, the grip force, the displacement's continuity and boundary values, the coefficient
 conditions. Energies: exact rationals on whole cells; on cut cells either over the octree boxes of the certificate

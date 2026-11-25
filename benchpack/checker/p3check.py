@@ -44,6 +44,7 @@ from mpmath import iv                    # noqa: E402
 D = FD.D
 COMP = [(0, 0), (1, 1), (2, 2), (0, 1), (1, 2), (0, 2)]     # Psi component order (xx, yy, zz, xy, yz, xz)
 HALF = Fr(1, 2)
+R2 = D.P3['cavity_radius'] ** 2                            # 1/4
 
 
 # ------------------------------------------------------------------------------------------------- data
@@ -56,25 +57,25 @@ def load(stem):
 
 
 class Axis:
-    """B-spline pieces of one axis in the local coordinate of each grid cell [e/N, (e+1)/N]"""
+    """B-spline pieces of one axis in the local coordinate of each cell [edge_e, edge_(e+1)]"""
 
-    def __init__(self, knots, p, N):
-        self.p, self.N = p, N
+    def __init__(self, knots, p, edges):
+        self.p = p
         self.knots = [Fr(v) for v in knots]
         self.ok, self.mult, self.msg = X.knot_report(self.knots, p, Fr(0), Fr(1))
-        self.on_grid = all((v * N).denominator == 1 for v in self.knots)
+        self.on_grid = set(self.knots) <= set(edges)
         self.n = len(self.knots) - p - 1
         spans = X.bspline_pieces(self.knots, p)
         self.cells = []
-        for e in range(N):
-            x0, x1 = Fr(e, N), Fr(e + 1, N)
+        for e in range(len(edges) - 1):
+            x0, x1 = edges[e], edges[e + 1]
             sp = [s for s in spans if s[1] <= x0 and x1 <= s[2]]
             assert len(sp) == 1, 'a grid cell is not inside one knot span'
             k, t0, t1, M = sp[0]
             h = t1 - t0
             Mc = X.zeros((p + 1, p + 1))
             for i in range(p + 1):
-                row = X.pcompose_lin(list(M[i, :]), (x0 - t0) / h, 1 / (N * h))
+                row = X.pcompose_lin(list(M[i, :]), (x0 - t0) / h, (x1 - x0) / h)
                 for a in range(p + 1):
                     Mc[i, a] = row[a] if a < len(row) else Fr(0)
             self.cells.append((k - p, Mc))
@@ -89,8 +90,12 @@ class Cert:
         self.cavity = not str(self.variant).startswith('nocavity')      # test-only variants: the solid cube
         ds, ss = meta['displacement_space'], meta['stress_space']
         self.pu, self.ps = int(ds['degree']), int(ss['degree'])
-        self.dax = [Axis(k, self.pu, self.N) for k in ds['knots']]
-        self.sax = [Axis(k, self.ps, self.N) for k in ss['knots']]
+        # cells: products of the knot spans (FORMAT.md 9: the knot vectors are authoritative)
+        self.edges = [sorted(set(Fr(v) for v in ds['knots'][d]) | set(Fr(v) for v in ss['knots'][d])) for d in range(3)]
+        self.n = [len(ed) - 1 for ed in self.edges]
+        self.grade = meta.get('grade')
+        self.dax = [Axis(k, self.pu, self.edges[d]) for d, k in enumerate(ds['knots'])]
+        self.sax = [Axis(k, self.ps, self.edges[d]) for d, k in enumerate(ss['knots'])]
         self.gexp = [int(e) for e in ss.get('g_exponents', [])]
         self.gbase = Fr(ss.get('g_base', '1/2'))
         self.etab = Fr(ss.get('eta_flat_from', '3/4'))
@@ -110,30 +115,29 @@ def cell_class(cert, e):
     """'out' (inside the closed ball), 'full' (outside the open ball) or 'cut', exactly (level 0 of the rule)"""
     if not cert.cavity:
         return 'full'
-    N = cert.N
-    t = Fr(N * N, 4)
-    rmin = sum(k * k for k in e)
-    rmax = sum((k + 1) ** 2 for k in e)
-    if rmax <= t:
+    x0, h = corner(cert, e)
+    rmin = sum(v * v for v in x0)
+    rmax = sum((a + b) ** 2 for a, b in zip(x0, h))
+    if rmax <= R2:
         return 'out'
-    if rmin >= t:
+    if rmin >= R2:
         return 'full'
     return 'cut'
 
 
 def kept_boxes(cert, e, L):
     """the boxes of the octree rule of FORMAT.md 9 kept for cell e: (level, jx, jy, jz)"""
-    N = cert.N
+    x0, h = corner(cert, e)
     out = []
 
     def rec(l, j):
-        t = Fr((N * 2 ** l) ** 2, 4)
-        lo = [e[k] * 2 ** l + j[k] for k in range(3)]
+        lo = [x0[k] + h[k] * Fr(j[k], 2 ** l) for k in range(3)]
+        hi = [lo[k] + h[k] / 2 ** l for k in range(3)]
         rmin = sum(v * v for v in lo)
-        rmax = sum((v + 1) ** 2 for v in lo)
-        if rmax <= t:
+        rmax = sum(v * v for v in hi)
+        if rmax <= R2:
             return
-        if rmin >= t or l == L:
+        if rmin >= R2 or l == L:
             out.append((l,) + tuple(j))
             return
         for d in range(8):
@@ -146,8 +150,9 @@ def kept_boxes(cert, e, L):
 
 # ------------------------------------------------------------------------------------------------- fields on a cell
 def corner(cert, e):
-    N = cert.N
-    return tuple(Fr(k, N) for k in e), (Fr(1, N),) * 3
+    """lower corner and side lengths of cell e"""
+    ed = cert.edges
+    return tuple(ed[d][e[d]] for d in range(3)), tuple(ed[d][e[d] + 1] - ed[d][e[d]] for d in range(3))
 
 
 def rho_local(cert, e):
@@ -170,7 +175,6 @@ def spline3(axes, A, e):
 
 def stress_cell(cert, e, weight=True):
     """tau as dict (i, j) -> local array (physical units), and rho (local)"""
-    N = cert.N
     rho = rho_local(cert, e)
     R2 = E.t_mul(rho, rho) if (weight and cert.cavity) else None
     Phi = {}
@@ -180,9 +184,9 @@ def stress_cell(cert, e, weight=True):
             P = E.t_mul(R2, P)
         Phi[(l, n)] = P
         Phi[(n, l)] = P
-    sc = (Fr(N), Fr(N), Fr(N))
-    tau = E.inc(Phi, sc)
     x0, h = corner(cert, e)
+    sc = tuple(1 / hh for hh in h)
+    tau = E.inc(Phi, sc)
     gx = None
     for ax, coefs in ((1, cert.gamma), (2, cert.delta)):
         lo, hi = x0[ax], x0[ax] + h[ax]
@@ -206,14 +210,13 @@ def stress_cell(cert, e, weight=True):
 
 def disp_cell(cert, e):
     """v components (local) and strains [exx, eyy, ezz, gxy, gyz, gxz] (physical)"""
-    N = cert.N
     x0, h = corner(cert, e)
     v = [spline3(cert.dax, cert.V[a], e) for a in range(3)]
     lift = E.zeros3((2, 1, 1))
     lift[0, 0, 0], lift[1, 0, 0] = x0[0] / 2, h[0] / 2
     vx = E.t_add(v[0], lift)
     vfull = [vx, v[1], v[2]]
-    d = [[E.t_diff(vfull[a], k) * N for k in range(3)] for a in range(3)]
+    d = [[E.t_diff(vfull[a], k) / h[k] for k in range(3)] for a in range(3)]
     strains = [d[0][0], d[1][1], d[2][2], E.t_add(d[0][1], d[1][0]), E.t_add(d[1][2], d[2][1]),
                E.t_add(d[0][2], d[2][0])]
     return v, strains
@@ -252,14 +255,14 @@ def cut_exact(cert, e, polys, weights):
     """(lo, hi) enclosing the integral of sum w_pq P_p P_q over (cell e minus the ball): the exact integral over the
     cell minus the closed-form integral over cell cap ball (ball.py)"""
     import ball
-    N = cert.N
-    full = E.quad_form3(polys, weights) / N ** 3
+    x0, h = corner(cert, e)
+    full = E.quad_form3(polys, weights) * (h[0] * h[1] * h[2])
     fi, den = E.density_int(polys, weights)
-    g = ball.to_global(fi, e, N)
+    g = ball.to_global(fi, x0, h)
     fglob = np.empty(g.shape, dtype=object)
     for idx, v in np.ndenumerate(g):
-        fglob[idx] = Fr(v, den)
-    box = tuple((Fr(e[d], N), Fr(e[d] + 1, N)) for d in range(3))
+        fglob[idx] = Fr(v) / den                 # exact (v is an int or a Fraction)
+    box = tuple((x0[d], x0[d] + h[d]) for d in range(3))
     I = ball.ball_part(fglob, box, D.P3['cavity_radius'] ** 2)
     return full - RG.hi_q(I), full - RG.lo_q(I)
 
@@ -278,10 +281,10 @@ def face_in_domain(cert, ax, val, e):
     """the face x_ax = val of cell e meets the open domain (its farthest corner lies outside the closed ball)"""
     if not cert.cavity:
         return True
-    N = cert.N
-    far = [Fr(e[k] + 1, N) for k in range(3)]
+    x0, h = corner(cert, e)
+    far = [x0[k] + h[k] for k in range(3)]
     far[ax] = val
-    return sum(v * v for v in far) > Fr(1, 4)
+    return sum(v * v for v in far) > R2
 
 
 def new_state(a):
@@ -298,7 +301,8 @@ def note(st, msg):
 def run_range(args):
     a, b, ckpt = args
     cert, weight = _S['cert'], _S['weight']
-    N = cert.N
+    nx, ny, nz = cert.n
+    ed = cert.edges
     z = E.t_is_zero
     one, zero = Fr(1), Fr(0)
     S_w = {(0, 0): Fr(1), (1, 1): Fr(1), (2, 2): Fr(1), (0, 1): -2 * cert.nu, (0, 2): -2 * cert.nu,
@@ -315,25 +319,27 @@ def run_range(args):
         t0 = time.time()
         low, up, vlow, vup = {}, {}, {}, {}
         pend, vpend = {}, {}
-        for j in range(N):
-            for k in range(N):
+        for j in range(ny):
+            for k in range(nz):
                 e = (i, j, k)
                 cls = cell_class(cert, e)
                 if cls == 'out':
                     continue
                 st['cells'] += 1
+                x0, h = corner(cert, e)
+                vol = h[0] * h[1] * h[2]
                 tau, rho = stress_cell(cert, e, weight)
                 T = [tau[c] for c in COMP]
                 # equilibrium
-                for r in range(3):
-                    dv = E.t_add(*[E.t_diff(tau[(r, c)], c) for c in range(3)])
+                for r in range(3):                       # physical divergence: d/dx_c = (1/h_c) d/ds_c
+                    dv = E.t_add(*[E.t_diff(tau[(r, c)], c) / h[c] for c in range(3)])
                     if not z(dv):
                         st['div_bad'] += 1
                         note(st, 'div tau != 0 in cell %s' % (e,))
                 # sphere
                 if cls == 'cut':
                     st['cut'] += 1
-                    grad = [E.t_diff(rho, c) * N for c in range(3)]
+                    grad = [E.t_diff(rho, c) / h[c] for c in range(3)]
                     for r in range(3):
                         g = E.t_add(*[E.t_mul(tau[(r, c)], grad[c]) for c in range(3)])
                         if not E.divisible_quadratic(g, rho, 0):
@@ -341,9 +347,9 @@ def run_range(args):
                             note(st, 'tau.grad(rho) not divisible by rho in cell %s' % (e,))
                 # boundary faces
                 bcs = []
-                if j == N - 1:
+                if j == ny - 1:
                     bcs += [(1, 1, r, 'traction on y = 1') for r in range(3)]
-                if k == N - 1:
+                if k == nz - 1:
                     bcs += [(2, 1, r, 'traction on z = 1') for r in range(3)]
                 if i == 0 and face_in_domain(cert, 0, zero, e):
                     bcs += [(0, 0, 1, 'shear on x = 0'), (0, 0, 2, 'shear on x = 0')]
@@ -351,15 +357,15 @@ def run_range(args):
                     bcs += [(1, 0, 0, 'shear on y = 0'), (1, 0, 2, 'shear on y = 0')]
                 if k == 0 and face_in_domain(cert, 2, zero, e):
                     bcs += [(2, 0, 0, 'shear on z = 0'), (2, 0, 1, 'shear on z = 0')]
-                if i == N - 1 and cert.frictionless:
+                if i == nx - 1 and cert.frictionless:
                     bcs += [(0, 1, 1, 'shear on the grip'), (0, 1, 2, 'shear on the grip')]
                 for ax, side, r, what in bcs:
                     if not z(E.t_face(tau[(ax, r)], ax, side)):
                         st['bc_bad'] += 1
                         note(st, '%s in cell %s' % (what, (e,)))
                 # force through the grip
-                if i == N - 1:
-                    st['F'] += E.t_integral(E.t_face(tau[(0, 0)], 0, 1)) / (N * N)
+                if i == nx - 1:
+                    st['F'] += E.t_integral(E.t_face(tau[(0, 0)], 0, 1)) * (h[1] * h[2])
                 # traction across faces: y and z inside the slab, x kept for the neighbouring slab
                 for ax in (1, 2):
                     key = (e, ax)
@@ -369,21 +375,21 @@ def run_range(args):
                         if not all(E.t_equal(u, w) for u, w in zip(pend.pop(key), mine)):
                             st['face_bad'] += 1
                             note(st, 'traction jump at the lower %s face of cell %s' % ('xyz'[ax], (e,)))
-                    if e[ax] < N - 1 and face_in_domain(cert, ax, Fr(e[ax] + 1, N), e):
+                    if e[ax] < cert.n[ax] - 1 and face_in_domain(cert, ax, ed[ax][e[ax] + 1], e):
                         nb = list(e)
                         nb[ax] += 1
                         if cell_class(cert, tuple(nb)) != 'out':
                             pend[(tuple(nb), ax)] = [E.t_face(tau[(ax, r)], ax, 1) for r in range(3)]
                 low[(j, k)] = [E.t_face(tau[(0, r)], 0, 0) for r in range(3)]
-                if i < N - 1 and face_in_domain(cert, 0, Fr(i + 1, N), e):
+                if i < nx - 1 and face_in_domain(cert, 0, ed[0][i + 1], e):
                     up[(j, k)] = [E.t_face(tau[(0, r)], 0, 1) for r in range(3)]
                 # complementary energy: exact on whole cells; cut cells over the superset boxes or exactly
                 if cls == 'full':
-                    q = E.quad_form3(T, S_w) / N ** 3
+                    q = E.quad_form3(T, S_w) * vol
                     st['Q'] += q
                     st['Qhi'] += q
-                    st['vol'] += Fr(1, N ** 3)
-                    st['volhi'] += Fr(1, N ** 3)
+                    st['vol'] += vol
+                    st['volhi'] += vol
                 elif cert.mode == 'exact':
                     lo, hi = cut_exact(cert, e, T, S_w)
                     st['Q'] += lo
@@ -396,16 +402,16 @@ def run_range(args):
                     boxes = kept_boxes(cert, e, cert.L)
                     if boxes:
                         fi, den = E.density_int(T, S_w)
-                        q = box_integrals(fi, boxes, den) / N ** 3
+                        q = box_integrals(fi, boxes, den) * vol
                         st['Q'] += q
                         st['Qhi'] += q
-                        vb_ = sum((Fr(1, 8 ** bx[0]) for bx in boxes), Fr(0)) / N ** 3
+                        vb_ = sum((Fr(1, 8 ** bx[0]) for bx in boxes), Fr(0)) * vol
                         st['vol'] += vb_
                         st['volhi'] += vb_
                 # displacement
                 v, eps = disp_cell(cert, e)
                 if cls == 'full':
-                    q = E.quad_form3(eps, C_w) / N ** 3
+                    q = E.quad_form3(eps, C_w) * vol
                     st['A'] += q
                     st['Ahi'] += q
                 elif cert.mode == 'exact':
@@ -416,13 +422,13 @@ def run_range(args):
                     boxes = kept_boxes(cert, e, cert.Lu)
                     if boxes:
                         fi, den = E.density_int(eps, C_w)
-                        q = box_integrals(fi, boxes, den) / N ** 3
+                        q = box_integrals(fi, boxes, den) * vol
                         st['A'] += q
                         st['Ahi'] += q
                 vb = []
                 if i == 0 and face_in_domain(cert, 0, zero, e):
                     vb.append((0, 0, 0, 'v_x = 0 on x = 0'))
-                if i == N - 1:
+                if i == nx - 1:
                     vb.append((0, 0, 1, 'v_x = 1/2 on x = 1'))
                     if not cert.frictionless:
                         vb += [(1, 0, 1, 'v_y = 0 on the clamped grip'), (2, 0, 1, 'v_z = 0 on the clamped grip')]
@@ -442,13 +448,13 @@ def run_range(args):
                         if not all(E.t_equal(u, w) for u, w in zip(vpend.pop(key), mine)):
                             st['vface_bad'] += 1
                             note(st, 'displacement jump at the lower %s face of cell %s' % ('xyz'[ax], (e,)))
-                    if e[ax] < N - 1 and face_in_domain(cert, ax, Fr(e[ax] + 1, N), e):
+                    if e[ax] < cert.n[ax] - 1 and face_in_domain(cert, ax, ed[ax][e[ax] + 1], e):
                         nb = list(e)
                         nb[ax] += 1
                         if cell_class(cert, tuple(nb)) != 'out':
                             vpend[(tuple(nb), ax)] = [E.t_face(v[c], ax, 1) for c in range(3)]
                 vlow[(j, k)] = [E.t_face(v[c], 0, 0) for c in range(3)]
-                if i < N - 1 and face_in_domain(cert, 0, Fr(i + 1, N), e):
+                if i < nx - 1 and face_in_domain(cert, 0, ed[0][i + 1], e):
                     vup[(j, k)] = [E.t_face(v[c], 0, 1) for c in range(3)]
         if pend or vpend:
             st['face_bad'] += len(pend)
@@ -466,24 +472,24 @@ def run_range(args):
             with open(tmp, 'wb') as f:
                 pickle.dump(st, f)
             os.replace(tmp, ckpt)
-        print('   slab %d of %d done (%.0f s)' % (i + 1, N, time.time() - t0), flush=True)
+        print('   slab %d of %d done (%.0f s)' % (i + 1, nx, time.time() - t0), flush=True)
     return st
 
 
 def match_x(st, up, low, vup, vlow, i):
-    """faces x = i/N: the upper faces of slab i-1 against the lower faces of slab i"""
+    """faces between slabs i-1 and i: the upper faces of slab i-1 against the lower faces of slab i"""
     for key, faces in (up or {}).items():
         st['face'] += 1
         other = low.get(key)
         if other is None or not all(E.t_equal(u, w) for u, w in zip(faces, other)):
             st['face_bad'] += 1
-            note(st, 'traction jump across x = %d/N at %s' % (i, key))
+            note(st, 'traction jump across the x face %d at %s' % (i, key))
     for key, faces in (vup or {}).items():
         st['vface'] += 1
         other = vlow.get(key)
         if other is None or not all(E.t_equal(u, w) for u, w in zip(faces, other)):
             st['vface_bad'] += 1
-            note(st, 'displacement jump across x = %d/N at %s' % (i, key))
+            note(st, 'displacement jump across the x face %d at %s' % (i, key))
 
 
 # ------------------------------------------------------------------------------------------------- driver
@@ -537,12 +543,19 @@ def check_cert(meta, arrays, rep, procs=2, cache=None, weight=True, claims_requi
     N = cert.N
     rep.check(cert.variant in ('frictionless', 'clamped', 'nocavity-test', 'nocavity-clamped-test'),
               'variant %r' % cert.variant)
-    rep.say('grid N = %d; displacement degree %d, stress degree %d; integration %s'
-            % (N, cert.pu, cert.ps, meta.get('integration')))
+    rep.say('grid N = %d, grade %s: %s cells; displacement degree %d, stress degree %d; integration %s'
+            % (N, cert.grade, ' x '.join(str(v) for v in cert.n), cert.pu, cert.ps, meta.get('integration')))
+    # the cell edges of FORMAT.md 9: k/N, and with "grade": [L, m] also 1 - (1/N) 2^-(i+1) (1 + j/m)
+    expect = {Fr(k, N) for k in range(N + 1)}
+    if cert.grade:
+        Lg, mg = int(cert.grade[0]), int(cert.grade[1])
+        expect |= {1 - Fr(1, N) * Fr(1, 2 ** (i + 1)) * (1 + Fr(j, mg)) for i in range(Lg) for j in range(mg)}
+    rep.check(all(set(ed) == expect for ed in cert.edges),
+              'cell edges on all three axes are those of FORMAT.md 9 for N = %d and grade %s' % (N, cert.grade))
     mult_bad = []
     for nm, axes, need in (('displacement', cert.dax, cert.pu), ('stress', cert.sax, cert.ps - 1)):
         for d, ax in enumerate(axes):
-            rep.check(ax.ok and ax.on_grid, '%s knots %s: open on [0, 1], break points on the grid 1/N %s'
+            rep.check(ax.ok and ax.on_grid, '%s knots %s: open on [0, 1], break points among the cell edges %s'
                       % (nm, 'xyz'[d], ax.msg))
             mult_bad.append(not rep.check(ax.mult <= need, '%s knots %s: interior multiplicity %d <= %d'
                                           % (nm, 'xyz'[d], ax.mult, need)))
@@ -550,7 +563,8 @@ def check_cert(meta, arrays, rep, procs=2, cache=None, weight=True, claims_requi
     rep.check(cert.Psi.shape == (6,) + tuple(a.n for a in cert.sax), 'Psi shape %s' % (cert.Psi.shape,))
     rep.check(len(cert.gamma) == len(cert.gexp) and len(cert.delta) == len(cert.gexp), 'gam has 2 n_g entries')
     if cert.cavity:
-        rep.check(N % 4 == 0, 'N = %d divisible by 4 (1/2 and 3/4 are grid points)' % N)
+        rep.check(HALF in cert.edges[1] and HALF in cert.edges[2] and Fr(3, 4) in cert.edges[0],
+                  '1/2 is a cell edge in y and z, 3/4 in x')
         rep.check(cert.gbase == HALF and cert.etab == Fr(3, 4), 'g_base = 1/2 and eta_flat_from = 3/4')
         rep.check(cert.mode in ('superset', 'exact'), 'integration mode %r is superset or exact' % cert.mode)
     if len(rep.fail) > sum(mult_bad):          # structural errors: the fields cannot be rebuilt
@@ -558,7 +572,8 @@ def check_cert(meta, arrays, rep, procs=2, cache=None, weight=True, claims_requi
     okv, okp = coefficient_conditions(cert)
     rep.check(okv, 'displacement: coefficient conditions of FORMAT.md 9')
     rep.check(okp, 'stress potential: parity and free-face conditions of FORMAT.md 9')
-    bounds = [round(r * N / procs) for r in range(procs + 1)]
+    nslab = cert.n[0]
+    bounds = [round(r * nslab / procs) for r in range(procs + 1)]
     jobs = [(bounds[r], bounds[r + 1],
              os.path.join(cache, 'range_%d_%d.pkl' % (bounds[r], bounds[r + 1])) if cache else None)
             for r in range(procs) if bounds[r + 1] > bounds[r]]

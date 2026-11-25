@@ -399,15 +399,16 @@ def cross3(meta, arrays):
     import exact3 as E
     import p3check
     cert = p3check.Cert(meta, arrays)
-    N = cert.N
     tot = Fr(0)
     w = {(p, p + 6): Fr(1) for p in range(6)}
-    for i in range(N):
-        for j in range(N):
-            for k in range(N):
+    nx, ny, nz = cert.n
+    for i in range(nx):
+        for j in range(ny):
+            for k in range(nz):
                 tau, _ = p3check.stress_cell(cert, (i, j, k))
                 _, eps = p3check.disp_cell(cert, (i, j, k))
-                tot += E.quad_form3([tau[c] for c in p3check.COMP] + eps, w) / N ** 3
+                _, h = p3check.corner(cert, (i, j, k))
+                tot += E.quad_form3([tau[c] for c in p3check.COMP] + eps, w) * (h[0] * h[1] * h[2])
     return tot
 
 
@@ -534,16 +535,16 @@ def test_p3_exact():
     Alo, Ahi = rep.energies[2], rep.energies[3]
     ok(good and RG.ivq(Alo).a <= exact_a.a and exact_a.b <= RG.ivq(Ahi).b and Ahi - Alo < Fr(1, 10 ** 100),
        'exact mode, the lift alone: a_o encloses (lambda + 2 mu)(1 - pi/48)/4 (width %.0e)' % float(Ahi - Alo))
-    # Green identity over the octant minus the ball, random admissible fields, exact mode
-    for variant in ('frictionless', 'clamped'):
-        meta, arrays = synth.make_P3(rng, N=4, pu=2, ps=3, variant=variant)
+    # Green identity over the octant minus the ball, random admissible fields, exact mode (uniform and graded cells)
+    for variant, grade in (('frictionless', None), ('clamped', None), ('clamped', (2, 2)), ('frictionless', (1, 3))):
+        meta, arrays = synth.make_P3(rng, N=4, pu=2, ps=3, variant=variant, grade=grade)
         meta = dict(meta, integration={'mode': 'exact'})
         good, rep = run3(meta, arrays)
         cert = p3check.Cert(meta, arrays)
         lo = hi = Fr(0)
         w = {(p, p + 6): Fr(1) for p in range(6)}
-        N = cert.N
-        for e in [(i, j, k) for i in range(N) for j in range(N) for k in range(N)]:
+        nx, ny, nz = cert.n
+        for e in [(i, j, k) for i in range(nx) for j in range(ny) for k in range(nz)]:
             cls = p3check.cell_class(cert, e)
             if cls == 'out':
                 continue
@@ -551,15 +552,23 @@ def test_p3_exact():
             _, eps = p3check.disp_cell(cert, e)
             polys = [tau[c] for c in p3check.COMP] + eps
             if cls == 'full':
-                v = E.quad_form3(polys, w) / N ** 3
+                _, h = p3check.corner(cert, e)
+                v = E.quad_form3(polys, w) * (h[0] * h[1] * h[2])
                 lo, hi = lo + v, hi + v
             else:
                 a_, b_ = p3check.cut_exact(cert, e, polys, w)
                 lo, hi = lo + a_, hi + b_
         F = rep.energies[4]
         ok(good and lo <= F / 2 <= hi and hi - lo < Fr(1, 10 ** 100),
-           'octant minus the ball, %s grips, random admissible fields: all checks pass and int tau:eps(v) encloses '
-           'F_o/2 = %.12g (width %.0e)' % (variant, float(F / 2), float(hi - lo)))
+           'octant minus the ball, %s grips, %s, random admissible fields: all checks pass and int tau:eps(v) '
+           'encloses F_o/2 = %.12g (width %.0e)' % (variant, 'graded %s' % (grade,) if grade else 'uniform cells',
+                                                    float(F / 2), float(hi - lo)))
+    # graded cells in superset mode, and an inconsistent grade key is rejected
+    meta, arrays = synth.make_P3(rng, N=4, pu=2, ps=3, variant='clamped', grade=(2, 2))
+    good, rep = run3(meta, arrays)
+    ok(good and rep.bounds[0] <= rep.bounds[1], 'graded cells (2, 2), superset mode: all checks pass, lower <= upper')
+    good, rep = run3(dict(meta, grade=[3, 2]), arrays)
+    ok(not good and any('cell edges' in f for f in rep.fail), 'rejected: grade key inconsistent with the knots')
 
 
 if __name__ == '__main__':

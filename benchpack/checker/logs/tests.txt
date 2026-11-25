@@ -69,4 +69,30 @@
   ok    rejected: claimed lower bound above the recomputed one  (failed check: Q1 claim [1.0000001, 1.1] confirmed: 1.0000001 <= 1 and 1 <= 1.1)
   ok    rejected: claimed Q2 interval narrower than the recomputed one  (failed check: Q2 claim [0.4, 0.6] confirmed: 0.4 <= 0.395342752486 and 0.604657247514 <= 0.6)
   ok    rejected: P2 stress with traction on the free edge x = 0  (failed check: stress tau: zero traction on y = 1, y = -1 (x <= 0), x = 0 (y <= 0), y = 0 (x >= 0), exact)
-ALL TESTS PASSED   (119 s)
+7. P3 (3D, octant): known answer, Green identity, box integrals, falsification, negative tests
+  ok    solid cube, frictionless grips: all checks pass, K = [2, 2] exactly (known answer)
+  ok    solid cube, frictionless grips, random admissible fields: all checks pass and int tau:eps(v) = F_o/2 = 0.782915930083 exactly
+  ok    solid cube, clamped grips, random admissible fields: all checks pass and int tau:eps(v) = F_o/2 = -0.230725977797 exactly
+  ok    octree boxes of a cut cell (138 boxes, depth 3): integer box integrals (Fraction and integer densities) equal direct exact integrals
+  ok    random admissible fields with the cavity (frictionless): all checks pass, lower bound below upper bound
+  ok    random admissible fields with the cavity (clamped): all checks pass, lower bound below upper bound
+  ok    rejected: P3 potential that puts shear on the mirror x = 0
+  ok    rejected: P3 stress without the weight rho^2 (traction on the sphere)
+  ok    rejected: P3 potential only C^0 across x = 1/4
+  ok    rejected: claimed lower bound above the recomputed one
+8. P3 exact integration over cells cut by the sphere (ball.py)
+  ok    closed forms int y^n sqrt(c^2 - y^2) dy: exact identities, n < 24
+  ok    int x^0 y^0 z^0 over the octant of the ball (grid 4, cut cells in closed form) encloses the Gamma-function value (width 2e-181)
+  ok    int x^2 y^0 z^0 over the octant of the ball (grid 4, cut cells in closed form) encloses the Gamma-function value (width 8e-183)
+  ok    int x^1 y^1 z^1 over the octant of the ball (grid 4, cut cells in closed form) encloses the Gamma-function value (width 0e+00)
+  ok    int x^3 y^2 z^0 over the octant of the ball (grid 4, cut cells in closed form) encloses the Gamma-function value (width 0e+00)
+  ok    int x^2 y^3 z^5 over the octant of the ball (grid 4, cut cells in closed form) encloses the Gamma-function value (width 0e+00)
+  ok    exact mode, the lift alone: a_o encloses (lambda + 2 mu)(1 - pi/48)/4 (width 5e-182)
+  ok    octant minus the ball, frictionless grips, uniform cells, random admissible fields: all checks pass and int tau:eps(v) encloses F_o/2 = 0.373455535985 (width 2e-179)
+  ok    octant minus the ball, clamped grips, uniform cells, random admissible fields: all checks pass and int tau:eps(v) encloses F_o/2 = -0.23746469124 (width 7e-180)
+  ok    octant minus the ball, clamped grips, graded (2, 2), random admissible fields: all checks pass and int tau:eps(v) encloses F_o/2 = -0.197175065162 (width 7e-180)
+  ok    octant minus the ball, frictionless grips, graded (1, 3), random admissible fields: all checks pass and int tau:eps(v) encloses F_o/2 = -0.0979739509999 (width 3e-179)
+  ok    graded cells (2, 2), superset mode: all checks pass, lower <= upper
+  ok    rejected: grade key inconsistent with the knots
+ALL TESTS PASSED   (674 s)
+exit 0

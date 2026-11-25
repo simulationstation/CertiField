@@ -384,15 +384,19 @@ def ball_part(f, box, R2):
     return total
 
 
-def to_global(f_loc, e, N):
-    """local trivariate array on cell e of the grid 1/N (s = N x - e_x, ...) -> global array (exact)"""
+def to_global(f_loc, x0, h):
+    """local trivariate array on the cell with lower corner x0 and sides h (s = (x - x0)/h per axis) -> global array,
+    exactly: s^a = sum_a2 C(a, a2) (1/h)^a2 (-x0/h)^(a - a2) x^a2 (integers when 1/h and x0/h are integers)"""
     from math import comb
     out = f_loc
     for d in range(3):
         n = out.shape[d]
-        Tm = np.zeros((n, n), dtype=object)           # (N x - e)^a = sum_a2 C(a, a2) N^a2 (-e)^(a - a2) x^a2, integers
+        inv, off = 1 / Fr(h[d]), Fr(x0[d]) / Fr(h[d])
+        if inv.denominator == 1 and off.denominator == 1:
+            inv, off = int(inv), int(off)
+        Tm = np.zeros((n, n), dtype=object)
         for a in range(n):
             for a2 in range(a + 1):
-                Tm[a, a2] = comb(a, a2) * N ** a2 * (-e[d]) ** (a - a2)
+                Tm[a, a2] = comb(a, a2) * inv ** a2 * (-off) ** (a - a2)
         out = np.moveaxis(np.tensordot(Tm.T, np.moveaxis(out, d, 0), axes=([1], [0])), 0, d)
     return out

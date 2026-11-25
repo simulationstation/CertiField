@@ -138,8 +138,17 @@ def make_P2(rng, breaks, pu=2, ps=3, scale=0.3):
 P3_COMP = [(0, 0), (1, 1), (2, 2), (0, 1), (1, 2), (0, 2)]
 
 
-def p3_space(p, N, extra_x=None, **kw):
-    br = [Fr(i, N) for i in range(N + 1)]
+def p3_breaks(N, grade=None):
+    """cell edges of FORMAT.md 9: k/N, and with grade (L, m) also 1 - (1/N) 2^-(i+1) (1 + j/m)"""
+    br = {Fr(i, N) for i in range(N + 1)}
+    if grade:
+        L, m = grade
+        br |= {1 - Fr(1, N) * Fr(1, 2 ** (i + 1)) * (1 + Fr(j, m)) for i in range(L) for j in range(m)}
+    return sorted(br)
+
+
+def p3_space(p, N, extra_x=None, grade=None, **kw):
+    br = p3_breaks(N, grade)
     kx = open_knots(p, br, extra_x)
     ky = open_knots(p, br)
     d = dict(degree=p, knots=[[str(v) for v in kx], [str(v) for v in ky], [str(v) for v in ky]])
@@ -168,16 +177,19 @@ def p3_conditions(Psi, frictionless):
     return Psi
 
 
-def make_P3(rng, N=4, pu=2, ps=3, gexp=(0, 1, 2), variant='frictionless', cavity=True, L=2, Lu=2, scale=0.3):
+def make_P3(rng, N=4, pu=2, ps=3, gexp=(0, 1, 2), variant='frictionless', cavity=True, L=2, Lu=2, scale=0.3,
+            grade=None):
     """random admissible P3 fields (octant model) in the format of FORMAT.md 9"""
     fr = variant in ('frictionless', 'nocavity-test')
-    dsp, dn = p3_space(pu, N)
-    ssp, sn = p3_space(ps, N, {Fr(3, 4): ps - 1} if cavity else None, g_exponents=list(gexp),
+    dsp, dn = p3_space(pu, N, grade=grade)
+    ssp, sn = p3_space(ps, N, {Fr(3, 4): ps - 1} if cavity else None, grade=grade, g_exponents=list(gexp),
                        g_base='1/2' if cavity else '0', eta_flat_from='3/4')
     meta = dict(format='benchpack-certificate-1', problem='P3',
                 variant=variant if cavity else ('nocavity-test' if fr else 'nocavity-clamped-test'),
                 model='octant', N=N, displacement_space=dsp, stress_space=ssp,
                 integration=dict(mode='superset', stress_depth=L, displacement_depth=Lu), label='test')
+    if grade:
+        meta['grade'] = list(grade)
     V = rnd(rng, (3,) + tuple(dn), 0.1)
     V[0][0] = Fr(0)
     V[0][-1] = Fr(0)
