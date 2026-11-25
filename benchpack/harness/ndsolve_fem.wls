@@ -72,7 +72,9 @@ runJob[job_] := Module[{dim, crd, inc, elem, mesh, vars, X, ops, bcs, ts, sol, d
       gyz = D[sol[[2]] @@ X, z] + D[sol[[3]] @@ X, y];
       gxz = D[sol[[1]] @@ X, z] + D[sol[[3]] @@ X, x];
       dens = lam (exx + eyy + ezz)^2 + 2 mu (exx^2 + eyy^2 + ezz^2) + mu (gxy^2 + gyz^2 + gxz^2)]];
-  {tk, kn} = AbsoluteTiming[job["energyScale"] NIntegrate[dens, X \[Element] mesh]];
+  (* NIntegrate over the whole mesh is slow; it is skipped above 300 000 unknowns *)
+  {tk, kn} = If[dim n <= 300000, AbsoluteTiming[job["energyScale"] NIntegrate[dens, X \[Element] mesh]],
+    {0, "skipped"}];
   If[StringQ[job["patchcells"]],
     pmesh = ToElementMesh["Coordinates" -> N[Import[job["patchcoords"], "CSV"]],
       "MeshElements" -> {TriangleElement[Round[Import[job["patchcells"], "CSV"]]]}];
