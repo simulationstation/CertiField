@@ -1,6 +1,6 @@
 """Independent checker of the benchmark-pack certificates P1 and P2 (format benchpack-certificate-1).
 
-usage:  python check.py <path/to/STEM> [--procs N] [--log FILE]
+usage:  python check.py <path/to/STEM> [--procs N (default 2)] [--log FILE]
         (STEM.json and STEM.npz are read; the extension may be given or not)
 
 What it does (details in README.md):
@@ -144,7 +144,7 @@ def coefficient_conditions(prob, meta, arrays, dnames, snames):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('stem')
-    ap.add_argument('--procs', type=int, default=8)
+    ap.add_argument('--procs', type=int, default=2)
     ap.add_argument('--log', default=None)
     a = ap.parse_args()
     stem = a.stem
@@ -160,7 +160,7 @@ def main():
     sys.exit(0 if ok else 1)
 
 
-def check_cert(meta, arrays, rep, procs=8, claims_required=True):
+def check_cert(meta, arrays, rep, procs=2, claims_required=True):
     """run every check on one certificate (meta: the JSON dict; arrays: exact Fraction arrays). Returns True if all
     pass; the recomputed numbers are stored in rep.numbers."""
     rep.numbers = {}
