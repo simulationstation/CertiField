@@ -92,6 +92,30 @@ P2 = dict(
 )
 
 
+# ---------------------------------------------------------------------------------------------------------------------
+# P3: block with a spherical cavity (3D; NOT plane stress).  Definitions of problems/P3.md (from curved3d's NOTES.md).
+P3 = dict(
+    name='P3',
+    domain='(-1,1)^3 minus the open ball of radius 1/2 centred at (0,0,0)',
+    box=((Fr(-1), Fr(1)),) * 3,
+    cavity_radius=Fr(1, 2),
+    E=Fr(1), nu=Fr(3, 10),                       # 3D isotropic linear elasticity
+    grips=dict(faces=('x=-1', 'x=1'), u_x=(-DELTA / 2, DELTA / 2),
+               frictionless='u_x prescribed, shear traction zero', clamped='u = (+-delta/2, 0, 0)'),
+    free=('y=-1', 'y=1', 'z=-1', 'z=1', 'the sphere x^2 + y^2 + z^2 = 1/4'),
+    # K: minimal energy = K delta^2 / 2;  force on a grip = K delta.  Solid cube with frictionless grips: K = 2.
+)
+P3_OCTANT = dict(
+    domain='Omega_o = {(x,y,z) in [0,1]^3 : x^2 + y^2 + z^2 >= 1/4}',
+    mirror=('x = 0: u_x = 0, sigma_xy = sigma_xz = 0', 'y = 0: u_y = 0, sigma_xy = sigma_yz = 0',
+            'z = 0: u_z = 0, sigma_xz = sigma_yz = 0'),
+    grip='x = 1: u_x = delta/2 (frictionless: sigma_xy = sigma_xz = 0; clamped: also u_y = u_z = 0)',
+    free=('y = 1', 'z = 1', 'the sphere'),
+    K_from_octant_energy=Fr(8),                  # K = 8 a_o(u,u), a_o the energy form on Omega_o
+)
+P3_LAME = dict(lam=Fr(3, 10) / ((1 + Fr(3, 10)) * (1 - 2 * Fr(3, 10))), mu=1 / (2 * (1 + Fr(3, 10))))   # 15/26, 5/13
+
+
 def p1_in_quarter(x, y):
     """exact test: (x, y) (Fractions) lies in the closed quarter domain Omega_q"""
     x, y = Fr(x), Fr(y)

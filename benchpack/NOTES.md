@@ -236,3 +236,89 @@ valid bound). Validity is never affected, only sharpness.
 - Assumptions: A1 (the clamped edge and the grip exclude rigid motions), linear plane-stress elasticity, the weak
   (H¹) solution, which exists although the stress is singular at the re-entrant corner.
 - Nothing is claimed about the stress at the corner itself (it is unbounded) or about other patches.
+
+## 5. P3: block with a spherical cavity (new certificates; the stored curved3d certificates are unchanged)
+
+**Model** (FORMAT.md section 9): the octant `[0,1]^3` minus the ball of radius 1/2, mirror planes x, y, z = 0, grip
+x = 1, free faces y = 1, z = 1 and the sphere; `K = 8 a_o(u,u)`; bounds `2 F_o(tau)^2 / Q_o(tau) <= K <= 8 a_o(v)`
+(section 1 with the octant's grip work `F_o / 2`).
+
+**What changes against curved3d** (whose lower bound was the weak side: 1.745105 at 24 cells per half-edge while
+its upper bound was 1.758277):
+- Degree. The stress is a second derivative of the potential, so with the same spline degree the stress converges
+  one order slower than the strain of the displacement. The potential now has degree 4 (curved3d: 2).
+- Particular field. curved3d's step column (axial stress outside the square column `|y|, |z| < 1/2`) jumps at the
+  column faces, and the potential `rho^2 Psi` cannot cancel the jump near the points where the column touches the
+  sphere (`rho^2` vanishes there to second order); in 2D (P1) step-like particular fields stalled the lower bound
+  in the same way. It is replaced by `g(y, z) = sum gamma_k (y − 1/2)_+^{e_k} + delta_k (z − 1/2)_+^{e_k}` with
+  exponents 4, 5, 6, whose coefficients are optimised together with the potential.
+- Weight and ties as in curved3d (`rho = eta(x) + y^2 + z^2 − 1/4` with the flattened `eta`, parity ties at the
+  mirror planes and the frictionless grip, potential and normal derivative zero on the free faces); the knot 3/4,
+  where `eta` is only C¹, has multiplicity `ps − 1`.
+- The y ↔ z symmetry of the problem is imposed on both fields (half the unknowns); dense direct solves.
+
+**Integration.** Both integrands are non-negative. Mode `superset` integrates over curved3d's octree boxes (a cut
+box is kept whole), which overestimates both energies by an amount proportional to the box size near the sphere;
+for the displacement energy this bias is large (DIAGNOSTIC: at 8 cells per half-edge the float upper bound is
+1.7732, 1.7653, 1.7615 at depths 3, 4, 5, halving with each level). Mode `exact` integrates the cells cut by the
+sphere over their part outside the ball: the polynomial is integrated in z; the remaining integrals over a
+rectangle intersected with a disc are reduced to arc integrals (`cos^n`, Arb endpoints) for the polynomial part
+and, for the part with `sqrt(a^2 − x^2 − y^2)`, integrated exactly in y (closed forms with sqrt and asin) and in x
+by Arb's rigorous integration (acb.integral), with the branch cuts checked. Full cells use the interval Gauss rules
+of curved3d's kind (exact for the degree).
+
+*Cut-cell reduction (PROVED, elementary).* For a cell `C = R × [z0, z1]` in the first octant, `R = [x0,x1]×[y0,y1]`,
+and a polynomial `p`, let `Q(x,y,z) = ∫_{z0}^{z} p dz'` and `Z = (a² − x² − y²)^{1/2}`. Then
+`∫_{C ∩ ball} p = ∫_{R ∩ D(r1)} Q(x,y,z1) + ∫_{R ∩ (D(r0) \ D(r1))} Q(x,y,Z)`, `D(r)` the disc of radius `r` about
+the origin, `r_i² = a² − z_i²` (`D(r1)` empty if `z1 >= a`), because for `(x,y)` in `R` the segment of the cell
+above `(x,y)` meets the ball in `z0 <= z < min(z1, Z)`. Writing `Q(x,y,Z) = P + Z W` (using `Z² = a² − x² − y²`), the
+polynomial parts are integrated over `R ∩ D(r)` in y and then along the arc `x = r cos t`, which gives the integrals
+`∫ cos^n t dt` of section 3 between endpoints whose cosines and sines are rationals or square roots of rationals.
+For `∫_{R ∩ D(r)} Z W`, the y-integral is exact: with `b² = a² − x²`, `s = (b² − y²)^{1/2}`,
+`K_0 = (y s + b² asin(y/b))/2`, `K_1 = (b³ − s³)/3`, `K_j = −y^{j−1} s³/(j+2) + (j−1) b²/(j+2) K_{j−2}` (integration
+by parts) is `∫_0^y t^j (b² − t²)^{1/2} dt`; the remaining x-integral is enclosed by `acb.integral`, which returns
+a ball containing the integral when the integrand reports non-analytic points (here: the branch cuts of the square
+root and of asin, checked on every complex ball) — Arb's guarantee. Irrational interval ends are handled by
+integrating to a nearby exact point and adding `|end − point| · sup|f|` over a ball around the end.
+
+**Results (frictionless grips; N cells per half-edge, potential degree 4, displacement degree 3, exponents of `g`
+4, 5, 6).**
+
+| Certificate | Integration | Rigorous bounds (builder) | Relative width | Claim (weakened) | Label |
+|---|---|---|---|---|---|
+| `P3_frictionless_N12_p4_exact` (N = 12) | exact | 1.75741142 <= K <= 1.75762196 | 1.2e-4 | [1.757411214, 1.757622167] | CERTIFIED (checked by the agent only; independent checker pending) |
+| `P3_frictionless_N8_p4_exact` (N = 8) | exact | 1.75716672 <= K <= 1.75762799 | 2.6e-4 | [1.757166257, 1.757628452] | CERTIFIED (checked by the agent only; independent checker pending) |
+| `P3_frictionless_N8_p4` | superset, depths 4 / 6 | 1.75451382 <= K <= 1.75956610 | 2.9e-3 | [1.754508766, 1.759571150] | CERTIFIED (checked by the agent only; independent checker pending) |
+| curved3d N = 24 (stored, unchanged) | superset | 1.74510549 <= K <= 1.75827651 | 7.5e-3 | | CERTIFIED (stored earlier) |
+
+Both exact certificates meet the target (0.1 %): by a factor of about four at N = 8 (564 s on one process) and of
+about eight at N = 12 (1368 s). The intervals are consistent (each finer one lies inside the coarser ones).
+
+Clamped grips (same discretisation; the potential has no condition at x = 1 and `v_y = v_z = 0` there):
+
+| Certificate | Integration | Rigorous bounds (builder) | Relative width | Claim (weakened) | Label |
+|---|---|---|---|---|---|
+| `P3_clamped_N8_p4_exact` | exact | 1.83043704 <= K <= 1.83320745 | 1.5e-3 | [1.830434273, 1.833210223] | CERTIFIED (checked by the agent only; independent checker pending) |
+| curved3d N = 24 (stored, unchanged) | superset | 1.81732246 <= K <= 1.83348613 | 8.9e-3 | | CERTIFIED (stored earlier) |
+
+The clamped grip meets the free faces y = 1 and z = 1 along edges where the stress is singular, so the clamped
+bounds converge more slowly; at 8 cells per half-edge the width is 1.5e-3, above the 0.1 % target. The superset certificate shows how
+much of curved3d's width came from the integration domain: the same displacement space gives 1.75957 over the
+superset at depth 6 and 1.75763 over the exact domain.
+
+**Tests (`builder/tests_p3.py`, pass).** 1. Known answer: the lift alone has energy `(λ + 2μ)(1 − π/48)/4` over the
+octant minus the ball; the computed upper bound exceeds it by 2e-13. 2. Exact identities of random admissible
+stress fields (both grip variants): equilibrium, `tau ∇rho` divisible by `rho` on every cut cell, free faces, mirror
+and grip shear, traction continuity, grip force formula. 3. Interval evaluator against the float assembly. The cut
+cell integration agrees with mpmath on four cut cells to 1e-18. 4. With a certificate: perturbed stress fields
+(ties restored) never give a lower bound above the claimed upper bound; 5. re-evaluation of the certificate.
+
+**What is guaranteed and what is not (P3, new certificates).**
+- Guaranteed, if the argument of section 1 (octant form) is right, python-flint's rational and ball arithmetic and
+  Arb's rigorous integration are correct, and the outward-rounded float interval arithmetic of curved3d's `ia.py`
+  is correct: the stiffness K of P3 lies in the claimed interval of each certificate (frictionless or clamped grips).
+- The independent checker had not reported on these certificates when this was written; the argument has been
+  checked by the agent only.
+- Assumptions: linear 3D elasticity, the weak (H¹) solution, the octant symmetry (the problem is invariant under
+  the three reflections; the stress is unique).
+- Nothing is claimed about the stress near the cavity or along the clamped edges (singular there), only about K.

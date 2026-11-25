@@ -1,0 +1,11 @@
+[    0s] 1. known answer: energy of the lift (x/2, 0, 0) over the octant minus the ball (exact cut cells)
+   computed upper bound 0.31451207073825105, exact value 0.3145120707380523, difference 1.99e-13
+[    0s]    ok
+[    0s] 2. exact identities of random admissible stress fields (N = 4, degree 3)
+   [frictionless] all identities hold exactly (63 cells, 7 cut by the sphere)
+   [clamped] all identities hold exactly (63 cells, 7 cut by the sphere)
+[    1s]    ok
+[    1s] 3. rigorous evaluator against the float assembly (N = 4, degree 3)
+   Q float np.float64(0.8316084304759365), rigorous upper bound 0.83160843048391
+[    7s]    ok
+[    7s] ALL P3 TESTS PASSED
