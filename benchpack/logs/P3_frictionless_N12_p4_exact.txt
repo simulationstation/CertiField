@@ -1,0 +1,62 @@
+  P3 frictionless: N=12, degrees 4/3; to resume after a stop rerun the same command (checkpoints in benchpack/work/P3_frictionless_N12_p4_exact)
+    dual assembly 0/7692 boxes  0s
+    dual assembly 200/7692 boxes  26s
+    dual assembly 400/7692 boxes  52s
+    dual assembly 600/7692 boxes  76s
+    dual assembly 800/7692 boxes  100s
+    dual assembly 1000/7692 boxes  126s
+    dual assembly 1200/7692 boxes  151s
+    dual assembly 1400/7692 boxes  177s
+    dual assembly 1600/7692 boxes  202s
+    dual assembly 1800/7692 boxes  227s
+    dual assembly 2000/7692 boxes  253s
+    dual assembly 2200/7692 boxes  279s
+    dual assembly 2400/7692 boxes  304s
+    dual assembly 2600/7692 boxes  329s
+    dual assembly 2800/7692 boxes  354s
+    dual assembly 3000/7692 boxes  378s
+    dual assembly 3200/7692 boxes  404s
+    dual assembly 3400/7692 boxes  429s
+    dual assembly 3600/7692 boxes  454s
+    dual assembly 3800/7692 boxes  480s
+    dual assembly 4000/7692 boxes  504s
+    dual assembly 4200/7692 boxes  529s
+    dual assembly 4400/7692 boxes  555s
+    dual assembly 4600/7692 boxes  583s
+    dual assembly 4800/7692 boxes  609s
+    dual assembly 5000/7692 boxes  635s
+    dual assembly 5200/7692 boxes  662s
+    dual assembly 5400/7692 boxes  689s
+    dual assembly 5600/7692 boxes  715s
+    dual assembly 5800/7692 boxes  742s
+    dual assembly 6000/7692 boxes  768s
+    dual assembly 6200/7692 boxes  794s
+    dual assembly 6400/7692 boxes  820s
+    dual assembly 6600/7692 boxes  846s
+    dual assembly 6800/7692 boxes  873s
+    dual assembly 7000/7692 boxes  902s
+    dual assembly 7200/7692 boxes  930s
+    dual assembly 7400/7692 boxes  958s
+    dual assembly 7600/7692 boxes  987s
+  dual solved: 8323 dofs, float K >= 1.75794156  (1005s)
+  primal solved: 4710 dofs, float K <= 1.75761646  (140s)
+    primal certificate 0/1571 boxes  0s
+    primal cut cells 0/79  0s
+    primal cut cells 10/79  1s
+    primal cut cells 20/79  2s
+    primal cut cells 30/79  4s
+    primal cut cells 40/79  7s
+    primal cut cells 50/79  13s
+    primal cut cells 60/79  17s
+    primal cut cells 70/79  27s
+  certified upper bound K <= 1.75762196  (1179s)
+    dual certificate 0/1571 boxes  2s
+    dual cut cells 0/79  0s
+    dual cut cells 10/79  4s
+    dual cut cells 20/79  8s
+    dual cut cells 30/79  16s
+    dual cut cells 40/79  29s
+    dual cut cells 50/79  51s
+    dual cut cells 60/79  70s
+    dual cut cells 70/79  115s
+  CERTIFIED  1.75741142 <= K <= 1.75762196   rel width 1.20e-04;  claim [1.757411214, 1.757622167]  (1368s)
