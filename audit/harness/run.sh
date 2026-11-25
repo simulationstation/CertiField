@@ -12,10 +12,12 @@ n=0
 while true; do
   "$PY" "$HERE/$PROG" "$@"
   code=$?
-  if [ $code -ne 1 ] || [ ! -f "$STATE/$NAME.inflight.json" ]; then
+  # restart only when a task was in flight: the watchdog (exit 1), or a crash while it
+  # dumped tracebacks (seen once as exit 139); a real error exits 2 with no in-flight file
+  if [ $code -eq 0 ] || [ ! -f "$STATE/$NAME.inflight.json" ]; then
     exit $code
   fi
   n=$((n + 1))
-  echo "[run.sh] restart $n after a timed-out task: $(cat "$STATE/$NAME.inflight.json")"
+  echo "[run.sh] restart $n (exit $code) after a timed-out task: $(cat "$STATE/$NAME.inflight.json")"
   if [ $n -gt 20000 ]; then echo "[run.sh] too many restarts"; exit 3; fi
 done
