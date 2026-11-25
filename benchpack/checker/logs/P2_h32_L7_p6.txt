@@ -1,0 +1,87 @@
+checker: P2_h32_L7_p6
+problem P2, variant standard, model full, label 'CERTIFIED (checked by the agent only)'
+  [pass] no module of benchpack/builder is loaded (only definitions.py is shared)
+  [pass] format string benchpack-certificate-1
+  [pass] P2 variant standard, full model
+spaces: displacement degree 5, 129 x 129 cells; stress degree 6, 129 x 129 cells
+  [pass] displacement knots_x open on [-1, 1] 
+  [pass] displacement knots_x: interior multiplicity 5 <= 5 (C^0 splines)
+  [pass] displacement knots_x contain 0
+  [pass] displacement knots_y open on [-1, 1] 
+  [pass] displacement knots_y: interior multiplicity 5 <= 5 (C^0 splines)
+  [pass] displacement knots_y contain 0
+  [pass] stress knots_x open on [-1, 1] 
+  [pass] stress knots_x: interior multiplicity 5 <= 5 (C^1 splines)
+  [pass] stress knots_x contain 0
+  [pass] stress knots_y open on [-1, 1] 
+  [pass] stress knots_y: interior multiplicity 5 <= 5 (C^1 splines)
+  [pass] stress knots_y contain 0
+  [pass] displacement v0: array shapes (138, 138)
+  [pass] displacement vp: array shapes (138, 138)
+  [pass] displacement vm: array shapes (138, 138)
+  [pass] stress tau0: array shape (143, 143)
+  [pass] stress tau0: (alpha, beta, gamma) given
+  [pass] stress tp: array shape (143, 143)
+  [pass] stress tp: (alpha, beta, gamma) given
+  [pass] stress tm: array shape (143, 143)
+  [pass] stress tm: (alpha, beta, gamma) given
+  [pass] displacement v0: grip/mirror coefficient conditions
+  [pass] displacement vp: grip/mirror coefficient conditions
+  [pass] displacement vm: grip/mirror coefficient conditions
+  [pass] stress tau0: FORMAT coefficient conditions
+  [pass] stress tp: FORMAT coefficient conditions
+  [pass] stress tm: FORMAT coefficient conditions
+per-cell results are saved in cache\P2_h32_L7_p6_89ffe3e8708ec491 (a rerun skips the cells found there)
+displacement v0: 16641 cells evaluated, 0 of them from the cache (57 s)
+displacement vp: 16641 cells evaluated, 0 of them from the cache (59 s)
+displacement vm: 16641 cells evaluated, 0 of them from the cache (58 s)
+stress tau0: 16641 cells evaluated, 0 of them from the cache (60 s)
+    stress tp: 16320 of 16641 cells
+stress tp: 16641 cells evaluated, 0 of them from the cache (61 s)
+    stress tm: 16576 of 16641 cells
+stress tm: 16641 cells evaluated, 0 of them from the cache (60 s)
+  [pass] displacement v0: continuous across all 24848 interior edges (exact)
+  [pass] displacement v0: v = 0 on x = -1 and v = (0, -1) on x = 1, 0 <= y <= 1, exactly
+  [pass] displacement vp: continuous across all 24848 interior edges (exact)
+  [pass] displacement vp: v = 0 on x = -1 and v = (0, -1) on x = 1, 0 <= y <= 1, exactly
+  [pass] displacement vm: continuous across all 24848 interior edges (exact)
+  [pass] displacement vm: v = 0 on x = -1 and v = (0, -1) on x = 1, 0 <= y <= 1, exactly
+  [pass] stress tau0: div tau = 0 exactly in all 12553 cells of the domain
+  [pass] stress tau0: normal traction continuous across all 24848 interior edges (exact)
+  [pass] stress tau0: zero traction on y = 1, y = -1 (x <= 0), x = 0 (y <= 0), y = 0 (x >= 0), exactly
+  [pass] stress tau0: grip force -int_0^1 tau_xy(1,y) dy = 0.122606095087098 exactly, equal to -beta
+  [pass] stress tp: div tau = 0 exactly in all 12553 cells of the domain
+  [pass] stress tp: normal traction continuous across all 24848 interior edges (exact)
+  [pass] stress tp: zero traction on y = 1, y = -1 (x <= 0), x = 0 (y <= 0), y = 0 (x >= 0), exactly
+  [pass] stress tp: grip force -int_0^1 tau_xy(1,y) dy = 0.125325744952496 exactly, equal to -beta
+  [pass] stress tm: div tau = 0 exactly in all 12553 cells of the domain
+  [pass] stress tm: normal traction continuous across all 24848 interior edges (exact)
+  [pass] stress tm: zero traction on y = 1, y = -1 (x <= 0), x = 0 (y <= 0), y = 0 (x >= 0), exactly
+  [pass] stress tm: grip force -int_0^1 tau_xy(1,y) dy = 0.119886445221699 exactly, equal to -beta
+  [pass] stress cells: 12553 in Omega, total area 3 (exact; |Omega| = 3)
+  [pass] displacement cells: 12553 in Omega, total area 3 (exact; |Omega| = 3)
+  [pass] patch: sum over cells of |patch ∩ cell| in [0.01, 0.01] encloses 1/100
+recomputed integrals (exact on cells inside the domain; intervals where curved):
+  F(tau0) = 0.122606095087098 (exact)
+  F(tm) = 0.119886445221699 (exact)
+  F(tp) = 0.125325744952496 (exact)
+  Q(tau0) in [0.122607748017879, 0.122607748017879]  width 0.00e+00
+  Q(tm) in [0.119167819520927, 0.119167819520927]  width 0.00e+00
+  Q(tp) in [0.130046830600025, 0.130046830600025]  width 0.00e+00
+  a(v0) in [0.122607381577499, 0.122607381577499]  width 0.00e+00
+  a(vm) in [0.129094995258609, 0.129094995258609]  width 0.00e+00
+  a(vp) in [0.129094995258605, 0.129094995258605]  width 0.00e+00
+  l(tau0) in [-0.309433948259481, -0.309433948259481]  width 0.00e+00
+  l(tm) in [-0.0819280059559768, -0.0819280059559768]  width 0.00e+00
+  l(tp) in [-0.536939890562984, -0.536939890562984]  width 0.00e+00
+  l(v0) in [-0.309486291389988, -0.309486291389988]  width 0.00e+00
+  l(vm) in [-1.04763255910721, -1.04763255910721]  width 0.00e+00
+  l(vp) in [0.428659976327232, 0.428659976327232]  width 0.00e+00
+  [pass] kappa = 9/1024 > 0
+  m_up(+k) <= 0.0607799783061139, m_up(-k) <= 0.0553397895902765, m_low(+k) >= 0.0607771532045001, m_low(-k) >= 0.0553380903915034
+recomputed Q1: [0.122604442179, 0.122607381577]  width 2.939e-06  relative 2.397e-05
+  [pass] Q1 claim [0.1226044392, 0.1226073846] confirmed: 0.1226044392 <= 0.122604442179 and 0.122607381577 <= 0.1226073846
+recomputed Q2: [-0.30958295692, -0.309325574498]  width 2.574e-04  relative 8.317e-04
+  [pass] Q2 claim [-0.3095832144, -0.3093253171] confirmed: -0.3095832144 <= -0.30958295692 and -0.309325574498 <= -0.3093253171
+builder's own enclosures (diagnostic, not used): {'fields': {'v0': {'a': 0.12260738157749869, 'l': -0.30948629138998823}, 'vp': {'a': 0.12909499525860493, 'l': 0.4286599763272317}, 'vm': {'a': 0.12909499525860943, 'l': -1.0476325591072082}, 'tau0': {'Q': 0.12260774801787903, 'l': -0.3094339482594805, 'F': 0.12260609508709779}, 'tp': {'Q': 0.130046830600025, 'l': -0.536939890562984, 'F': 0.12532574495249638}, 'tm': {'Q': 0.11916781952092684, 'l': -0.08192800595597678, 'F': 0.1198864452216992}}, 'bounds': {'K_up': 0.12260738157749869, 'K_low': 0.12260444217860045, 'm_up_plus': 0.0607799783061139, 'm_up_minus': 0.05533978959027652, 'm_low_plus': 0.06077715320450014, 'm_low_minus': 0.055338090391503364, 'Q2_low': -0.3095829569200663, 'Q2_up': -0.30932557449805465}, 'K': [0.12260444217860045, 0.12260738157749869], 'Q2': [-0.3095829569200663, -0.30932557449805465], 'note': 'all values above are exact rationals rounded to the nearest float'}
+RESULT: ALL CHECKS PASSED   (363 s)
