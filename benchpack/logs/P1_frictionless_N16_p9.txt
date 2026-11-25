@@ -1,0 +1,10 @@
+  float: K in [0.591200987529, 0.591200987579], kappa 5.039e-07 -> 1/2097152 (6s)
+    v0: evaluated (0s)
+    vp: evaluated (1s)
+    vm: evaluated (1s)
+    tau0: evaluated (4s)
+    tp: evaluated (6s)
+    tm: evaluated (8s)
+  CERTIFIED  0.591200987507 <= K  <= 0.591200987579   rel width 1.21e-10
+  CERTIFIED  1.0327375805 <= Q2 <= 1.0327680269   rel width 2.95e-05
+  claims: K in [0.5912009869, 0.5912009882],  Q2 in [1.032737550, 1.032768058]   (15s)
