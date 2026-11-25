@@ -97,6 +97,8 @@ def main():
     ap.add_argument('--targets', default='')
     ap.add_argument('--per-target', type=int, default=12)
     ap.add_argument('--timeout', type=float, default=600)
+    ap.add_argument('--redo-unverified', action='store_true',
+                    help='drop unverified/timed-out confirmations of the selected targets and redo them')
     args = ap.parse_args()
     import targets
     import tasks
@@ -109,6 +111,12 @@ def main():
         t = targets.get(nm)
         src = os.path.join(RESULTS, fname(nm))
         out = os.path.join(OUT, fname(nm))
+        if args.redo_unverified and os.path.exists(out + '.done'):
+            keep = [c for c in load(out + '.jsonl') if c.get('status') not in ('unverified', 'timeout')]
+            with open(out + '.jsonl', 'w', encoding='utf-8') as f:
+                for c in keep:
+                    f.write(json.dumps(c, default=float) + '\n')
+            os.remove(out + '.done')
         if os.path.exists(out + '.done') or not os.path.exists(src + '.done'):
             continue
         picks, ncl, nc = select(t, load(src + '.jsonl'), args.per_target)
