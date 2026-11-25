@@ -16,6 +16,12 @@ It runs 2 processes by default (2 threads each). Per-cell results are saved in `
 keyed by the bytes of the certificate and of the checker's per-cell code); an interrupted run resumes where it stopped.
 The P1 certificate `P1_frictionless_N16_p9` takes about a minute on one process.
 
+P3 has its own exact checker, `Reference/Curved3D/exact_check.py`. For large grids, `p3_exact.py` runs the same
+checks (a)-(h) with that program's own functions, slab by slab in two processes, with a checkpoint after every slab
+(resumable); it gives the same result as `exact_check.py` on the grid-8 certificate:
+
+    python p3_exact.py clamped ../../Reference/Curved3D/certificates/psi_clamped_N24.npz --v ../../Reference/Curved3D/certificates/v_clamped_N24.npz
+
 ## What is checked
 
 For every displacement field `v` and stress field `tau` of the certificate, on every cell of its spline grid, the
