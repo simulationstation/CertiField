@@ -142,4 +142,64 @@ not follow (adjoint energy gap about 25 against an adjoint energy of about 125-1
 
 ## 4. P2: L-bracket
 
-OPEN (next).
+**Model.** The full L-shaped domain (no symmetry). Both spaces are tensor-product B-splines on [−1,1]^2; cells in
+the removed square are not integrated, so only the restriction to `Omega` matters.
+
+**Displacements.** `v = (0, −(x+1)/2) + splines` with the first and last x-coefficients of both components zero:
+`v = 0` on x = −1 and `v = (0, −1)` on the grip x = 1.
+
+**Stresses.** `τ = Airy(φ_p + Ψ)`:
+- `Ψ` has the knot 0 with multiplicity `ps − 1` in both directions (C¹ across x = 0 and y = 0), and every B-spline
+  whose value or gradient is non-zero somewhere on a free edge has coefficient zero (index classes of FORMAT.md
+  4.2). Then `Ψ` and its gradient vanish on all four free edges, so its traction is zero there, and `Ψ_x = 0` on
+  y = 1 and on y = 0 (x >= 0), so it carries no vertical force through the grip. With the C¹ knot at 0 the zero
+  conditions remove exactly the functions that touch the free edges (the two straddling B-splines are the only ones
+  with value or slope on the line), not more.
+- `φ_p = χ(y)(α + βx + γy)` with `χ = 1` for y <= 0 and `χ = 1 − 3y² + 2y³` on [0,1] (C¹; `χ(1) = χ'(1) = χ'(0) = 0`).
+  It is linear for y <= 0 (zero stress there), its traction vanishes on y = 0 and y = 1, and its vertical grip
+  force is `F = [φ_x(1,y)]_{y=0}^{1} = −β`. Why three parameters (sharpness only): for any admissible stress the
+  Airy function can be normalised to vanish with its gradient on the top edge; on the other free boundary piece
+  (y = 0 for x > 0, x = 0 for y < 0, y = −1 for x < 0, which is connected) it is then a linear function whose three
+  coefficients are the two force components and the moment transmitted through the grip; `φ_p` provides all three.
+- Knots: geometric layers towards x, y ∈ {−1, 0, 1} (the re-entrant corner and the four corners where a clamped edge
+  meets a free edge) and towards 1/10 (the patch edges, where the adjoint stress jumps); multiplicity `ps − 1` at
+  1/10 in the stress space and `pu` at 1/10 in the displacement space, so the adjoint fields may jump there.
+
+**Integrals.** Every cell is a rectangle inside or outside `Omega`, and the patch `[0, 1/10]^2` is a union of cells.
+All integrals are exact rationals (no transcendental number occurs in P2), computed cell by cell with python-flint,
+in chunks that are saved (`benchpack/work/STEM/`) so that an interrupted build resumes.
+
+**Results (`certificates/P2_h8_L8_p6`: 89 x 89 cells, base spacing 1/8, 8 dyadic layers with 2 cells each towards
+the re-entrant corner lines, 6 towards the clamped corners, 4 towards 1/10; stress degree 6, displacement degree 5;
+`k = 3/256`; 55 s to build on 2 processes).**
+
+| Quantity | Rigorous bounds (builder, exact rationals) | Relative width | Claim (weakened) | Label |
+|---|---|---|---|---|
+| Q1 = K | 0.122603934395 <= K <= 0.122610210236 | 5.1e-5 | [0.1226039281, 0.1226102166] | CERTIFIED (checked by the agent only; independent checker pending) |
+| Q2 | −0.3097348053 <= Q2 <= −0.3092223558 | 1.7e-3 | [−0.3097353178, −0.3092218433] | CERTIFIED (checked by the agent only; independent checker pending) |
+
+Both meet the acceptance criteria (K: 1e-3, Q2: 1e-2). The stretch goal for Q2 (1e-3) is not met by this
+certificate. Q2 is negative: the patch at the re-entrant corner is in compression.
+
+**Limit of the tensor-product grading (DIAGNOSTIC).** Deeper grading (10 or more layers) makes the cells far from
+the corner very elongated (aspect ratio 2^L); the float solve of the stress-function problem then fails (in one run
+the float lower bound of K exceeded the float upper bound, and the exact evaluation of such a field gives a poor but
+valid bound). Validity is never affected, only sharpness.
+
+**Tests (`builder/tests_p2.py STEM`).**
+1. Known answers of the exact evaluator on the L-shaped domain: the lift alone has `a = 15/52` and `l = 0`; the
+   particular stress alone has `Q`, `l`, `F` equal to the closed forms computed by sympy.
+2. Exact identities for random admissible stress fields: equilibrium, zero traction on the four free edges,
+   traction continuity across cell edges, vertical grip force `−β`.
+3. The exact evaluator agrees with the float assembly on random fields.
+4. Falsification: perturbations of the certified fields of relative energy 0 to 1e-2, at other values of `k`, never
+   cross the claimed intervals.
+5. Re-evaluation of the stored certificate reproduces the claims.
+
+**What is guaranteed and what is not (P2).**
+- Guaranteed, if the argument of sections 1, 2 and 4 is right and python-flint's rational arithmetic is correct:
+  the K and Q2 of P2 (problems/P2.md) lie in the claimed intervals. All certified numbers are exact rationals.
+- The argument has been checked by the agent only; the independent checker had not reported when this was written.
+- Assumptions: A1 (the clamped edge and the grip exclude rigid motions), linear plane-stress elasticity, the weak
+  (H¹) solution, which exists although the stress is singular at the re-entrant corner.
+- Nothing is claimed about the stress at the corner itself (it is unbounded) or about other patches.

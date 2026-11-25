@@ -210,8 +210,13 @@ PRESETS = {
 }
 
 
-def params(N, ps, pu, grip='frictionless'):
+def params(N, ps, pu, grip='frictionless', Lg=0, m=1):
+    """uniform N x N cells; Lg > 0 adds geometric layers (m per halving) towards x = 1 and y = 1 (the corner where a
+    clamped grip meets the free edge, P1c)"""
     br = uniform_breaks(N)
+    if Lg:
+        from p2float import graded_breaks
+        br = graded_breaks(0, 1, Fr(1, N), [(1, (-1,), Lg, m)])
     return dict(sbx=br, sby=br, ps=ps, ubx=br, uby=br, pu=pu, grip=grip)
 
 
@@ -220,6 +225,8 @@ if __name__ == '__main__':
     if sys.argv[1] == 'build':
         stem, N, ps, pu = sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
         grip = sys.argv[6] if len(sys.argv) > 6 else 'frictionless'
-        build(stem, params(N, ps, pu, grip))
+        Lg = int(sys.argv[7]) if len(sys.argv) > 7 else 0
+        m = int(sys.argv[8]) if len(sys.argv) > 8 else 1
+        build(stem, params(N, ps, pu, grip, Lg, m))
     elif sys.argv[1] == 'verify':
         sys.exit(0 if verify(sys.argv[2]) else 1)
