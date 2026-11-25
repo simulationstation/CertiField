@@ -66,19 +66,40 @@ def write_inp(path, points, cells, eltype, bcs, grip_nodes, patch_elems, thickne
 
 
 def run(jobdir, job, nthreads=1, timeout=7200):
+    """Run ccx; returns (log text, peak memory of the ccx process in GB, sampled every 0.2 s)."""
+    import time
     exe, path = ccx_command()
     env = dict(os.environ)
     if path:
         env["PATH"] = path
     env["OMP_NUM_THREADS"] = str(nthreads)
     env["CCX_NPROC_EQUATION_SOLVER"] = str(nthreads)
-    p = subprocess.run([exe, "-i", job], cwd=jobdir, env=env, capture_output=True, text=True, timeout=timeout)
-    log = p.stdout + p.stderr
-    with open(os.path.join(jobdir, job + ".log"), "w") as f:
-        f.write(log)
-    if p.returncode != 0 or "*ERROR" in log:
+    logpath = os.path.join(jobdir, job + ".log")
+    peak = float("nan")
+    with open(logpath, "w") as logf:
+        try:
+            import psutil
+            p = psutil.Popen([exe, "-i", job], cwd=jobdir, env=env, stdout=logf, stderr=subprocess.STDOUT)
+            peak, t0 = 0.0, time.time()
+            while p.poll() is None:
+                try:
+                    mi = p.memory_info()
+                    peak = max(peak, getattr(mi, "peak_wset", mi.rss) / 2 ** 30)
+                except Exception:
+                    pass
+                if time.time() - t0 > timeout:
+                    p.kill()
+                    raise RuntimeError("ccx timed out")
+                time.sleep(0.2)
+            code = p.returncode
+        except ImportError:  # pragma: no cover
+            code = subprocess.run([exe, "-i", job], cwd=jobdir, env=env, stdout=logf, stderr=subprocess.STDOUT,
+                                  timeout=timeout).returncode
+    with open(logpath) as f:
+        log = f.read()
+    if code != 0 or "*ERROR" in log:
         raise RuntimeError("ccx failed:\n" + log[-3000:])
-    return log
+    return log, peak
 
 
 _num = r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?"

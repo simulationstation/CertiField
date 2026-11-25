@@ -7,11 +7,15 @@ Element variants:
     P2-straight  quadratic elements on the same straight-sided mesh
     P2-curved    quadratic isoparametric elements, mid-edge nodes on the circle / sphere (gmsh order 2)
 All values are FLOAT (floating point, no error control); checked by the agent only.
+Resumable: each run is appended to the CSV when it finishes; runs with a row already are skipped.  Runs whose
+estimated memory exceeds the cap of runlog.py (4 GB) are not done and get a row saying so.
 """
-import csv
 import os
 import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import runlog  # noqa: E402,F401  (caps the threads before numpy is loaded)
 
 import numpy as np
 import skfem
@@ -96,6 +100,13 @@ def patch_average(case, mesh, e, u):
     return sxx.assemble(pb, u=pb.interpolate(u)) / area, area
 
 
+def memory_gb(dim, ndof, quadratic):
+    """estimated peak memory of a run (GB), from measurements with pypardiso and 2 threads on the harness machine:
+    2D 0.68 GB at 148 000 unknowns (quadratic), 3D 3.67 GB at 145 000 (quadratic) and 1.14 GB at 55 000"""
+    per_million = 4.6 if dim == 2 else (26.0 if quadratic else 12.0)
+    return 0.3 + per_million * ndof / 1e6
+
+
 def solve(case, h, variant):
     c = cases.CASES[case]
     dim = c["dim"]
@@ -104,6 +115,10 @@ def solve(case, h, variant):
     t_mesh = time.perf_counter() - t0
     t0 = time.perf_counter()
     basis = CellBasis(mesh, e)
+    est = memory_gb(dim, basis.N, variant != "P1")
+    if est > runlog.MAX_GB:
+        return dict(code="scikit-fem", case=case, element=variant, h=h, ndof=basis.N, nelem=mesh.nelements,
+                    note="not run: estimated %.1f GB, above the %.0f GB cap" % (est, runlog.MAX_GB))
     A = stiffness(basis, dim)
     x = np.zeros(basis.N)
     D = []
@@ -134,7 +149,7 @@ def solve(case, h, variant):
 
 
 FIELDS = ["code", "case", "element", "h", "ndof", "nfree", "nelem", "time_s", "mesh_time_s", "K", "K_energy", "Q2",
-          "patch_area"]
+          "patch_area", "note"]
 
 
 def main(argv):
@@ -142,22 +157,22 @@ def main(argv):
     todo = argv or list(cases.CASES)
     os.makedirs(RESULTS, exist_ok=True)
     for case in todo:
-        rows = []
-        path = os.path.join(RESULTS, "skfem_%s.csv" % case)
+        log = runlog.CsvLog(os.path.join(RESULTS, "skfem_%s.csv" % case), FIELDS)
         for variant in VARIANTS:
             if variant == "P2-curved" and cases.CASES[case]["mesh"] == "lbracket":
                 continue          # no curved boundary: identical to P2-straight
             levels = cases.LEVELS[case] if variant == "P1" else cases.LEVELS_QUAD.get(case, cases.LEVELS[case])
             for h in levels:
+                if log.has(element=variant, h="%.12g" % h):
+                    continue
                 row = solve(case, h, variant)
-                rows.append(row)
-                print("%-8s %-12s h=%-8g ndof=%-8d t=%7.2fs  K=%.10f  (energy %.10f)  Q2=%.8f" % (
-                    case, variant, h, row["ndof"], row["time_s"], row["K"], row["K_energy"], row["Q2"]), flush=True)
-                with open(path, "w", newline="") as f:
-                    wr = csv.DictWriter(f, FIELDS)
-                    wr.writeheader()
-                    for rr in rows:
-                        wr.writerow({k: (("%.12g" % v) if isinstance(v, float) else v) for k, v in rr.items()})
+                log.append(row)
+                if "K" in row:
+                    print("%-8s %-12s h=%-8g ndof=%-8d t=%7.2fs  K=%.10f  (energy %.10f)  Q2=%.8f" % (
+                        case, variant, h, row["ndof"], row["time_s"], row["K"], row["K_energy"], row["Q2"]),
+                        flush=True)
+                else:
+                    print("%-8s %-12s h=%-8g %s" % (case, variant, h, row["note"]), flush=True)
     print("solver:", SOLVER, " scikit-fem", skfem.__version__)
 
 

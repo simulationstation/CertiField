@@ -18,17 +18,21 @@ Q2: the integration-point stresses of the patch elements (*EL PRINT S, COORD).  
     weights.  So Q2 is the code's own quadrature of the integral of sigma_xx over the patch, divided by the patch
     area under the same quadrature.
 All values are FLOAT; checked by the agent only.
+Resumable: each run is appended to the CSV when it finishes; runs with a row already are skipped.  The peak memory of
+the ccx process is recorded (column peak_gb); runs estimated above the memory cap of runlog.py are not done and get
+a row saying so.
 """
-import csv
 import os
 import shutil
 import sys
 import tempfile
 import time
 
-import numpy as np
-
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import runlog  # noqa: E402  (caps the threads before numpy is loaded)
+
+import numpy as np  # noqa: E402
+
 import cases   # noqa: E402
 import ccx_io  # noqa: E402
 
@@ -36,10 +40,16 @@ RESULTS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 THICKNESS = 1e-3
 VARIANTS_2D = [("CPS3", 1, False), ("CPS6-straight", 2, False), ("CPS6-curved", 2, True)]
 VARIANTS_3D = [("C3D4", 1, False), ("C3D10-straight", 2, False), ("C3D10-curved", 2, True)]
-NTHREADS = int(os.environ.get("CCX_THREADS", "4"))
+NTHREADS = int(os.environ.get("CCX_THREADS", runlog.THREADS))
 # ccx (SPOOLES solver, plane-stress expansion to 3D) stopped without a message at about 1e6 unknowns on the
 # harness machine; larger runs are skipped
 MAX_DOF = int(os.environ.get("CCX_MAX_DOF", "700000"))
+
+
+def memory_gb(dim, ndof, quadratic):
+    """estimated peak memory of a ccx run (GB); see the peak_gb column of the result files for measured values"""
+    per_million = 6.0 if dim == 2 else (26.0 if quadratic else 12.0)
+    return 0.2 + per_million * ndof / 1e6
 
 # triangle rules: reference points (xi, eta) and weights (reference area 1/2)
 TRI_RULES = {
@@ -114,8 +124,11 @@ def solve(case, h, variant, order, curved, workdir):
     m = cases.make_mesh(case, h, order, curved)
     t_mesh = time.perf_counter() - t0
     P, C = m["points"], m["cells"]
-    if dim * len(P) > MAX_DOF:
-        return None
+    est = memory_gb(dim, dim * len(P), order == 2)
+    if dim * len(P) > MAX_DOF or est > runlog.MAX_GB:
+        return dict(code="CalculiX", case=case, element=variant, h=h, ndof=dim * len(P), nelem=len(C),
+                    note="not run: %d unknowns, estimated %.1f GB (caps: %d unknowns, %.0f GB)" % (
+                        dim * len(P), est, MAX_DOF, runlog.MAX_GB))
     on = lambda ax, v: np.nonzero(np.abs(P[:, ax] - v) < 1e-9)[0]
     bcs = [(on(ax, val), comp + 1, g) for (ax, val), comp, g in c["bc"]]
     (gax, gval), gcomp = c["grip"]
@@ -130,7 +143,7 @@ def solve(case, h, variant, order, curved, workdir):
     ccx_io.write_inp(inp, P, C, eltype, bcs, on(gax, gval), patch, thickness=THICKNESS, el_vars=("S", "COORD"),
                      energy=True)
     t0 = time.perf_counter()
-    ccx_io.run(workdir, job, nthreads=NTHREADS)
+    _, peak = ccx_io.run(workdir, job, nthreads=NTHREADS)
     t_solve = time.perf_counter() - t0
     dat = ccx_io.parse_dat(os.path.join(workdir, job + ".dat"))
     thick = THICKNESS if dim == 2 else 1.0
@@ -148,11 +161,12 @@ def solve(case, h, variant, order, curved, workdir):
         except OSError:
             pass
     return dict(code="CalculiX", case=case, element=variant, h=h, ndof=ndof, nelem=len(C),
-                time_s=round(t_solve, 3), mesh_time_s=round(t_mesh, 3), K=K, K_energy=Ken, Q2=q2, patch_area=area)
+                time_s=round(t_solve, 3), mesh_time_s=round(t_mesh, 3), K=K, K_energy=Ken, Q2=q2, patch_area=area,
+                peak_gb=round(peak, 2))
 
 
 FIELDS = ["code", "case", "element", "h", "ndof", "nelem", "time_s", "mesh_time_s", "K", "K_energy", "Q2",
-          "patch_area"]
+          "patch_area", "peak_gb", "note"]
 
 
 def main(argv):
@@ -163,25 +177,22 @@ def main(argv):
     for case in todo:
         c = cases.CASES[case]
         variants = VARIANTS_2D if c["dim"] == 2 else VARIANTS_3D
-        rows = []
-        path = os.path.join(RESULTS, "calculix_%s.csv" % case)
+        log = runlog.CsvLog(os.path.join(RESULTS, "calculix_%s.csv" % case), FIELDS)
         for variant, order, curved in variants:
             if curved and c["mesh"] == "lbracket":
                 continue                   # no curved boundary: identical to the straight variant
             levels = cases.LEVELS[case] if order == 1 else cases.LEVELS_QUAD.get(case, cases.LEVELS[case])
             for h in levels:
-                row = solve(case, h, variant, order, curved, workdir)
-                if row is None:
-                    print("%-8s %-15s h=%-8g skipped (more than %d unknowns)" % (case, variant, h, MAX_DOF))
+                if log.has(element=variant, h="%.12g" % h):
                     continue
-                rows.append(row)
-                print("%-8s %-15s h=%-8g ndof=%-8d t=%7.2fs  K=%.8f  (energy %.8f)  Q2=%.7f" % (
-                    case, variant, h, row["ndof"], row["time_s"], row["K"], row["K_energy"], row["Q2"]), flush=True)
-                with open(path, "w", newline="") as f:
-                    wr = csv.DictWriter(f, FIELDS)
-                    wr.writeheader()
-                    for rr in rows:
-                        wr.writerow({k: (("%.12g" % v) if isinstance(v, float) else v) for k, v in rr.items()})
+                row = solve(case, h, variant, order, curved, workdir)
+                log.append(row)
+                if "K" in row:
+                    print("%-8s %-15s h=%-8g ndof=%-8d t=%7.2fs  K=%.8f  (energy %.8f)  Q2=%.7f  peak %.2f GB" % (
+                        case, variant, h, row["ndof"], row["time_s"], row["K"], row["K_energy"], row["Q2"],
+                        row["peak_gb"]), flush=True)
+                else:
+                    print("%-8s %-15s h=%-8g %s" % (case, variant, h, row["note"]), flush=True)
     shutil.rmtree(workdir, ignore_errors=True)
 
 

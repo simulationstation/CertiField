@@ -2,9 +2,11 @@
 
     python benchpack/harness/run_ndsolve.py P1 [P2 P3c ...]
 
-The kernel is started as  $WOLFRAMSCRIPT -file benchpack/harness/ndsolve_fem.wls <jobs.wl>  (default: wolframscript
-on PATH; set WOLFRAMSCRIPT to a wrapper command, e.g. '"C:/Program Files/Git/bin/bash.exe" /path/wl.sh', where the
-kernel is shared).  If the kernel stops, it is started again for the jobs not yet done (at most 3 times).
+One kernel per run, one run at a time: $WOLFRAMSCRIPT -file benchpack/harness/ndsolve_fem.wls <job.wl> (default
+wolframscript on PATH; set WOLFRAMSCRIPT to a wrapper command, e.g. '"C:/Program Files/Git/bin/bash.exe" /path/wl.sh',
+where the kernel seats are shared).  A run whose kernel stops twice gets a row saying so.
+Resumable: each run is appended to the CSV when it finishes; runs with a row already are skipped.  Runs estimated
+above the memory cap of runlog.py get a row saying so.
 Meshes are the gmsh meshes of run_skfem.py / run_calculix.py; element variants:
     linear (order-1 mesh), quadratic-straight (order 2, mid-edge nodes at the chord midpoints),
     quadratic-curved (order 2, mid-edge nodes on the circle / sphere).
@@ -21,11 +23,13 @@ import subprocess
 import sys
 import tempfile
 
-import numpy as np
-from scipy.spatial import cKDTree
-from skfem import CellBasis
-
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import runlog  # noqa: E402  (caps the threads before numpy is loaded)
+
+import numpy as np  # noqa: E402
+from scipy.spatial import cKDTree  # noqa: E402
+from skfem import CellBasis  # noqa: E402
+
 import cases  # noqa: E402
 import run_skfem  # noqa: E402
 
@@ -34,7 +38,7 @@ RESULTS = os.path.join(os.path.dirname(HERE), "results")
 VARIANTS = [("linear", 1, False, "P1"), ("quadratic-straight", 2, False, "P2-straight"),
             ("quadratic-curved", 2, True, "P2-curved")]
 # NDSolve runs: the first levels of cases.LEVELS (NIntegrate over large meshes is slow)
-NLEVELS = {"P1solid": 3, "P1": 5, "P1c": 5, "P2": 5, "P3c": 4, "P3f": 4}
+NLEVELS = {"P1solid": 3, "P1": 5, "P1c": 5, "P2": 5, "P3c": 5, "P3f": 5}
 NLEVELS_QUAD_3D = 4
 # node order of a 10-node TetrahedronElement in Mathematica: vertices 1-4, then the mid-edge nodes of the edges
 # (1,2) (2,3) (3,1) (2,4) (3,4) (1,4) -- checked against ToElementMesh's own second-order tetrahedra and the volume of
@@ -97,73 +101,73 @@ def evaluate_nodal(case, h, skvariant, P, nodal_csv):
     return kc, q2
 
 
+FIELDS = ["code", "case", "element", "h", "ndof", "nelem", "time_s", "integrate_time_s", "K", "K_check",
+          "K_nintegrate", "Q2", "Q2_nintegrate", "patch_area_nintegrate", "mesh_measure", "note"]
+
+
+def memory_gb(dim, ndof, quadratic):
+    """estimated peak memory of the kernel for one run (GB), same scale as run_skfem.memory_gb"""
+    return run_skfem.memory_gb(dim, ndof, quadratic)
+
+
+def run_kernel(jobfile):
+    cmd = shlex.split(os.environ.get("WOLFRAMSCRIPT", "wolframscript"), posix=True)
+    cmd += ["-file", wpath(os.path.join(HERE, "ndsolve_fem.wls")), wpath(jobfile)]
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    return p.stdout[-3000:] + p.stderr[-1000:]
+
+
 def main(argv):
     sys.stdout.reconfigure(encoding="utf-8")
     todo = argv or list(cases.CASES)
-    # ND_WORKDIR: reuse a work directory; jobs whose result file exists there are not run again
-    workdir = os.environ.get("ND_WORKDIR") or tempfile.mkdtemp(prefix="nd_bench_")
+    # work directory for the mesh and result files of the single runs; kept between invocations, so a run whose
+    # kernel result exists there is only post-processed again
+    workdir = os.environ.get("ND_WORKDIR") or os.path.join(tempfile.gettempdir(), "benchpack_ndsolve_work")
     os.makedirs(workdir, exist_ok=True)
-    jobs, meta = [], []
     for case in todo:
         c = cases.CASES[case]
+        log = runlog.CsvLog(os.path.join(RESULTS, "ndsolve_%s.csv" % case), FIELDS)
         for variant, order, curved, skv in VARIANTS:
             if curved and c["mesh"] == "lbracket":
                 continue
             n = NLEVELS[case] if not (c["dim"] == 3 and order == 2) else NLEVELS_QUAD_3D
             n = min(n, int(os.environ.get("ND_MAXLEVELS", "99")))
             for h in cases.LEVELS[case][:n]:
+                if log.has(element=variant, h="%.12g" % h):
+                    continue
                 name = "%s_%s_%g" % (case, variant, h)
                 entry, out, nodal, P = job_entry(name, case, h, order, curved, workdir)
-                jobs.append(entry)
-                meta.append((case, variant, skv, h, out, nodal, P))
-    jobfile = os.path.join(workdir, "jobs.wl")
-    with open(jobfile, "w") as f:
-        f.write("{\n" + ",\n".join(jobs) + "\n}\n")
-    cmd = shlex.split(os.environ.get("WOLFRAMSCRIPT", "wolframscript"), posix=True)
-    cmd += ["-file", wpath(os.path.join(HERE, "ndsolve_fem.wls")), wpath(jobfile)]
-    last_missing, tries = None, 0
-    for attempt in range(len(meta) + 2):
-        if all(os.path.exists(m[4]) for m in meta):
-            break
-        print("running (attempt %d):" % (attempt + 1), " ".join(cmd), flush=True)
-        p = subprocess.run(cmd, capture_output=True, text=True)
-        print(p.stdout[-8000:], p.stderr[-2000:], flush=True)
-        # a job that stops the kernel twice is marked failed and skipped on the next attempt
-        missing = next((m[4] for m in meta if not os.path.exists(m[4])), None)
-        if missing is None:
-            break
-        tries = tries + 1 if missing == last_missing else 1
-        last_missing = missing
-        print("not done:", os.path.basename(missing), flush=True)
-        if tries >= 2:
-            with open(missing, "w") as f:
-                f.write("failed\nkernel stopped\n")
-    by_case = {}
-    for case, variant, skv, h, out, nodal, P in meta:
-        row = dict(code="NDSolve", case=case, element=variant, h=h)
-        r = [["failed"]]
-        if os.path.exists(out):
-            with open(out) as f:
-                r = list(csv.reader(f))
-        if r[0][0] == "failed":
-            row["K"] = "failed (kernel stopped)"
-        else:
-            row.update(dict(zip(r[0], r[1])))
-            row["K"] = row.pop("K_system")
-            kc, q2 = evaluate_nodal(case, h, skv, P, nodal)
-            row["K_check"] = "%.12g" % kc
-            row["Q2"] = "%.12g" % q2
-        by_case.setdefault(case, []).append(row)
-        print(case, variant, h, row.get("K"), row.get("K_check"), row.get("K_nintegrate"), row.get("Q2"),
-              row.get("Q2_nintegrate"), flush=True)
-    fields = ["code", "case", "element", "h", "ndof", "nelem", "time_s", "ndsolvevalue_time_s", "integrate_time_s",
-              "K", "K_check", "K_nintegrate", "Q2", "Q2_nintegrate", "patch_area_nintegrate", "mesh_measure"]
-    for case, rows in by_case.items():
-        with open(os.path.join(RESULTS, "ndsolve_%s.csv" % case), "w", newline="") as f:
-            w = csv.DictWriter(f, fields, extrasaction="ignore")
-            w.writeheader()
-            for r in rows:
-                w.writerow(r)
+                row = dict(code="NDSolve", case=case, element=variant, h=h, ndof=c["dim"] * len(P))
+                est = memory_gb(c["dim"], c["dim"] * len(P), order == 2)
+                if est > runlog.MAX_GB:
+                    row["note"] = "not run: estimated %.1f GB, above the %.0f GB cap" % (est, runlog.MAX_GB)
+                    log.append(row)
+                    print(case, variant, h, row["note"], flush=True)
+                    continue
+                jobfile = os.path.join(workdir, name + "_job.wl")
+                with open(jobfile, "w") as f:
+                    f.write("{\n" + entry + "\n}\n")
+                for attempt in range(2):
+                    if os.path.exists(out):
+                        break
+                    text = run_kernel(jobfile)
+                    if not os.path.exists(out):
+                        print(name, "kernel stopped (attempt %d):" % (attempt + 1), text[-500:], flush=True)
+                if not os.path.exists(out):
+                    row["note"] = "kernel stopped twice"
+                    log.append(row)
+                    continue
+                with open(out) as f:
+                    r = list(csv.reader(f))
+                row.update(dict(zip(r[0], r[1])))
+                row["K"] = row.pop("K_system")
+                kc, q2 = evaluate_nodal(case, h, skv, P, nodal)
+                row["K_check"] = "%.12g" % kc
+                row["Q2"] = "%.12g" % q2
+                log.append(row)
+                print(case, variant, h, "K", row.get("K"), "K_check", row.get("K_check"), "K_nintegrate",
+                      row.get("K_nintegrate"), "Q2", row.get("Q2"), "Q2_nintegrate", row.get("Q2_nintegrate"),
+                      flush=True)
     print("work directory:", workdir)
 
 

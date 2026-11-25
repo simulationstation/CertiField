@@ -13,8 +13,9 @@
      K_system    = energyScale * U.S.U with S the assembled stiffness matrix (before the Dirichlet rows are applied)
                    and U the solution vector of the same discretization (NDSolve`ProcessEquations, DiscretizePDE,
                    DeployBoundaryConditions, LinearSolve) -- this is a(u_h, u_h), the finite element value;
-     K_nintegrate = energyScale * NIntegrate of the strain energy density of the InterpolatingFunction returned by
-                   NDSolveValue (the usual post-processing; it differs from a(u_h, u_h), see results/VERDICTS.md).
+     K_nintegrate = energyScale * NIntegrate of the strain energy density of the InterpolatingFunction of the
+                   solution (what NDSolveValue returns; the usual post-processing; it differs from a(u_h, u_h),
+                   see results/VERDICTS.md and repro_ndsolve_gradient.wls).
    Q2_nintegrate = NIntegrate of sigma_xx of the InterpolatingFunction over the patch sub-mesh / its area.
    The nodal displacements are written so that run_ndsolve.py can evaluate Q2 of u_h exactly.
    Values are FLOAT (no error control); checked by the agent only. *)
@@ -23,7 +24,7 @@ Needs["NDSolve`FEM`"];
 nu = 3/10; ee = 1;
 str[x_] := ToString[CForm[N[x]]];
 
-runJob[job_] := Module[{dim, crd, inc, elem, mesh, vars, X, ops, bcs, t, ts, sol, dens, kn, tk, q2 = "nan",
+runJob[job_] := Module[{dim, crd, inc, elem, mesh, vars, X, ops, bcs, ts, sol, dens, kn, tk, q2 = "nan",
     area = "nan", pmesh, sxx, vol, lam, mu, state, femdata, sd, dpde, dbcs, load, stiff, damp, mass, S0, U, ks, n},
   dim = job["dim"];
   crd = N[Import[job["coords"], "CSV"]];
@@ -54,8 +55,10 @@ runJob[job_] := Module[{dim, crd, inc, elem, mesh, vars, X, ops, bcs, t, ts, sol
     Flatten[LinearSolve[stiff, load]]];
   ks = job["energyScale"] U . S0 . U;
   Export[job["nodal"], Transpose[Partition[U, n]], "CSV"];
-  (* the usual route: NDSolveValue and NIntegrate of the InterpolatingFunction *)
-  {t, sol} = AbsoluteTiming[NDSolveValue[{ops == ConstantArray[0, dim], bcs}, Head /@ vars, X \[Element] mesh]];
+  (* the usual post-processing: NIntegrate of the InterpolatingFunction.  NDSolveValue returns the
+     ElementMeshInterpolation of this same solution (checked: its values on the grid agree with U to 1e-15), so it is
+     built from U directly instead of solving a second time *)
+  sol = Map[ElementMeshInterpolation[{mesh}, #] &, Partition[U, n]];
   If[dim == 2,
     Module[{exx, eyy, gxy},
       exx = D[sol[[1]] @@ X, x]; eyy = D[sol[[2]] @@ X, y];
@@ -75,9 +78,9 @@ runJob[job_] := Module[{dim, crd, inc, elem, mesh, vars, X, ops, bcs, t, ts, sol
       "MeshElements" -> {TriangleElement[Round[Import[job["patchcells"], "CSV"]]]}];
     area = NIntegrate[1, X \[Element] pmesh];
     q2 = NIntegrate[sxx, X \[Element] pmesh]/area];
-  Export[job["out"], {{"ndof", "nelem", "time_s", "ndsolvevalue_time_s", "integrate_time_s", "K_system",
+  Export[job["out"], {{"ndof", "nelem", "time_s", "integrate_time_s", "K_system",
       "K_nintegrate", "Q2_nintegrate", "patch_area_nintegrate", "mesh_measure"},
-     {dim n, Length[inc], str[ts], str[t], str[tk], str[ks], str[kn], str[q2], str[area], str[vol]}}, "CSV"];
+     {dim n, Length[inc], str[ts], str[tk], str[ks], str[kn], str[q2], str[area], str[vol]}}, "CSV"];
   Print[job["name"], "  ndof ", dim n, "  t ", str[ts], " s  K_system = ", str[ks], "  K_nintegrate = ", str[kn],
     "  Q2_nintegrate = ", str[q2], "  mesh measure ", str[vol]];
 ];
