@@ -126,6 +126,16 @@ def run_target(R, t, args, stuck):
     base = fbase(t.name)
     if os.path.exists(base + '.done'):
         return
+    # two sweeps may run (one from each end of the list): a target belongs to whoever
+    # started it first
+    lock = base + '.lock'
+    if os.path.exists(lock):
+        with open(lock) as f:
+            if f.read().strip() != args.owner:
+                return
+    else:
+        with open(lock, 'w') as f:
+            f.write(args.owner)
     t0 = time.time()
     rng = np.random.default_rng(args.seed * 1000003 + zlib.crc32(t.name.encode()))
     grid = cast(t, t.grid) if t.grid else np.zeros((0, t.nargs))
@@ -275,6 +285,8 @@ def main():
     ap.add_argument('--adv-time', type=float, default=900, help='wall-time cap (s) of the adversarial search per target')
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--list', action='store_true')
+    ap.add_argument('--owner', default='A', help='lock tag of this sweep (two sweeps may run)')
+    ap.add_argument('--reverse', action='store_true', help='targets from the end of the list')
     args = ap.parse_args()
     import targets
     names = targets.names()
@@ -285,7 +297,9 @@ def main():
         print('\n'.join(sel))
         return 0
     os.makedirs(RESULTS, exist_ok=True)
-    R = runner.Runner('sweep', args.timeout)
+    if args.reverse:
+        sel = sel[::-1]
+    R = runner.Runner(os.environ.get('AUDIT_RUNNER_NAME', 'sweep'), args.timeout)
     stuck = R.take_timed_out()
     if stuck:
         print('resuming after a timeout at %s' % stuck, flush=True)

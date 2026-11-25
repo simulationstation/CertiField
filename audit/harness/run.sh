@@ -5,7 +5,7 @@
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PY="${AUDIT_PY:-$HERE/../.venv/Scripts/python.exe}"
 PROG="$1"; shift
-NAME="$(basename "$PROG" .py)"
+NAME="${AUDIT_RUNNER_NAME:-$(basename "$PROG" .py)}"
 if [ -n "$AUDIT_STATE_DIR" ]; then STATE="$AUDIT_STATE_DIR"; else STATE="$(cygpath -u "${LOCALAPPDATA:-/tmp}" 2>/dev/null || echo /tmp)/certifield_audit"; fi
 export PYTHONDONTWRITEBYTECODE=1 OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2
 n=0
