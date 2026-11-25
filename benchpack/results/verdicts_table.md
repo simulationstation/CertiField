@@ -92,20 +92,20 @@ All values FLOAT; intervals CERTIFIED (P1-nohole: exact); checked by the agent o
 | P2 | Q2 | NDSolve | quadratic, straight edges | 220358 | -0.3094318906 | [-0.3095832144, -0.3093253171] | converges into the interval |
 | P2 | Q2 | NDSolve, NIntegrate | linear | 217630 | -0.3094207854 | [-0.3095832144, -0.3093253171] | not converged (inside, remaining change about 0.00027) |
 | P2 | Q2 | NDSolve, NIntegrate | quadratic, straight edges | 220358 | -0.3094312892 | [-0.3095832144, -0.3093253171] | converges into the interval |
-| P3c | Q1 | scikit-fem | linear | 121887 | 1.834050187 | [1.830434273, 1.833210223] | not converged (above by 0.00084, remaining change about 0.0018) |
-| P3c | Q1 | scikit-fem | quadratic, straight edges | 353841 | 1.832667275 | [1.830434273, 1.833210223] | converges into the interval |
-| P3c | Q1 | scikit-fem | quadratic, curved edges | 353841 | 1.832442072 | [1.830434273, 1.833210223] | converges into the interval |
-| P3c | Q1 | CalculiX | linear | 121887 | 1.83405 | [1.830434273, 1.833210223] | not converged (above by 0.00084, remaining change about 0.0018) |
-| P3c | Q1 | CalculiX | quadratic, straight edges | 353841 | 1.8326672 | [1.830434273, 1.833210223] | converges into the interval |
-| P3c | Q1 | CalculiX | quadratic, curved edges | 353841 | 1.832442 | [1.830434273, 1.833210223] | converges into the interval |
-| P3c | Q1 | NDSolve | linear | 48795 | 1.835518995 | [1.830434273, 1.833210223] | not converged (above by 0.00231, remaining change about 0.0021) |
-| P3c | Q1 | NDSolve | quadratic, straight edges | 134541 | 1.832952575 | [1.830434273, 1.833210223] | not converged (inside, remaining change about 0.0003) |
-| P3c | Q1 | NDSolve | quadratic, curved edges | 134541 | 1.832497651 | [1.830434273, 1.833210223] | converges into the interval |
-| P3c | Q1 | NDSolve, NIntegrate | linear | 48795 | 1.835120315 | [1.830434273, 1.833210223] | not converged (above by 0.00191, remaining change about 0.0073) |
-| P3c | Q1 | NDSolve, NIntegrate | quadratic, straight edges | 134541 | 1.832950814 | [1.830434273, 1.833210223] | not converged (inside, remaining change about 0.00028) |
-| P3c | Q1 | NDSolve, NIntegrate | quadratic, curved edges | 134541 | 1.832947492 | [1.830434273, 1.833210223] | not converged (inside, remaining change about 0.00028) |
-| P3c | Q1 | NDSolve, own mesh | quadratic, K = a(u_h, u_h) | 152883 | 1.83532758 | [1.830434273, 1.833210223] | lands outside: above by 0.00212 (0.0012 relative) |
-| P3c | Q1 | NDSolve, own mesh | quadratic, K by NIntegrate (original script) | 152883 | 1.83532758 | [1.830434273, 1.833210223] | lands outside: above by 0.00212 (0.0012 relative) |
+| P3c | Q1 | scikit-fem | linear | 121887 | 1.834050187 | [1.832048486, 1.832438844] | not converged (above by 0.00161, remaining change about 0.0018) |
+| P3c | Q1 | scikit-fem | quadratic, straight edges | 353841 | 1.832667275 | [1.832048486, 1.832438844] | not converged (above by 0.000228, remaining change about 0.00023) |
+| P3c | Q1 | scikit-fem | quadratic, curved edges | 353841 | 1.832442072 | [1.832048486, 1.832438844] | not converged (above by 3.23e-06, remaining change about 3.5e-05) |
+| P3c | Q1 | CalculiX | linear | 121887 | 1.83405 | [1.832048486, 1.832438844] | not converged (above by 0.00161, remaining change about 0.0018) |
+| P3c | Q1 | CalculiX | quadratic, straight edges | 353841 | 1.8326672 | [1.832048486, 1.832438844] | not converged (above by 0.000228, remaining change about 0.00025) |
+| P3c | Q1 | CalculiX | quadratic, curved edges | 353841 | 1.832442 | [1.832048486, 1.832438844] | not converged (above by 3.16e-06, remaining change about 3.5e-05) |
+| P3c | Q1 | NDSolve | linear | 48795 | 1.835518995 | [1.832048486, 1.832438844] | not converged (above by 0.00308, remaining change about 0.0021) |
+| P3c | Q1 | NDSolve | quadratic, straight edges | 134541 | 1.832952575 | [1.832048486, 1.832438844] | not converged (above by 0.000514, remaining change about 0.0003) |
+| P3c | Q1 | NDSolve | quadratic, curved edges | 134541 | 1.832497651 | [1.832048486, 1.832438844] | not converged (above by 5.88e-05, remaining change about 5.1e-05) |
+| P3c | Q1 | NDSolve, NIntegrate | linear | 48795 | 1.835120315 | [1.832048486, 1.832438844] | not converged (above by 0.00268, remaining change about 0.0073) |
+| P3c | Q1 | NDSolve, NIntegrate | quadratic, straight edges | 134541 | 1.832950814 | [1.832048486, 1.832438844] | not converged (above by 0.000512, remaining change about 0.00028) |
+| P3c | Q1 | NDSolve, NIntegrate | quadratic, curved edges | 134541 | 1.832947492 | [1.832048486, 1.832438844] | not converged (above by 0.000509, remaining change about 0.00028) |
+| P3c | Q1 | NDSolve, own mesh | quadratic, K = a(u_h, u_h) | 152883 | 1.83532758 | [1.832048486, 1.832438844] | lands outside: above by 0.00289 (0.0016 relative) |
+| P3c | Q1 | NDSolve, own mesh | quadratic, K by NIntegrate (original script) | 152883 | 1.83532758 | [1.832048486, 1.832438844] | lands outside: above by 0.00289 (0.0016 relative) |
 | P3f | Q1 | scikit-fem | linear | 48969 | 1.758638813 | [1.757411214, 1.757622167] | not converged (above by 0.00102, remaining change about 0.001) |
 | P3f | Q1 | scikit-fem | quadratic, straight edges | 367668 | 1.757723288 | [1.757411214, 1.757622167] | not converged (above by 0.000101, remaining change about 9.7e-05) |
 | P3f | Q1 | scikit-fem | quadratic, curved edges | 367668 | 1.757622405 | [1.757411214, 1.757622167] | not converged (above by 2.38e-07, remaining change about 1.1e-06) |
