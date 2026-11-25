@@ -47,6 +47,19 @@
   ok    P2 trial 1: all K and m(k) lower bounds below all upper bounds (36 pairs), Q2 lower <= upper
   ok    P1 trial 2: all K and m(k) lower bounds below all upper bounds (36 pairs), Q2 lower <= upper
   ok    P2 trial 2: all K and m(k) lower bounds below all upper bounds (36 pairs), Q2 lower <= upper
+5b. falsification with near-optimal fields and random admissible perturbations of them
+  ok    P1 frictionless: near-optimal fields, K in [0.590933097, 0.591207444] (relative gap 4.6e-04), Q2 in [0.770954, 1.292814]
+  ok    P1 frictionless: fields moved by 1e-08 (relative): all checks pass, K and Q2 lower bounds stay below the upper bounds of the unmoved fields and vice versa
+  ok    P1 frictionless: fields moved by 1e-05 (relative): all checks pass, K and Q2 lower bounds stay below the upper bounds of the unmoved fields and vice versa
+  ok    P1 frictionless: fields moved by 1e-02 (relative): all checks pass, K and Q2 lower bounds stay below the upper bounds of the unmoved fields and vice versa
+  ok    P1 clamped: near-optimal fields, K in [0.595333984, 0.595812082] (relative gap 8.0e-04), Q2 in [0.782477, 1.306891]
+  ok    P1 clamped: fields moved by 1e-08 (relative): all checks pass, K and Q2 lower bounds stay below the upper bounds of the unmoved fields and vice versa
+  ok    P1 clamped: fields moved by 1e-05 (relative): all checks pass, K and Q2 lower bounds stay below the upper bounds of the unmoved fields and vice versa
+  ok    P1 clamped: fields moved by 1e-02 (relative): all checks pass, K and Q2 lower bounds stay below the upper bounds of the unmoved fields and vice versa
+  ok    P2 standard: near-optimal fields, K in [0.120622767, 0.129531865] (relative gap 6.9e-02), Q2 in [-0.681615, 0.150319]
+  ok    P2 standard: fields moved by 1e-08 (relative): all checks pass, K and Q2 lower bounds stay below the upper bounds of the unmoved fields and vice versa
+  ok    P2 standard: fields moved by 1e-05 (relative): all checks pass, K and Q2 lower bounds stay below the upper bounds of the unmoved fields and vice versa
+  ok    P2 standard: fields moved by 1e-02 (relative): all checks pass, K and Q2 lower bounds stay below the upper bounds of the unmoved fields and vice versa
 6. negative tests: broken certificates are rejected
   ok    rejected: P1 stress with shear on the mirror line x = 0  (failed check: stress tau: zero traction on y = 1; zero shear on x = 0, y = 0 and the grip x = 1, exactly)
   ok    rejected: P1 displacement with a wrong grip value  (failed check: displacement v: v_x = 0 on x = 0, v_x = 1/2 on x = 1, v_y = 0 on y = 0, exactly -- [('v_x )
@@ -56,4 +69,4 @@
   ok    rejected: claimed lower bound above the recomputed one  (failed check: Q1 claim [1.0000001, 1.1] confirmed: 1.0000001 <= 1 and 1 <= 1.1)
   ok    rejected: claimed Q2 interval narrower than the recomputed one  (failed check: Q2 claim [0.4, 0.6] confirmed: 0.4 <= 0.395342752486 and 0.604657247514 <= 0.6)
   ok    rejected: P2 stress with traction on the free edge x = 0  (failed check: stress tau: zero traction on y = 1, y = -1 (x <= 0), x = 0 (y <= 0), y = 0 (x >= 0), exact)
-ALL TESTS PASSED   (52 s)
+ALL TESTS PASSED   (127 s)

@@ -8,7 +8,9 @@
 3. Known answers: the plate without the hole, K = 1 and Q2 = 1/2 (the frictionless grips give sigma_xx = 1/2).
 4. Green identity with random admissible fields: int tau:eps(v) = (work factor) * F(tau), exactly for P2 and to
    1e-100 for P1 (this needs equilibrium, every boundary condition and the cut-cell integrals to be right).
-5. Falsification: random admissible fields never give a lower bound above an upper bound (K, and m(k) for Q2).
+5. Falsification: random admissible fields never give a lower bound above an upper bound (K, and m(k) for Q2);
+   near-optimal fields (ritz.py, a small float Ritz solver) give close bounds that do not cross, also after random
+   admissible perturbations of relative size 1e-8 to 1e-2.
 6. Negative tests: broken certificates are rejected (shear on a mirror line, a C^0 stress function, a wrong grip
    value, a discontinuous displacement, a stress field not traction-free on the hole, claims tighter than the bounds,
    a free edge of P2 with traction).
@@ -24,6 +26,7 @@ import check
 import exact as X
 import fields as FD
 import region as RG
+import ritz
 import synth
 
 FAILS = []
@@ -265,6 +268,41 @@ def test_falsification():
                                               '(%d pairs), Q2 lower <= upper' % (prob, trial, len(Ks)))
 
 
+def test_near_optimal():
+    """Random fields give bounds far apart, which cannot reveal an error that makes bounds too tight.  Here the fields
+    are near-optimal (a small float Ritz solver, ritz.py), so such an error would make the bounds cross."""
+    print('5b. falsification with near-optimal fields and random admissible perturbations of them')
+    rng = np.random.default_rng(31)
+    cases = (('P1', 'frictionless', [Fr(i, 8) for i in range(9)], Fr(1, 1000)),
+             ('P1', 'clamped', [Fr(i, 8) for i in range(9)], Fr(1, 1000)),
+             ('P2', 'standard', [Fr(i, 4) for i in range(-4, 5)], Fr(1, 100)))
+    for name, variant, br, gap in cases:
+        meta, arrays = ritz.certificate(name, variant, br, br, 3, 4, Fr(1, 100))
+        good, rep = run(meta, arrays)
+        (klo, khi), (qlo, qhi) = rep.bounds['Q1'], rep.bounds['Q2']
+        rel = (khi - klo) / khi
+        ok(good and klo <= khi and qlo <= qhi and (rel < gap if name == 'P1' else rel < Fr(1, 10)),
+           '%s %s: near-optimal fields, K in [%.9f, %.9f] (relative gap %.1e), Q2 in [%.6f, %.6f]'
+           % (name, variant, float(klo), float(khi), float(rel), float(qlo), float(qhi)))
+        for eps in (Fr(1, 10 ** 8), Fr(1, 10 ** 5), Fr(1, 100)):
+            if name == 'P1':
+                _, R = synth.make_P1(rng, br, br, pu=3, ps=4, gexp=(0, 1, 2, 3), variant=variant)
+            else:
+                _, R = synth.make_P2(rng, br, pu=3, ps=4)
+            a2 = {}
+            for key, val in arrays.items():
+                scale = max(abs(v) for v in val.flat) or Fr(1)
+                a2[key] = val + R[key] * (eps * scale)
+            good2, rep2 = run(meta, a2)
+            cross = []
+            for q in ('Q1', 'Q2'):
+                (l1, h1), (l2, h2) = rep.bounds[q], rep2.bounds[q]
+                cross.append(max(l1, l2) <= min(h1, h2))
+            ok(good2 and all(cross), '%s %s: fields moved by %.0e (relative): all checks pass, K and Q2 lower bounds '
+                                     'stay below the upper bounds of the unmoved fields and vice versa'
+               % (name, variant, float(eps)))
+
+
 # ------------------------------------------------------------------------------------------------- 6
 def expect_fail(meta, arrays, needle, what):
     good, rep = run(meta, arrays)
@@ -344,6 +382,7 @@ if __name__ == '__main__':
     test_known_answer()
     test_green()
     test_falsification()
+    test_near_optimal()
     test_negative()
     print('%s   (%.0f s)' % ('ALL TESTS PASSED' if not FAILS else '%d TEST(S) FAILED: %s' % (len(FAILS), FAILS),
                             time.time() - t0))
