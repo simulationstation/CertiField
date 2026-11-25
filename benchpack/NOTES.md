@@ -267,8 +267,47 @@ and, for the part with `sqrt(a^2 − x^2 − y^2)`, integrated exactly in y (clo
 by Arb's rigorous integration (acb.integral), with the branch cuts checked. Full cells use the interval Gauss rules
 of curved3d's kind (exact for the degree).
 
+*Cut-cell reduction (PROVED, elementary).* For a cell `C = R × [z0, z1]` in the first octant, `R = [x0,x1]×[y0,y1]`,
+and a polynomial `p`, let `Q(x,y,z) = ∫_{z0}^{z} p dz'` and `Z = (a² − x² − y²)^{1/2}`. Then
+`∫_{C ∩ ball} p = ∫_{R ∩ D(r1)} Q(x,y,z1) + ∫_{R ∩ (D(r0) \ D(r1))} Q(x,y,Z)`, `D(r)` the disc of radius `r` about
+the origin, `r_i² = a² − z_i²` (`D(r1)` empty if `z1 >= a`), because for `(x,y)` in `R` the segment of the cell
+above `(x,y)` meets the ball in `z0 <= z < min(z1, Z)`. Writing `Q(x,y,Z) = P + Z W` (using `Z² = a² − x² − y²`), the
+polynomial parts are integrated over `R ∩ D(r)` in y and then along the arc `x = r cos t`, which gives the integrals
+`∫ cos^n t dt` of section 3 between endpoints whose cosines and sines are rationals or square roots of rationals.
+For `∫_{R ∩ D(r)} Z W`, the y-integral is exact: with `b² = a² − x²`, `s = (b² − y²)^{1/2}`,
+`K_0 = (y s + b² asin(y/b))/2`, `K_1 = (b³ − s³)/3`, `K_j = −y^{j−1} s³/(j+2) + (j−1) b²/(j+2) K_{j−2}` (integration
+by parts) is `∫_0^y t^j (b² − t²)^{1/2} dt`; the remaining x-integral is enclosed by `acb.integral`, which returns
+a ball containing the integral when the integrand reports non-analytic points (here: the branch cuts of the square
+root and of asin, checked on every complex ball) — Arb's guarantee. Irrational interval ends are handled by
+integrating to a nearby exact point and adding `|end − point| · sup|f|` over a ball around the end.
+
+**Results (frictionless grips; 8 cells per half-edge, potential degree 4, displacement degree 3, exponents of `g`
+4, 5, 6).**
+
+| Certificate | Integration | Rigorous bounds (builder) | Relative width | Claim (weakened) | Label |
+|---|---|---|---|---|---|
+| `P3_frictionless_N8_p4_exact` | exact | 1.75716672 <= K <= 1.75762799 | 2.6e-4 | [1.757166257, 1.757628452] | CERTIFIED (checked by the agent only; independent checker pending) |
+| `P3_frictionless_N8_p4` | superset, depths 4 / 6 | 1.75451382 <= K <= 1.75956610 | 2.9e-3 | [1.754508766, 1.759571150] | CERTIFIED (checked by the agent only; independent checker pending) |
+| curved3d N = 24 (stored, unchanged) | superset | 1.74510549 <= K <= 1.75827651 | 7.5e-3 | | CERTIFIED (stored earlier) |
+
+The exact certificate meets the target (0.1 %) by a factor of about four; build time 564 s on one process. The
+three intervals are consistent (the exact one lies inside the other two). The superset certificate shows how
+much of curved3d's width came from the integration domain: the same displacement space gives 1.75957 over the
+superset at depth 6 and 1.75763 over the exact domain.
+
 **Tests (`builder/tests_p3.py`, pass).** 1. Known answer: the lift alone has energy `(λ + 2μ)(1 − π/48)/4` over the
 octant minus the ball; the computed upper bound exceeds it by 2e-13. 2. Exact identities of random admissible
 stress fields (both grip variants): equilibrium, `tau ∇rho` divisible by `rho` on every cut cell, free faces, mirror
 and grip shear, traction continuity, grip force formula. 3. Interval evaluator against the float assembly. The cut
-cell integration agrees with mpmath on four cut cells to 1e-18.
+cell integration agrees with mpmath on four cut cells to 1e-18. 4. With a certificate: perturbed stress fields
+(ties restored) never give a lower bound above the claimed upper bound; 5. re-evaluation of the certificate.
+
+**What is guaranteed and what is not (P3, new certificates).**
+- Guaranteed, if the argument of section 1 (octant form) is right, python-flint's rational and ball arithmetic and
+  Arb's rigorous integration are correct, and the outward-rounded float interval arithmetic of curved3d's `ia.py`
+  is correct: the stiffness K of P3 (frictionless grips) lies in the claimed interval.
+- The independent checker had not reported on these certificates when this was written; the argument has been
+  checked by the agent only.
+- Assumptions: linear 3D elasticity, the weak (H¹) solution, the octant symmetry (the problem is invariant under
+  the three reflections; the stress is unique).
+- The clamped variant is not covered by these new certificates (see below).
