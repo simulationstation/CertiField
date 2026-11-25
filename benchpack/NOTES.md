@@ -178,8 +178,20 @@ the re-entrant corner lines, 6 towards the clamped corners, 4 towards 1/10; stre
 | Q1 = K | 0.122603934395 <= K <= 0.122610210236 | 5.1e-5 | [0.1226039281, 0.1226102166] | CERTIFIED (checked by the agent only; independent checker pending) |
 | Q2 | −0.3097348053 <= Q2 <= −0.3092223558 | 1.7e-3 | [−0.3097353178, −0.3092218433] | CERTIFIED (checked by the agent only; independent checker pending) |
 
-Both meet the acceptance criteria (K: 1e-3, Q2: 1e-2). The stretch goal for Q2 (1e-3) is not met by this
-certificate. Q2 is negative: the patch at the re-entrant corner is in compression.
+Both meet the acceptance criteria (K: 1e-3, Q2: 1e-2). Q2 is negative: the patch at the re-entrant corner is in
+compression.
+
+**Second certificate, stretch goal (`certificates/P2_h32_L7_p6`: 129 x 129 cells, base spacing 1/32, 7 layers
+towards the corner lines, 5 towards the clamped corners, 4 towards 1/10; degrees 6/5; `k = 9/1024`; 168 s).**
+
+| Quantity | Rigorous bounds (builder, exact rationals) | Relative width | Claim (weakened) | Label |
+|---|---|---|---|---|
+| Q1 = K | 0.122604442179 <= K <= 0.122607381577 | 2.4e-5 | [0.1226044392, 0.1226073846] | CERTIFIED (checked by the agent only; independent checker pending) |
+| Q2 | −0.3095829569 <= Q2 <= −0.3093255745 | 8.3e-4 | [−0.3095832144, −0.3093253171] | CERTIFIED (checked by the agent only; independent checker pending) |
+
+This meets the stretch goal for Q2 (1e-3). A finer base grid with fewer layers keeps the cells less elongated for
+the same smallest cell, which the float solve needs (see below). The two certificates are independent; their
+intervals overlap, as they must.
 
 **Limit of the tensor-product grading (DIAGNOSTIC).** Deeper grading (10 or more layers) makes the cells far from
 the corner very elongated (aspect ratio 2^L); the float solve of the stress-function problem then fails (in one run

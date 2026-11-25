@@ -210,14 +210,21 @@ PRESETS = {
 }
 
 
-def params(N, ps, pu, grip='frictionless', Lg=0, m=1):
+def params(N, ps, pu, grip='frictionless', Lg=0, m=1, Lp=0):
     """uniform N x N cells; Lg > 0 adds geometric layers (m per halving) towards x = 1 and y = 1 (the corner where a
-    clamped grip meets the free edge, P1c)"""
-    br = uniform_breaks(N)
+    clamped grip meets the free edge, P1c); Lp > 0 adds Lp layers on both sides of x = 21/400 and y = 11/20 (near the
+    ray and the outer arc of the patch, where the adjoint stress jumps)"""
+    from p2float import graded_breaks
+    tx, ty = [], []
     if Lg:
-        from p2float import graded_breaks
-        br = graded_breaks(0, 1, Fr(1, N), [(1, (-1,), Lg, m)])
-    return dict(sbx=br, sby=br, ps=ps, ubx=br, uby=br, pu=pu, grip=grip)
+        tx.append((1, (-1,), Lg, m))
+        ty.append((1, (-1,), Lg, m))
+    if Lp:
+        tx.append((Fr(21, 400), (-1, 1), Lp, 1))
+        ty.append((Fr(11, 20), (-1, 1), Lp, 1))
+    bx = graded_breaks(0, 1, Fr(1, N), tx)
+    by = graded_breaks(0, 1, Fr(1, N), ty)
+    return dict(sbx=bx, sby=by, ps=ps, ubx=bx, uby=by, pu=pu, grip=grip)
 
 
 if __name__ == '__main__':
@@ -227,6 +234,7 @@ if __name__ == '__main__':
         grip = sys.argv[6] if len(sys.argv) > 6 else 'frictionless'
         Lg = int(sys.argv[7]) if len(sys.argv) > 7 else 0
         m = int(sys.argv[8]) if len(sys.argv) > 8 else 1
-        build(stem, params(N, ps, pu, grip, Lg, m))
+        Lp = int(sys.argv[9]) if len(sys.argv) > 9 else 0
+        build(stem, params(N, ps, pu, grip, Lg, m, Lp))
     elif sys.argv[1] == 'verify':
         sys.exit(0 if verify(sys.argv[2]) else 1)
