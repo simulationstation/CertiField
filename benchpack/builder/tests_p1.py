@@ -1,4 +1,4 @@
-"""Tests of the P1 builder (python tests_p1.py; about two minutes).
+"""Tests of the P1 builder (python tests_p1.py [STEM]; about two minutes for the default certificate).
 
 1. Known answers: the plate WITHOUT hole, frictionless grips: K = 1 and Q2 = 1/2 exactly; both certified intervals
    must contain them (and be narrow).
@@ -26,7 +26,7 @@ import certio as cio
 sys.stdout.reconfigure(encoding='utf-8')
 rng = np.random.default_rng(7)
 T0 = time.time()
-STEM = 'P1_frictionless_N16_p9'
+STEM = sys.argv[1] if len(sys.argv) > 1 else 'P1_frictionless_N16_p9'      # the certificate to falsify and re-check
 
 
 def head(s):
@@ -143,7 +143,7 @@ def pert(base, P, M, nrm, eps):
 
 
 nfail = 0
-for eps in (0.0, 1e-7, 1e-6, 1e-5, 1e-4, 1e-2):
+for eps in ((0.0, 1e-6, 1e-4, 1e-2) if 'P1c' in STEM else (0.0, 1e-7, 1e-6, 1e-5, 1e-4, 1e-2)):
     zr, vr = pert(z0, Pr, A, Qn, eps), pert(v0, Pv, K_, an, eps)
     g, C = pc.split_stress(S, zr)
     Am, Bm = pc.split_disp(S, vr)
