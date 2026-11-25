@@ -292,19 +292,22 @@ integrating to a nearby exact point and adding `|end − point| · sup|f|` over 
 | curved3d N = 24 (stored, unchanged) | superset | 1.74510549 <= K <= 1.75827651 | 7.5e-3 | | CERTIFIED (stored earlier) |
 
 Both exact certificates meet the target (0.1 %): by a factor of about four at N = 8 (564 s on one process) and of
-about eight at N = 12 (1368 s). The intervals are consistent (each finer one lies inside the coarser ones).
+about eight at N = 12 (1368 s). The intervals are consistent (each finer one lies inside the coarser ones). The
+superset certificate shows how much of curved3d's width came from the integration domain: the same displacement
+space gives 1.75957 over the superset at depth 6 and 1.75763 over the exact domain.
 
-Clamped grips (same discretisation; the potential has no condition at x = 1 and `v_y = v_z = 0` there):
+Clamped grips (the potential has no condition at x = 1 and `v_y = v_z = 0` there):
 
-| Certificate | Integration | Rigorous bounds (builder) | Relative width | Claim (weakened) | Label |
+| Certificate | Grid | Rigorous bounds (builder) | Relative width | Claim (weakened) | Label |
 |---|---|---|---|---|---|
-| `P3_clamped_N8_p4_exact` | exact | 1.83043704 <= K <= 1.83320745 | 1.5e-3 | [1.830434273, 1.833210223] | CERTIFIED (checked by the agent only; independent checker pending) |
+| `P3_clamped_N8g3_p4_exact` | N = 8, graded (3 halvings towards x, y, z = 1), exact | 1.83204888 <= K <= 1.83243845 | 2.1e-4 | [1.832048486, 1.832438844] | CERTIFIED (checked by the agent only; independent checker pending) |
+| `P3_clamped_N12_p4_exact` | N = 12, uniform, exact | 1.83130558 <= K <= 1.83284522 | 8.4e-4 | [1.831304038, 1.832846763] | CERTIFIED (checked by the agent only; independent checker pending) |
+| `P3_clamped_N8_p4_exact` | N = 8, uniform, exact | 1.83043704 <= K <= 1.83320745 | 1.5e-3 | [1.830434273, 1.833210223] | CERTIFIED (checked by the agent only; independent checker pending) |
 | curved3d N = 24 (stored, unchanged) | superset | 1.81732246 <= K <= 1.83348613 | 8.9e-3 | | CERTIFIED (stored earlier) |
 
-The clamped grip meets the free faces y = 1 and z = 1 along edges where the stress is singular, so the clamped
-bounds converge more slowly; at 8 cells per half-edge the width is 1.5e-3, above the 0.1 % target. The superset certificate shows how
-much of curved3d's width came from the integration domain: the same displacement space gives 1.75957 over the
-superset at depth 6 and 1.75763 over the exact domain.
+The clamped grip meets the free faces y = 1 and z = 1 along edges where the stress is singular; on the uniform grid
+the width is 1.5e-3, above the target. Three geometric layers of cells towards x, y, z = 1 (FORMAT.md 9, `grade`)
+bring it to 2.1e-4, below the target (723 s). The intervals are nested in curved3d's.
 
 **Tests (`builder/tests_p3.py`, pass).** 1. Known answer: the lift alone has energy `(λ + 2μ)(1 − π/48)/4` over the
 octant minus the ball; the computed upper bound exceeds it by 2e-13. 2. Exact identities of random admissible
