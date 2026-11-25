@@ -171,7 +171,7 @@ def main():
                          'err': err, 'ref': ref, 'sev': sev, 'dup': n.get('dup', 'not yet checked'),
                          'status': n.get('status', 'open'), 'mech': n.get('mechanism', ''), 'draft': n.get('draft', ''),
                          'npts': sum(c['n'] for c in cl)})
-    order = {'new': 0, 'open': 1, 'fixed-upstream': 2, 'duplicate': 3}
+    order = {'new': 0, 'open': 1, 'fixed-upstream': 2, 'duplicate': 3, 'not-counted': 4}
     rows.sort(key=lambda r: (order.get(r['status'], 4), r['fn']))
     from importlib.metadata import version
     vers = ', '.join('%s %s' % (p, version(p)) for p in ('numpy', 'scipy', 'torch', 'mpmath', 'python-flint'))
@@ -183,7 +183,7 @@ def main():
          'References: mpmath at 50 and 100 digits (agreement to >= 20 digits) and an Arb ball (python-flint), or an '
          'Arb bracket of the root for inverse functions. Errors are relative to the exact value at the exact binary input.', '']
     L += ['Status counts: ' + ', '.join('%s %d' % (s, sum(1 for r in rows if r['status'] == s))
-                                         for s in ('new', 'open', 'fixed-upstream', 'duplicate', 'not-a-defect')), '']
+                                         for s in ('new', 'open', 'fixed-upstream', 'duplicate', 'not-counted')), '']
     L += ['| library | function | input range | maximum error | reference | severity | duplicate check | status |',
           '|---|---|---|---|---|---|---|---|']
     for r in rows:
