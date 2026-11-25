@@ -14,3 +14,6 @@ scikit-fem,P3f,P2-curved,0.2,9819,8771,1816,1.415,0.083,1.75779563958,1.75779563
 scikit-fem,P3f,P2-curved,0.1,54828,51423,11587,9.079,0.251,1.75763682125,1.75763682125,nan,nan,
 scikit-fem,P3f,P2-curved,0.07,144540,137909,32012,26.106,0.742,1.75762532647,1.75762532647,nan,nan,"computed before the 4 GB memory cap was set (estimated 4.1 GB); kept, not rerun"
 scikit-fem,P3f,P2-curved,0.05,367668,355353,84466,95.978,1.622,1.75762240476,1.75762240476,nan,nan,"computed before the 4 GB memory cap was set (estimated 9.9 GB); kept, not rerun"
+scikit-fem,P3f,P1,0.085,11985,10781,18456,2.185,0.479,1.7604178275,1.7604178275,nan,nan,
+scikit-fem,P3f,P2-straight,0.085,85194,80651,18456,32.527,0.626,1.75791642195,1.75791642195,nan,nan,
+scikit-fem,P3f,P2-curved,0.085,85194,80651,18456,33.355,1.233,1.75762972249,1.75762972249,nan,nan,

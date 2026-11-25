@@ -14,3 +14,6 @@ CalculiX,P3f,C3D10-curved,0.2,9819,1816,1.036,0.127,1.7577956,1.7577952,nan,nan,
 CalculiX,P3f,C3D10-curved,0.1,54828,11587,5.323,0.456,1.7576368,1.7576368,nan,nan,,
 CalculiX,P3f,C3D10-curved,0.07,144540,32012,26.925,0.834,1.7576252,1.7576256,nan,nan,,
 CalculiX,P3f,C3D10-curved,0.05,367668,84466,133.984,2.865,1.7576224,1.7576224,nan,nan,,"computed before the 4 GB memory cap was set (estimated 9.8 GB); kept, not rerun"
+CalculiX,P3f,C3D4,0.085,11985,18456,2.098,0.54,1.760418,1.7604176,nan,nan,0.05,
+CalculiX,P3f,C3D10-straight,0.085,85194,18456,21.918,1.065,1.7579164,1.7579168,nan,nan,0.61,
+CalculiX,P3f,C3D10-curved,0.085,85194,18456,23.522,0.994,1.7576296,1.7576304,nan,nan,0.61,

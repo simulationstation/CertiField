@@ -5,13 +5,15 @@
 Reads benchpack/results/*_<case>.csv and the stored intervals (benchpack/compare/intervals.py); writes
 benchpack/results/<case>.png and benchpack/results/verdicts_table.md.
 
-Verdict per code, case, quantity and element variant, from the sequence of values on the refined meshes:
-  v = value on the finest mesh, d = change from the previous mesh, r = ratio of the last two changes,
-  e = estimated remaining change = d r / (1 - r) if 0 < r < 0.8, else 10 d (slow or erratic convergence);
-  e is at least 2e-7 |v| for CalculiX (7 significant digits in its output) and 1e-10 |v| otherwise.
+Verdict per code, case, quantity and element variant, from the values on the three finest meshes (N unknowns):
+  v = value on the finest mesh; the change is modelled as C N^(-p), p fitted to the three values (monotone sequences
+  only), and e = estimated remaining change |v - v_inf|; without a fit (non-monotone or p outside [0.05, 5])
+  e = 10 x the last change.  e is at least half a unit in the 7th significant digit for CalculiX (its printed precision) and
+  1e-10 |v| otherwise.
   - "converges into the interval": v and v +- e lie inside the interval;
   - "lands outside by x": v lies outside and its distance x to the interval exceeds 2 e;
-  - "not converged": otherwise.
+  - "not converged": otherwise;
+  - exact reference values (zero width): "reproduces the exact value" if |v - exact| <= 1e-11 |v| (rounding).
 These are FLOAT diagnostics of the codes, not certificates; checked by the agent only.
 """
 import csv
@@ -96,24 +98,52 @@ def load(case):
     return out
 
 
-def verdict(seq, interval, code):
-    """seq: values on refined meshes (coarse to fine)."""
-    seq = [s for s in seq if s is not None]
-    if len(seq) < 3:
+def remaining(ns, vs):
+    """estimated |v_finest - v_limit| from the three finest (N, value) pairs, model v = v_inf + C N^(-p)"""
+    (n1, v1), (n2, v2), (n3, v3) = zip(ns[-3:], vs[-3:])
+    a, b = v2 - v1, v3 - v2
+    if a == 0 or b == 0 or (a > 0) != (b > 0) or not (n1 < n2 < n3):
+        return 10 * abs(b)
+
+    def f(p):
+        return (n1 ** -p - n2 ** -p) / (n2 ** -p - n3 ** -p) - a / b
+    lo, hi = 0.05, 5.0
+    if f(lo) * f(hi) > 0:
+        return 10 * abs(b)
+    for _ in range(100):
+        mid = 0.5 * (lo + hi)
+        if f(lo) * f(mid) <= 0:
+            hi = mid
+        else:
+            lo = mid
+    p = 0.5 * (lo + hi)
+    return abs(b) * n3 ** -p / (n2 ** -p - n3 ** -p)
+
+
+def verdict(pts, interval, code):
+    """pts: (N, value) on refined meshes (coarse to fine); values None are skipped."""
+    pts = [(n, s) for n, s in pts if s is not None]
+    if len(pts) < 3:
         return None
+    ns, seq = [p[0] for p in pts], [p[1] for p in pts]
     v = seq[-1]
-    d1, d0 = abs(seq[-1] - seq[-2]), abs(seq[-2] - seq[-3])
-    r = d1 / d0 if d0 > 0 else 0.0
-    e = d1 * r / (1 - r) if 0 < r < 0.8 else (10 * d1 if r >= 0.8 else d1)
-    floor = (2e-7 if code == "CalculiX" else 1e-10) * abs(v)
+    e = remaining(ns, seq)
+    if code == "CalculiX":   # half a unit in the 7th significant digit (ccx's printed precision)
+        floor = 0.5 * 10 ** (math.floor(math.log10(abs(v))) - 6) if v != 0 else 0.0
+    else:
+        floor = 1e-10 * abs(v)
     e = max(e, floor)
-    res = dict(value=v, est=e)
+    res = dict(value=v, est=e, ndof=ns[-1])
     if interval is None:
         res["text"] = "no certified interval stored yet"
         return res
     lo, hi = float(interval[0]), float(interval[1])
     dist = lo - v if v < lo else (v - hi if v > hi else 0.0)
     side = "below" if v < lo else "above"
+    if hi - lo <= 1e-14 * max(1.0, abs(lo)) and code != "CalculiX":
+        res["text"] = ("reproduces the exact value (difference %.1e)" % dist if dist <= 1e-11 * abs(v)
+                       else "differs from the exact value by %.3g" % dist)
+        return res
     if code == "CalculiX":
         resolution = 0.5 * 10 ** (math.floor(math.log10(abs(v))) - 6)   # ccx prints 7 significant digits
         if dist <= resolution and (hi - lo) < 2 * resolution:
@@ -251,8 +281,8 @@ def main():
                     pts = data.get(code, {}).get(v)
                     if not pts:
                         continue
-                    seq = [p[1 + qi] for p in pts]
-                    if all(s is None for s in seq):
+                    seq = [(p[0], p[1 + qi]) for p in pts]
+                    if all(s[1] is None for s in seq):
                         continue
                     res = verdict(seq, ivs.get(q), code)
                     if res is None:
@@ -260,7 +290,7 @@ def main():
                     iv = ivs.get(q)
                     ivs_txt = "[%.10g, %.10g]" % (float(iv[0]), float(iv[1])) if iv else "-"
                     lines.append("| %s | %s | %s | %s | %d | %.10g | %s | %s |" % (
-                        case, q, code, VLABEL[v], int(pts[-1][0]), res["value"], ivs_txt, res["text"]))
+                        case, q, code, VLABEL[v], int(res["ndof"]), res["value"], ivs_txt, res["text"]))
     with open(os.path.join(RESULTS, "verdicts_table.md"), "w", encoding="utf-8") as f:
         f.write("# Verdict table (generated by benchpack/harness/summarize.py)\n\n")
         f.write("All values FLOAT; intervals CERTIFIED (P1-nohole: exact); checked by the agent only.\n\n")

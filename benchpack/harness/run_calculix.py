@@ -47,9 +47,12 @@ MAX_DOF = int(os.environ.get("CCX_MAX_DOF", "700000"))
 
 
 def memory_gb(dim, ndof, quadratic):
-    """estimated peak memory of a ccx run (GB); see the peak_gb column of the result files for measured values"""
-    per_million = 6.0 if dim == 2 else (26.0 if quadratic else 12.0)
-    return 0.2 + per_million * ndof / 1e6
+    """estimated peak memory of a ccx run (GB); measured (column peak_gb): C3D10 0.61 GB at 85 194 unknowns,
+    C3D4 0.11 GB at 29 544; in 3D the solver's fill grows about like n^(4/3).  2D: a conservative linear rule."""
+    if dim == 3:
+        ref = (85194, 0.61) if quadratic else (29544, 0.11)
+        return 0.2 + ref[1] * (ndof / ref[0]) ** (4 / 3)
+    return 0.2 + 6.0 * ndof / 1e6
 
 # triangle rules: reference points (xi, eta) and weights (reference area 1/2)
 TRI_RULES = {
