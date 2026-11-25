@@ -49,3 +49,7 @@ Reference/ScalarND/results/ramp3d_32.npz
 # Python
 __pycache__/
 *.pyc
+
+# drafts for the owner only (benchmark-pack prompt: no outside actions; the repository is public)
+outreach/
+audit/drafts/

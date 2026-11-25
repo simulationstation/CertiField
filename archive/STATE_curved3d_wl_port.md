@@ -1,0 +1,3 @@
+# State: Wolfram Language port of curved3d (archived 2026-11-24)
+
+Branch `curved3d` (dcfd065, pushed, not merged): Kernel/Curved3D.wl ports Reference/Curved3D/curved3d.py (exact Gauss rules, octree boxes, spline ties, outward-rounded evaluation of both bounds with overflow checks, the solves, import of the reference's .npz fields) as the model `ElasticCavity3D`, registered with VerifyCertificate support, tests in Tests/Curved3D.wlt (`--curved3d`). Whether that suite passes was not reported before the stop, and Reference/Curved3D/ndsolve_compare.wls has not been run. The Python reference on main is the version the benchmark pack uses (P3).

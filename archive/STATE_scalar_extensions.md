@@ -1,0 +1,3 @@
+# State: ScalarFieldND extensions (archived 2026-11-24)
+
+Merged into main (e548544): `ScalarFieldND` accepts "Source", "Mean", "PeriodicDirections", "ValueRange" and "DataTerm" (Kernel/ScalarFieldND2.wl, docs/SCALAR_ND_2.md, Tests/ScalarFieldND2.wlt 16/16, Examples/ScalarFieldND2.wls). Example intervals: phase separation 0.0255613 <= inf E <= 0.0281423 (9.2 %), image restoration 0.0765386 <= inf E <= 0.0863750 (11.4 %), ferroelectric -0.515507 <= inf E <= -0.502948 (2.5 %). Unfinished on branch `scalar-nd-2` (83c1bc3, pushed, not merged, untested): a constant stiffness matrix K and convex mode with the new keys.
