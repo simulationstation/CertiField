@@ -13,6 +13,8 @@ and it returns
 
 packaged as a `CertifiedBound` object that anyone can re-check in their own kernel with `VerifyCertificate`.
 
+**Certified benchmark pack for linear elasticity.** [`benchpack/`](benchpack/) holds verification problems for finite-element codes (a plate with a circular hole, an L-bracket, a cube with a spherical cavity) whose stiffness and local stress averages come with guaranteed two-sided intervals and an independent checker. It is plain Python and is licensed separately (MIT for code, CC BY 4.0 for data).
+
 ```wolfram
 In[1]:= PacletInstall["https://github.com/simulationstation/CertiField/releases/download/v0.3.0/CertiField-0.3.0.paclet"];
         Needs["CertiField`"]
