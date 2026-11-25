@@ -113,8 +113,8 @@ for the adjoint parts, then `v_± = v_0 ± k v_1`, `τ_± = τ_0 ± k τ_1`. Flo
 
 | Quantity | Rigorous bounds (builder) | Relative width | Claim (weakened, FORMAT §6) | Label |
 |---|---|---|---|---|
-| Q1 = K | 0.591200987507 <= K <= 0.591200987579 | 1.2e-10 | [0.5912009869, 0.5912009882] | CERTIFIED (checked by the agent only; independent checker pending) |
-| Q2 | 1.0327375805 <= Q2 <= 1.0327680269 | 2.9e-5 | [1.032737550, 1.032768058] | CERTIFIED (checked by the agent only; independent checker pending) |
+| Q1 = K | 0.591200987507 <= K <= 0.591200987579 | 1.2e-10 | [0.5912009869, 0.5912009882] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
+| Q2 | 1.0327375805 <= Q2 <= 1.0327680269 | 2.9e-5 | [1.032737550, 1.032768058] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
 
 Both meet the acceptance criterion (1e-3) and the stretch goal (1e-4). The width of Q2 is set by the adjoint
 problem, whose solution has stress jumps across the curved boundary of the patch that the smooth spline spaces do
@@ -136,7 +136,7 @@ not follow (adjoint energy gap about 25 against an adjoint energy of about 125-1
   the K and Q2 of P1 (frictionless grips, as defined in problems/P1.md) lie in the claimed intervals. No
   floating-point rounding enters the certified numbers; the circle is not approximated.
 - The argument is classical but has been checked by the agent only; the independent checker (a separate program,
-  written from FORMAT.md) had not reported when these notes were written.
+  written from FORMAT.md) passed this certificate and the P1c one (benchpack/checker/logs).
 - Assumptions A1, A2 above; linear plane-stress elasticity; the weak (H¹) solution.
 - Nothing is claimed about pointwise stresses, other patches, or the clamped variant (separate certificate).
 
@@ -153,8 +153,8 @@ sides of x = 21/400 and y = 11/20), where the adjoint stress jumps.
 
 | Quantity | Rigorous bounds (builder) | Relative width | Claim (weakened) | Label |
 |---|---|---|---|---|
-| Q1 = K | 0.595719616964 <= K <= 0.595722280058 | 4.5e-6 | [0.5957196143, 0.5957222828] | CERTIFIED (checked by the agent only; independent checker pending) |
-| Q2 | 1.0450481089 <= Q2 <= 1.0460953984 | 1.0e-3 | [1.045047061, 1.046096446] | CERTIFIED (checked by the agent only; independent checker pending) |
+| Q1 = K | 0.595719616964 <= K <= 0.595722280058 | 4.5e-6 | [0.5957196143, 0.5957222828] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
+| Q2 | 1.0450481089 <= Q2 <= 1.0460953984 | 1.0e-3 | [1.045047061, 1.046096446] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
 
 P1c has no acceptance criterion of its own; measured against those of P1, K meets 1e-4 and Q2 sits at 1.0e-3.
 Clamping raises K by 0.77 % and the patch average by 1.2 % against the frictionless grips. Deeper grading towards the
@@ -196,8 +196,8 @@ the re-entrant corner lines, 6 towards the clamped corners, 4 towards 1/10; stre
 
 | Quantity | Rigorous bounds (builder, exact rationals) | Relative width | Claim (weakened) | Label |
 |---|---|---|---|---|
-| Q1 = K | 0.122603934395 <= K <= 0.122610210236 | 5.1e-5 | [0.1226039281, 0.1226102166] | CERTIFIED (checked by the agent only; independent checker pending) |
-| Q2 | −0.3097348053 <= Q2 <= −0.3092223558 | 1.7e-3 | [−0.3097353178, −0.3092218433] | CERTIFIED (checked by the agent only; independent checker pending) |
+| Q1 = K | 0.122603934395 <= K <= 0.122610210236 | 5.1e-5 | [0.1226039281, 0.1226102166] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
+| Q2 | −0.3097348053 <= Q2 <= −0.3092223558 | 1.7e-3 | [−0.3097353178, −0.3092218433] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
 
 Both meet the acceptance criteria (K: 1e-3, Q2: 1e-2). Q2 is negative: the patch at the re-entrant corner is in
 compression.
@@ -207,8 +207,8 @@ towards the corner lines, 5 towards the clamped corners, 4 towards 1/10; degrees
 
 | Quantity | Rigorous bounds (builder, exact rationals) | Relative width | Claim (weakened) | Label |
 |---|---|---|---|---|
-| Q1 = K | 0.122604442179 <= K <= 0.122607381577 | 2.4e-5 | [0.1226044392, 0.1226073846] | CERTIFIED (checked by the agent only; independent checker pending) |
-| Q2 | −0.3095829569 <= Q2 <= −0.3093255745 | 8.3e-4 | [−0.3095832144, −0.3093253171] | CERTIFIED (checked by the agent only; independent checker pending) |
+| Q1 = K | 0.122604442179 <= K <= 0.122607381577 | 2.4e-5 | [0.1226044392, 0.1226073846] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
+| Q2 | −0.3095829569 <= Q2 <= −0.3093255745 | 8.3e-4 | [−0.3095832144, −0.3093253171] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
 
 This meets the stretch goal for Q2 (1e-3). A finer base grid with fewer layers keeps the cells less elongated for
 the same smallest cell, which the float solve needs (see below). The two certificates are independent; their
@@ -232,7 +232,7 @@ valid bound). Validity is never affected, only sharpness.
 **What is guaranteed and what is not (P2).**
 - Guaranteed, if the argument of sections 1, 2 and 4 is right and python-flint's rational arithmetic is correct:
   the K and Q2 of P2 (problems/P2.md) lie in the claimed intervals. All certified numbers are exact rationals.
-- The argument has been checked by the agent only; the independent checker had not reported when this was written.
+- The argument has been checked by the agent only; the independent checker passed both P2 certificates (checker/logs).
 - Assumptions: A1 (the clamped edge and the grip exclude rigid motions), linear plane-stress elasticity, the weak
   (H¹) solution, which exists although the stress is singular at the re-entrant corner.
 - Nothing is claimed about the stress at the corner itself (it is unbounded) or about other patches.
