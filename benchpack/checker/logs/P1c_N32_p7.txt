@@ -1,0 +1,88 @@
+checker: P1c_N32_p7
+problem P1, variant clamped, model quarter, label 'CERTIFIED (checked by the agent only)'
+  [pass] no module of benchpack/builder is loaded (only definitions.py is shared)
+  [pass] format string benchpack-certificate-1
+  [pass] P1 variant 'clamped' is frictionless or clamped (P1c)
+  [pass] P1 model is the quarter model
+  [pass] rho of definitions.py = (x^2+y^2-1/4)(7/4+y^2-x^2) exactly
+spaces: displacement degree 6, 49 x 49 cells; stress degree 7, 49 x 49 cells
+  [pass] displacement knots_x open on [0, 1] 
+  [pass] displacement knots_x: interior multiplicity 1 <= 6 (C^0 splines)
+  [pass] displacement knots_y open on [0, 1] 
+  [pass] displacement knots_y: interior multiplicity 1 <= 6 (C^0 splines)
+  [pass] stress knots_x open on [0, 1] 
+  [pass] stress knots_x: interior multiplicity 1 <= 6 (C^1 splines)
+  [pass] stress knots_y open on [0, 1] 
+  [pass] stress knots_y: interior multiplicity 1 <= 6 (C^1 splines)
+  [pass] g_base 1/2 is a knot of the stress knots_y
+  [pass] g vanishes below y = g_base >= 1/2, so g is zero on cells meeting the hole
+  [pass] displacement v0: array shapes (55, 55)
+  [pass] displacement vp: array shapes (55, 55)
+  [pass] displacement vm: array shapes (55, 55)
+  [pass] stress tau0: array shape (56, 56)
+  [pass] stress tau0: 3 g coefficients for 3 exponents
+  [pass] stress tp: array shape (56, 56)
+  [pass] stress tp: 3 g coefficients for 3 exponents
+  [pass] stress tm: array shape (56, 56)
+  [pass] stress tm: 3 g coefficients for 3 exponents
+  [pass] displacement v0: grip/mirror coefficient conditions
+  [pass] displacement vp: grip/mirror coefficient conditions
+  [pass] displacement vm: grip/mirror coefficient conditions
+  [pass] stress tau0: FORMAT coefficient conditions
+  [pass] stress tp: FORMAT coefficient conditions
+  [pass] stress tm: FORMAT coefficient conditions
+per-cell results are saved in cache\P1c_N32_p7_6173b5a091485ea7 (a rerun skips the cells found there)
+displacement v0: 2401 cells evaluated, 0 of them from the cache (14 s)
+displacement vp: 2401 cells evaluated, 0 of them from the cache (15 s)
+displacement vm: 2401 cells evaluated, 0 of them from the cache (15 s)
+stress tau0: 2401 cells evaluated, 0 of them from the cache (45 s)
+stress tp: 2401 cells evaluated, 0 of them from the cache (45 s)
+stress tm: 2401 cells evaluated, 0 of them from the cache (48 s)
+  [pass] displacement v0: continuous across all 3918 interior edges (exact)
+  [pass] displacement v0: v_x = 0 on x = 0, v_x = 1/2 on x = 1, v_y = 0 on x = 1, v_y = 0 on y = 0, exactly
+  [pass] displacement vp: continuous across all 3918 interior edges (exact)
+  [pass] displacement vp: v_x = 0 on x = 0, v_x = 1/2 on x = 1, v_y = 0 on x = 1, v_y = 0 on y = 0, exactly
+  [pass] displacement vm: continuous across all 3918 interior edges (exact)
+  [pass] displacement vm: v_x = 0 on x = 0, v_x = 1/2 on x = 1, v_y = 0 on x = 1, v_y = 0 on y = 0, exactly
+  [pass] stress tau0: div tau = 0 exactly in all 2008 cells of the domain
+  [pass] stress tau0: normal traction continuous across all 3918 interior edges (exact)
+  [pass] stress tau0: on all 45 cells cut by the hole, both components of tau.grad(rho) are divisible by x^2+y^2-1/4 and by 7/4+y^2-x^2, i.e. by rho (zero traction on the hole, exact)
+  [pass] stress tau0: zero traction on y = 1; zero shear on x = 0, y = 0, exactly
+  [pass] stress tau0: grip force int_0^1 tau_xx(1,y) dy = 0.297859812249932 exactly, equal to sum_k gamma_k (1-g_base)^(e_k+1)/(e_k+1)
+  [pass] stress tp: div tau = 0 exactly in all 2008 cells of the domain
+  [pass] stress tp: normal traction continuous across all 3918 interior edges (exact)
+  [pass] stress tp: on all 45 cells cut by the hole, both components of tau.grad(rho) are divisible by x^2+y^2-1/4 and by 7/4+y^2-x^2, i.e. by rho (zero traction on the hole, exact)
+  [pass] stress tp: zero traction on y = 1; zero shear on x = 0, y = 0, exactly
+  [pass] stress tp: grip force int_0^1 tau_xx(1,y) dy = 0.296583499840854 exactly, equal to sum_k gamma_k (1-g_base)^(e_k+1)/(e_k+1)
+  [pass] stress tm: div tau = 0 exactly in all 2008 cells of the domain
+  [pass] stress tm: normal traction continuous across all 3918 interior edges (exact)
+  [pass] stress tm: on all 45 cells cut by the hole, both components of tau.grad(rho) are divisible by x^2+y^2-1/4 and by 7/4+y^2-x^2, i.e. by rho (zero traction on the hole, exact)
+  [pass] stress tm: zero traction on y = 1; zero shear on x = 0, y = 0, exactly
+  [pass] stress tm: grip force int_0^1 tau_xx(1,y) dy = 0.299136124659009 exactly, equal to sum_k gamma_k (1-g_base)^(e_k+1)/(e_k+1)
+  [pass] stress cells: 1963 inside, 45 cut by the hole; area of the covered domain [0.803650459150638, 0.803650459150638] encloses |Omega_q| = 1 - pi/16 (width 0.0e+00)
+  [pass] displacement cells: 1963 inside, 45 cut by the hole; area of the covered domain [0.803650459150638, 0.803650459150638] encloses |Omega_q| = 1 - pi/16 (width 0.0e+00)
+  [pass] patch: sum over cells of |patch ∩ cell| in [0.002625, 0.002625] encloses 21/8000
+recomputed integrals (exact on cells inside the domain; intervals where curved):
+  F(tau0) = 0.297859812249932 (exact)
+  F(tm) = 0.299136124659009 (exact)
+  F(tp) = 0.296583499840854 (exact)
+  Q(tau0) in [0.148929908008817, 0.148929908008817]  width 7.36e-305
+  Q(tm) in [0.150260033022551, 0.150260033022551]  width 6.62e-305
+  Q(tp) in [0.14770740811357, 0.14770740811357]  width 8.77e-305
+  a(v0) in [0.148930570014381, 0.148930570014381]  width 1.25e-318
+  a(vm) in [0.149032096250955, 0.149032096250955]  width 1.07e-305
+  a(vp) in [0.149032096250955, 0.149032096250955]  width 1.07e-305
+  l(tau0) in [1.04555512523007, 1.04555512523007]  width 2.51e-321
+  l(tm) in [1.13372162183368, 1.13372162183368]  width 2.26e-321
+  l(tp) in [0.957388628626469, 0.957388628626469]  width 2.79e-321
+  l(v0) in [1.04558841919295, 1.04558841919295]  width 0.00e+00
+  l(vm) in [0.879247833190115, 0.879247833190115]  width 2.32e-322
+  l(vp) in [1.21192900519578, 1.21192900519578]  width 2.32e-322
+  [pass] kappa = 5/8192 > 0
+  m_up(+k) <= 0.0737763453635172, m_up(-k) <= 0.0750526984142898, m_low(+k) >= 0.0737757264924747, m_low(-k) >= 0.0750520388557895
+recomputed Q1: [0.595719616964, 0.595722280058]  width 2.663e-06  relative 4.470e-06
+  [pass] Q1 claim [0.5957196143, 0.5957222828] confirmed: 0.5957196143 <= 0.595719616964 and 0.595722280058 <= 0.5957222828
+recomputed Q2: [1.04504810887, 1.04609539835]  width 1.047e-03  relative 1.002e-03
+  [pass] Q2 claim [1.045047061, 1.046096446] confirmed: 1.045047061 <= 1.04504810887 and 1.04609539835 <= 1.046096446
+builder's own enclosures (diagnostic, not used): {'fields': {'v0': {'a': [0.14893057001438093, 0.14893057001438095], 'l': [1.0455884191929485, 1.0455884191929488]}, 'vp': {'a': [0.14903209625095498, 0.149032096250955], 'l': [1.2119290051957823, 1.2119290051957825]}, 'vm': {'a': [0.14903209625095484, 0.14903209625095487], 'l': [0.8792478331901149, 0.879247833190115]}, 'tau0': {'Q': [0.14892990800881722, 0.14892990800881725], 'F': [0.2978598122499317, 0.29785981224993174], 'Fexact': '13755013734671/46179488366592', 'l': [1.0455551252300734, 1.0455551252300737]}, 'tp': {'Q': [0.1477074081135695, 0.14770740811356953], 'F': [0.29658349984085436, 0.2965834998408544], 'Fexact': '15652656320713/52776558133248', 'l': [0.9573886286264693, 0.9573886286264695]}, 'tm': {'Q': [0.15026003302255084, 0.15026003302255087], 'F': [0.2991361246590091, 0.29913612465900913], 'Fexact': '110511625509745/369435906932736', 'l': [1.1337216218336772, 1.1337216218336774]}}, 'bounds': {'K_up': [0.5957222800575237, 0.5957222800575238], 'K_low': [0.5957196169644581, 0.5957196169644582], 'm_up_plus': [0.07377634536351718, 0.0737763453635172], 'm_up_minus': [0.07505269841428974, 0.07505269841428976], 'm_low_plus': [0.0737757264924747, 0.07377572649247471], 'm_low_minus': [0.07505203885578952, 0.07505203885578954], 'Q2_low': [1.0450481088694974, 1.0450481088694976], 'Q2_up': [1.046095398350884, 1.0460953983508843]}, 'K': [0.5957196169644582, 0.5957222800575237], 'Q2': [1.0450481088694976, 1.046095398350884]}
+RESULT: ALL CHECKS PASSED   (186 s)
