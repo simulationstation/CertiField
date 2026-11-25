@@ -11,6 +11,7 @@ rho = eta(x) + y^2 + z^2 - 1/4, eta(x) = x^2 for x <= 3/4 and x^2 - 4 (x - 3/4)^
 eta'(1) = 0); the knot 3/4 has multiplicity ps - 1 in the x-direction of the stress space (Psi is C^1 there).
 g(y, z) = sum_k gamma_k (y - 1/2)_+^{e_k} + delta_k (z - 1/2)_+^{e_k}.
 """
+import itertools
 import os
 import sys
 import time
@@ -39,9 +40,9 @@ LCS = np.linalg.cholesky(SCOMP)                           # SCOMP = LCS LCS^T
 LCC = np.linalg.cholesky(CSTIF)
 
 
-def eta_poly(e, N):
-    """eta on cell e (physical x), ascending coefficients (Fractions), valid for x in [e/N, (e+1)/N]"""
-    if Fr(e, N) < B_FLAT:
+def eta_poly(a):
+    """eta on the cell whose left end is a (3/4 is a knot), ascending coefficients (Fractions)"""
+    if Fr(a) < B_FLAT:
         return [Fr(0), Fr(0), Fr(1)]
     g = 1 / (1 - B_FLAT)                                    # 4
     b = B_FLAT
@@ -59,11 +60,15 @@ def pval(c, x, d=0):
 
 
 class Setup3:
-    def __init__(self, N, ps, pu, grip='frictionless', gexp=None, sym=True):
+    def __init__(self, N, ps, pu, grip='frictionless', gexp=None, sym=True, grade=None):
         self.sym = sym                  # restrict to fields symmetric under y <-> z (the problem is)
         assert N % 4 == 0, "N must be a multiple of 4 (knots at 1/2 and 3/4)"
         self.N, self.ps, self.pu, self.grip = N, ps, pu, grip
         br = [Fr(k, N) for k in range(N + 1)]
+        if grade:                       # (L, m): geometric layers towards 1 (clamped grip edges, free faces)
+            from p2float import graded_breaks
+            br = graded_breaks(0, 1, Fr(1, N), [(1, (-1,), grade[0], grade[1])])
+        self.grade = grade
         self.S = [Spline1D(open_knots(br, ps, {B_FLAT: ps - 1}), ps), Spline1D(open_knots(br, ps), ps),
                   Spline1D(open_knots(br, ps), ps)]
         self.U = [Spline1D(open_knots(br, pu), pu) for _ in range(3)]
@@ -159,14 +164,22 @@ class Setup3:
     def solve_boxes(self, L, centre=False):
         """octree boxes for the float solve: the superset of curved3d (centre=False), or without the cut boxes whose
         centre lies in the ball (centre=True, close to the exact domain; used when the certificate is exact)"""
-        b = build_boxes(self.N, L, A2)
+        b = octree_boxes(self, L)
         if not centre:
             return b
-        n = self.N * 2 ** b[:, 3]
-        lo = b[:, :3] * (2 ** b[:, 3])[:, None] + b[:, 4:7]
-        c2 = ((2 * lo + 1) ** 2).sum(axis=1)                     # (2 lo + 1)^2 / (2 n)^2 = |centre|^2
-        keep = (b[:, 7] == 0) | (c2 * 4 >= (2 * n) ** 2)       # |centre|^2 >= 1/4
-        return b[keep]
+        keep = []
+        for row in b:
+            if row[7] == 0:
+                keep.append(True)
+                continue
+            c2 = 0.0
+            for k in range(3):
+                Sp = self.S[k]
+                e, lev, j = int(row[k]), int(row[3]), int(row[4 + k])
+                c = float(Sp.a[e]) + float(Sp.h[e]) * (j + 0.5) / 2 ** lev
+                c2 += c * c
+            keep.append(c2 >= 0.25)
+        return b[np.array(keep, dtype=bool)]
 
     # ------------------------------------------------------------------ tables
     def _tab(self, Sp, e, lev, j, nq, nder, cache):
@@ -192,7 +205,7 @@ class Setup3:
         Bv = {v: B(v) for v in VAR}
         X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
         X, Y, Z = X.ravel(), Y.ravel(), Z.ravel()
-        ep = eta_poly(ex, self.N)
+        ep = eta_poly(self.S[0].a[ex])
         r = pval(ep, X) + Y * Y + Z * Z - 0.25
         d1 = [pval(ep, X, 1), 2 * Y, 2 * Z]
         d2 = [pval(ep, X, 2), 2.0 + 0 * Y, 2.0 + 0 * Z]
@@ -336,6 +349,38 @@ class Setup3:
         ii = g[keep]
         np.add.at(K, (ii[:, None], ii[None, :]), Kl[np.ix_(keep, keep)])
         np.add.at(b, ii, bl[keep])
+
+
+def octree_boxes(S, L):
+    """boxes covering the octant minus the open ball (curved3d's rule on the actual cells of the stress space):
+    rows (ex, ey, ez, level, jx, jy, jz, cut); a box is dropped if it lies in the closed ball, kept whole if it lies
+    outside the open ball, and split until level L otherwise (exact rational tests)"""
+    a2 = A2
+    out = []
+    X, Y, Z = S.S
+
+    def rec(e, lev, j):
+        lo2 = hi2 = Fr(0)
+        for k, Sp in enumerate((X, Y, Z)):
+            a, h = Sp.a[e[k]], Sp.h[e[k]]
+            lo = a + h * Fr(j[k], 2 ** lev)
+            hi = a + h * Fr(j[k] + 1, 2 ** lev)
+            lo2 += lo * lo
+            hi2 += hi * hi
+        if hi2 <= a2:
+            return
+        if lo2 >= a2:
+            out.append((*e, lev, *j, 0))
+            return
+        if lev == L:
+            out.append((*e, lev, *j, 1))
+            return
+        for d in itertools.product((0, 1), repeat=3):
+            rec(e, lev + 1, tuple(2 * j[k] + d[k] for k in range(3)))
+
+    for e in itertools.product(range(X.ne), range(Y.ne), range(Z.ne)):
+        rec(e, 0, (0, 0, 0))
+    return np.array(out, dtype=np.int64).reshape(-1, 8)
 
 
 def _merge(red, partner):

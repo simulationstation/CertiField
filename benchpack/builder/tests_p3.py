@@ -39,7 +39,7 @@ def stress_cell(S, Psi, gam, cell):
     ex, ey, ez = cell
     px, py, pz = Pieces3(S.S[0], X3), Pieces3(S.S[1], Y3), Pieces3(S.S[2], Z3)
     fx, fy, fz = [int(S.S[k].first[e]) for k, e in enumerate(cell)]
-    rho = uni3(eta_poly(ex, S.N), X3) + Y3 * Y3 + Z3 * Z3 - q(Fr(1, 4))
+    rho = uni3(eta_poly(S.S[0].a[ex]), X3) + Y3 * Y3 + Z3 * Z3 - q(Fr(1, 4))
     Phi = [rho * rho * tensor_cell(px(ex), py(ey), pz(ez), Psi[c], fx, fy, fz) for c in range(6)]
     H = [[Phi[c].derivative('xyz'[k]).derivative('xyz'[m]) for c in range(6)] for (k, m) in COMPS]
     tau = []
@@ -63,7 +63,7 @@ def main():
     head("1. known answer: energy of the lift (x/2, 0, 0) over the octant minus the ball (exact cut cells)")
     S = Setup3(4, 2, 2, 'frictionless')
     V = np.zeros((3, *S.nu_))
-    full = p3exact.full_cell_boxes(S.N)
+    full = p3exact.full_cell_boxes(S)
     a_full = p3rig.primal_upper(S, V, 0, boxes=full)
     a_cut = p3exact.primal_cut_upper(S, V)
     lam, mu = pf.LAM, pf.MU
@@ -84,7 +84,7 @@ def main():
         Psi = Psi.reshape(6, *S.ns)
         gam = rng.standard_normal(npar)[pidx]
         cells = {}
-        cuts = set(cut_cells(S.N))
+        cuts = set(cut_cells(S))
         for ex in range(S.N):
             for ey in range(S.N):
                 for ez in range(S.N):
@@ -156,7 +156,8 @@ def main():
         stem = sys.argv[1]
         head(f"4. falsification against {stem}")
         meta, arr = cio.load(stem)
-        S = Setup3(meta['N'], meta['stress_space']['degree'], meta['displacement_space']['degree'], meta['variant'])
+        S = Setup3(meta['N'], meta['stress_space']['degree'], meta['displacement_space']['degree'], meta['variant'],
+                   grade=meta.get('grade'))
         Klo, Khi = Fr(meta['claims']['Q1']['lower']), Fr(meta['claims']['Q1']['upper'])
         integ = meta['integration']
         for eps in (0.0, 1e-3):
@@ -173,7 +174,7 @@ def main():
             Psi = flat.reshape(arr['Psi'].shape)
             gam = arr['gam']
             if integ['mode'] == 'exact':
-                Q = Fr(p3rig.dual_upper(S, Psi, gam, 0, boxes=p3exact.full_cell_boxes(S.N))) + \
+                Q = Fr(p3rig.dual_upper(S, Psi, gam, 0, boxes=p3exact.full_cell_boxes(S))) + \
                     p3exact.dual_cut_upper(S, Psi, gam)
             else:
                 Q = Fr(p3rig.dual_upper(S, Psi, gam, integ['stress_depth']))

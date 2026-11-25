@@ -68,14 +68,15 @@ def force(S, gam):
                for i, e in enumerate(S.gexp))
 
 
-def build(stem, N, ps, pu, Ls, Lc, Lus, Luc, grip='frictionless', verbose=True, mode='superset'):
+def build(stem, N, ps, pu, Ls, Lc, Lus, Luc, grip='frictionless', verbose=True, mode='superset', grade=None):
     """mode 'superset': curved3d's octree boxes (depths Lc, Luc); mode 'exact': full cells by Gauss rules and the
     cells cut by the sphere exactly (p3exact); Lc, Luc are then unused"""
     t0 = time.time()
-    S = Setup3(N, ps, pu, grip)
+    S = Setup3(N, ps, pu, grip, grade=grade)
     wd = os.path.join(limits.WORK_DIR, stem)
     os.makedirs(wd, exist_ok=True)
-    fp = json.dumps([N, ps, pu, Ls, Lus, grip, list(S.gexp)] + ([] if mode == "superset" else [mode]))
+    fp = json.dumps([N, ps, pu, Ls, Lus, grip, list(S.gexp)] + ([] if mode == "superset" else [mode])
+                    + ([] if not grade else [list(grade)]))
     fn = os.path.join(wd, 'fields.npz')
     if verbose:
         print(f"  P3 {grip}: N={N}, degrees {ps}/{pu}; to resume after a stop rerun the same command "
@@ -94,7 +95,7 @@ def build(stem, N, ps, pu, Ls, Lc, Lus, Luc, grip='frictionless', verbose=True, 
     check_ties(S, Psi, gam, V)
     if mode == 'exact':
         import p3exact
-        full = p3exact.full_cell_boxes(N)
+        full = p3exact.full_cell_boxes(S)
         a_up = Fr(p3rig.primal_upper(S, V, 0, verbose=verbose, checkpoint=os.path.join(wd, 'primal_full.json'),
                                      boxes=full))
         a_up += p3exact.primal_cut_upper(S, V, checkpoint=os.path.join(wd, 'primal_cut.json'), verbose=verbose)
@@ -115,6 +116,7 @@ def build(stem, N, ps, pu, Ls, Lc, Lus, Luc, grip='frictionless', verbose=True, 
     cK = cio.claim_strings(K_lo, K_hi)
     meta = dict(
         format='benchpack-certificate-1', problem='P3', variant=grip, model='octant', N=N,
+        **({'grade': list(grade)} if grade else {}),
         displacement_space=dict(degree=pu, knots=[[cio.fstr(t) for t in S.U[k].t] for k in range(3)]),
         stress_space=dict(degree=ps, knots=[[cio.fstr(t) for t in S.S[k].t] for k in range(3)],
                           g_exponents=list(S.gexp), g_base='1/2', rho='eta(x) + y^2 + z^2 - 1/4',
@@ -136,7 +138,8 @@ def build(stem, N, ps, pu, Ls, Lc, Lus, Luc, grip='frictionless', verbose=True, 
 def verify(stem, verbose=True):
     """re-evaluate a stored P3 certificate with this builder's evaluators (not the independent checker)"""
     meta, arr = cio.load(stem)
-    S = Setup3(meta['N'], meta['stress_space']['degree'], meta['displacement_space']['degree'], meta['variant'])
+    S = Setup3(meta['N'], meta['stress_space']['degree'], meta['displacement_space']['degree'], meta['variant'],
+               grade=meta.get('grade'))
     for k in range(3):
         assert [cio.fstr(t) for t in S.S[k].t] == meta['stress_space']['knots'][k]
         assert [cio.fstr(t) for t in S.U[k].t] == meta['displacement_space']['knots'][k]
@@ -145,7 +148,7 @@ def verify(stem, verbose=True):
     integ = meta['integration']
     if integ['mode'] == 'exact':
         import p3exact
-        full = p3exact.full_cell_boxes(S.N)
+        full = p3exact.full_cell_boxes(S)
         a_up = Fr(p3rig.primal_upper(S, V, 0, boxes=full)) + p3exact.primal_cut_upper(S, V)
         Q_up = Fr(p3rig.dual_upper(S, Psi, gam, 0, boxes=full)) + p3exact.dual_cut_upper(S, Psi, gam)
     else:
@@ -166,6 +169,7 @@ if __name__ == '__main__':
     if sys.argv[1] == 'build':
         a = sys.argv[2:]
         build(a[0], *[int(v) for v in a[1:8]], grip=(a[8] if len(a) > 8 else 'frictionless'),
-              mode=(a[9] if len(a) > 9 else 'superset'))
+              mode=(a[9] if len(a) > 9 else 'superset'),
+              grade=(tuple(int(v) for v in a[10].split(',')) if len(a) > 10 else None))
     elif sys.argv[1] == 'verify':
         sys.exit(0 if verify(sys.argv[2]) else 1)

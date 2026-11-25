@@ -248,7 +248,9 @@ Problem data: `P3`, `P3_OCTANT`, `P3_LAME` in definitions.py. 3D isotropic elast
 
 **Model.** `Omega_o = {(x,y,z) in [0,1]^3 : x^2+y^2+z^2 >= 1/4}` (the whole octant; no wedge). Mirror planes x = 0,
 y = 0, z = 0; grip x = 1; free faces y = 1, z = 1 and the sphere. All three coordinate directions use the same
-cell size `1/N` (N in the JSON); cells `[e/N, (e+1)/N]` per axis, `e = 0..N−1`.
+breakpoints; the cells are the products of the non-empty knot spans (the knot vectors in the JSON are authoritative).
+Without the JSON key `grade` the breakpoints are `k/N`, k = 0..N (N in the JSON); with `"grade": [L, m]` they are the
+`k/N` together with `1 − (1/N) 2^{−(i+1)} (1 + j/m)` for i = 0..L−1, j = 0..m−1 (layers towards the faces x, y, z = 1).
 
 **Splines.** As in section 2, with three knot vectors (JSON `knots`: list of three lists, axes x, y, z). Tensor
 product `s(x,y,z) = sum A[i,j,k] B_i(x) B'_j(y) B''_k(z)`.
@@ -305,13 +307,14 @@ both give K = 2.)
 **Integration domain** (JSON `integration`). Both integrands are non-negative, so a checker may integrate over the
 exact domain or over any superset; the claims hold for the builder's choice, which is stated:
 - `{"mode": "superset", "stress_depth": L, "displacement_depth": Lu}`: the union of the boxes of the octree rule
-  below (depth L for `Q_o`, Lu for `a_o`), which contains `Omega_o`. Rule (curved3d's `build_boxes`): for each cell
-  `(e_x, e_y, e_z)`, start with the cell (level 0). A box at level l has integer corner `lo = e 2^l + j` and side
-  `1/(N 2^l)`; with `r_min = sum lo_k^2`, `r_max = sum (lo_k + 1)^2` and `t = (N 2^l)^2 / 4`: if `r_max <= t` the
-  box is dropped (it lies in the closed ball); if `r_min >= t` it is kept whole; otherwise it is kept whole if
-  l = L, else split into its 8 children at level l + 1.
+  below (depth L for `Q_o`, Lu for `a_o`), which contains `Omega_o`. Rule (curved3d's `build_boxes`, here on the
+  actual cells): for each cell `(e_x, e_y, e_z)`, start with the cell (level 0). A box at level l is the product of
+  the intervals `[a + h j/2^l, a + h (j+1)/2^l]` (a, h the start and length of the cell's span on each axis); with
+  `r_min` and `r_max` the sums of the squares of the lower and of the upper ends: if `r_max <= 1/4` the box is
+  dropped (it lies in the closed ball); if `r_min >= 1/4` it is kept whole; otherwise it is kept whole if l = L,
+  else split into its 8 children at level l + 1. For uniform cells this is exactly curved3d's rule.
 - `{"mode": "exact"}`: `Omega_o` itself (cells cut by the sphere integrated over their part outside the ball).
 
-JSON keys for P3: `problem "P3"`, `variant`, `model "octant"`, `N`, `displacement_space {"degree", "knots"}`,
+JSON keys for P3: `problem "P3"`, `variant`, `model "octant"`, `N`, optional `grade`, `displacement_space {"degree", "knots"}`,
 `stress_space {"degree", "knots", "g_exponents", "g_base": "1/2", "rho", "eta_flat_from": "3/4"}`, `integration`,
 `claims {"Q1": {"lower", "upper"}}` (section 6), `computed` (diagnostic), `label`; npz arrays `V`, `Psi`, `gam`.
