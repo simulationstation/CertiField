@@ -133,6 +133,8 @@ def th(name, dtype):
     return f
 
 
+EXT_TIMEOUT = [600]  # seconds per external (R/Julia) call; set by sweep.call
+
 RSCRIPT = os.environ.get('AUDIT_RSCRIPT') or os.path.join(
     os.environ.get('LOCALAPPDATA', ''), 'Programs', 'R', 'R-4.6.2', 'bin', 'x64', 'Rscript.exe')
 
@@ -150,7 +152,7 @@ def rfun(name):
             for row in zip(*cols):
                 fh.write(','.join(float(v).hex() for v in row) + chr(10))
         script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'r', 'eval.R')
-        subprocess.run([RSCRIPT, script, name, fin, fout], check=True, capture_output=True, timeout=600)
+        subprocess.run([RSCRIPT, script, name, fin, fout], check=True, capture_output=True, timeout=EXT_TIMEOUT[0])
         out = []
         with open(fout) as fh:
             for line in fh:
@@ -180,7 +182,7 @@ def jfun(name):
         proj = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'julia')
         env = dict(os.environ, JULIA_NUM_THREADS='1', OPENBLAS_NUM_THREADS='1')
         subprocess.run([JULIA, '--startup-file=no', '--project=' + proj, os.path.join(proj, 'eval.jl'), name, fin, fout],
-                       check=True, capture_output=True, timeout=1200, env=env)
+                       check=True, capture_output=True, timeout=EXT_TIMEOUT[0], env=env)
         out = []
         with open(fout) as fh:
             for line in fh:

@@ -79,6 +79,8 @@ def rval(r):
 
 def kind(t, r):
     f = r.get('flag')
+    if f == 'lib_error':
+        return 'special'  # the library call failed or did not return
     rv = rval(r)
     tiny = TINY[t.dtype]
     if f == 'zero' and rv is not None and abs(rv) < tiny:

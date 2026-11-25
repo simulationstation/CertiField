@@ -43,20 +43,40 @@ def cast(t, pts):
 
 
 def call(t, pts):
+    """Library values; returns (values, errors). errors[i] is None or a short reason when
+    the library call itself failed (exception, or an external R/Julia call that did not
+    return): the value is then NaN and the record says why."""
     out = np.empty(len(pts))
+    err = [None] * len(pts)
+    external = t.lib in ('R', 'julia')
     with warnings.catch_warnings(), np.errstate(all='ignore'):
         warnings.simplefilter('ignore')
-        for i in range(0, len(pts), 4096):
-            c = pts[i:i + 4096]
-            try:
-                out[i:i + 4096] = t.call(*[c[:, j] for j in range(t.nargs)])
-            except Exception:
-                for k in range(len(c)):
-                    try:
-                        out[i + k] = t.call(*[c[k:k + 1, j] for j in range(t.nargs)])[0]
-                    except Exception:
-                        out[i + k] = np.nan
-    return out
+        step = 500 if external else 4096
+        for i in range(0, len(pts), step):
+            _call_block(t, pts[i:i + step], out, err, i, external)
+    return out, err
+
+
+def _call_block(t, c, out, err, off, external):
+    import targets
+    if external:
+        targets.EXT_TIMEOUT[0] = 30 + 0.05 * len(c)
+    try:
+        out[off:off + len(c)] = t.call(*[c[:, j] for j in range(t.nargs)])
+        return
+    except Exception as e:
+        reason = 'timeout' if 'Timeout' in type(e).__name__ else type(e).__name__
+    if len(c) == 1:
+        out[off] = np.nan
+        err[off] = 'library call failed: ' + reason
+        return
+    if not external:  # cheap in-process calls: point by point
+        for k in range(len(c)):
+            _call_block(t, c[k:k + 1], out, err, off + k, external)
+        return
+    h = len(c) // 2  # external: bisect, so one hanging point costs O(log n) calls
+    _call_block(t, c[:h], out, err, off, external)
+    _call_block(t, c[h:], out, err, off + h, external)
 
 
 def perturb(rng, t, x, sigma):
@@ -154,12 +174,14 @@ def run_target(R, t, args, stuck):
         done_i.add(i)
     todo = [i for i in range(len(pts)) if i not in done_i]
     if todo:
-        y = call(t, pts[todo])
-        for i, yy in zip(todo, y):
+        y, yerr = call(t, pts[todo])
+        for i, yy, ye in zip(todo, y, yerr):
             p = tuple(float(v) for v in pts[i])
             rec = R.run({'t': t.name, 'ph': 's', 'i': i}, lambda: tasks.screen(t.name, p, float(yy)))
             rec = dict(rec or {})
             rec.update(x=list(p), y=float(yy), phase=phase[i], i=i)
+            if ye:
+                rec.update(lib_error=ye, cand=True, flag='lib_error')
             sink.add(rec)
         sink.flush()
     if args.adv_steps > 0:
@@ -222,7 +244,7 @@ def adversarial(R, t, args, stuck, path, ckpt):
                     break
             else:
                 props.append(tuple(x))
-        ya = call(t, np.array(props, dtype=float))
+        ya, yaerr = call(t, np.array(props, dtype=float))
         out = []
         for j, (p, v) in enumerate(zip(props, ya)):
             if (s, j) in skip:
@@ -232,6 +254,8 @@ def adversarial(R, t, args, stuck, path, ckpt):
                           lambda: tasks.screen(t.name, p, float(v)))
             r = dict(r or {})
             r.update(x=list(p), y=float(v), phase='adv', step=s)
+            if yaerr[j]:
+                r.update(lib_error=yaerr[j], cand=True, flag='lib_error', score=0.0)
             out.append(r)
             sc = r.get('score') or 0.0
             if sc > st['cur'][j][1]:
