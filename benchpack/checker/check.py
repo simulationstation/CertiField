@@ -16,11 +16,16 @@ What it does (details in README.md):
 Exit code 0 if every check passes.
 """
 import argparse
+import hashlib
 import multiprocessing as mp_
 import os
+import pickle
 import sys
 import time
 from fractions import Fraction as Fr
+
+for _v in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS'):
+    os.environ.setdefault(_v, '2')          # small machine: at most 2 threads per process unless set otherwise
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -65,22 +70,67 @@ def ivfmt(I, n=13):
     return '[%s, %s]' % (fmt(RG.lo_q(I), n), fmt(RG.hi_q(I), n))
 
 
-def chunks(cells, nchunk):
-    return [cells[i::nchunk] for i in range(nchunk)]
+def cache_dir_for(stem):
+    """cache folder of one certificate: keyed by the bytes of the certificate and of the checker's per-cell code"""
+    h = hashlib.sha256()
+    for path in (stem + '.json', stem + '.npz', os.path.join(HERE, 'fields.py'), os.path.join(HERE, 'exact.py'),
+                 os.path.join(HERE, 'region.py')):
+        with open(path, 'rb') as f:
+            h.update(f.read())
+    return os.path.join(HERE, 'cache', '%s_%s' % (os.path.basename(stem), h.hexdigest()[:16]))
 
 
-def run_field(pool, kind, name, cells, nchunk):
+def load_cache(path):
+    """records saved by an earlier (possibly interrupted) run; a truncated last entry is dropped"""
+    done = {}
+    if not path or not os.path.exists(path):
+        return done
+    broken = False
+    with open(path, 'rb') as f:
+        while True:
+            try:
+                lst = pickle.load(f)
+            except EOFError:
+                break
+            except Exception:
+                broken = True
+                break
+            for rec in lst:
+                done[rec['cell']] = rec
+    if broken:                                  # rewrite without the damaged tail
+        tmp = path + '.tmp'
+        with open(tmp, 'wb') as f:
+            pickle.dump(list(done.values()), f)
+        os.replace(tmp, path)
+    return done
+
+
+def run_field(pool, kind, name, cells, cache=None, rep=None, chunk=8):
+    """per-cell work for one field; cells already in the cache file are skipped, new ones are appended to it"""
     fn = FD.work_disp if kind == 'disp' else FD.work_stress
-    jobs = [(name, ch) for ch in chunks(cells, nchunk) if ch]
-    out = {}
-    if pool is None:
-        res = map(fn, jobs)
-    else:
-        res = pool.imap_unordered(fn, jobs)
-    for lst in res:
-        for rec in lst:
-            out[rec['cell']] = rec
-    return out
+    path = os.path.join(cache, '%s_%s.pkl' % (kind, name)) if cache else None
+    out = load_cache(path)
+    out = {c: r for c, r in out.items() if c in set(cells)}
+    ncached = len(out)
+    todo = [c for c in cells if c not in out]
+    jobs = [(name, todo[i:i + chunk]) for i in range(0, len(todo), chunk)]
+    res = map(fn, jobs) if pool is None else pool.imap_unordered(fn, jobs)
+    f = open(path, 'ab') if path else None
+    last = time.time()
+    try:
+        for lst in res:
+            for rec in lst:
+                out[rec['cell']] = rec
+            if f:
+                pickle.dump(lst, f)
+                f.flush()
+            if rep is not None and time.time() - last > 60:
+                rep.say('    %s %s: %d of %d cells' % (kind, name, len(out), len(cells)))
+                last = time.time()
+    finally:
+        if f:
+            f.close()
+    return out, ncached
 
 
 def total(recs):
@@ -154,15 +204,17 @@ def main():
     meta, arrays, raw = FD.load(stem)
     rep = Report(a.log)
     rep.say('checker: %s' % os.path.basename(stem))
-    ok = check_cert(meta, arrays, rep, procs=a.procs)
+    cache = cache_dir_for(stem)
+    os.makedirs(cache, exist_ok=True)
+    ok = check_cert(meta, arrays, rep, procs=a.procs, cache=cache)
     rep.say('RESULT: %s   (%.0f s)' % ('ALL CHECKS PASSED' if ok else 'FAILED: %d check(s)' % len(rep.fail),
                                        time.time() - rep.t0))
     sys.exit(0 if ok else 1)
 
 
-def check_cert(meta, arrays, rep, procs=2, claims_required=True):
+def check_cert(meta, arrays, rep, procs=2, claims_required=True, cache=None):
     """run every check on one certificate (meta: the JSON dict; arrays: exact Fraction arrays). Returns True if all
-    pass; the recomputed numbers are stored in rep.numbers."""
+    pass; the recomputed numbers are stored in rep.numbers.  cache: folder for per-cell results (resumable runs)."""
     rep.numbers = {}
     prob = FD.Problem(meta)
     rep.say('problem %s, variant %s, model %s, label %r' % (prob.name, prob.variant, meta.get('model'),
@@ -223,18 +275,21 @@ def check_cert(meta, arrays, rep, procs=2, claims_required=True):
     pool = mp_.Pool(procs, initializer=FD.init_worker, initargs=(meta, arrays)) if procs > 1 else None
     if pool is None:
         FD.init_worker(meta, arrays)
-    nchunk = max(1, 4 * procs)
+    if cache:
+        rep.say('per-cell results are saved in %s (a rerun skips the cells found there)' % os.path.relpath(cache, HERE))
     try:
         dres = {}
         sres = {}
         for n in dnames:
             t = time.time()
-            dres[n] = run_field(pool, 'disp', n, dsp.cells(), nchunk)
-            rep.say('displacement %s: %d cells evaluated (%.0f s)' % (n, len(dres[n]), time.time() - t))
+            dres[n], nc = run_field(pool, 'disp', n, dsp.cells(), cache, rep)
+            rep.say('displacement %s: %d cells evaluated, %d of them from the cache (%.0f s)'
+                    % (n, len(dres[n]), nc, time.time() - t))
         for n in snames:
             t = time.time()
-            sres[n] = run_field(pool, 'stress', n, ssp.cells(), nchunk)
-            rep.say('stress %s: %d cells evaluated (%.0f s)' % (n, len(sres[n]), time.time() - t))
+            sres[n], nc = run_field(pool, 'stress', n, ssp.cells(), cache, rep)
+            rep.say('stress %s: %d cells evaluated, %d of them from the cache (%.0f s)'
+                    % (n, len(sres[n]), nc, time.time() - t))
     finally:
         if pool is not None:
             pool.close()

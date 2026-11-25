@@ -30,12 +30,13 @@ spaces: displacement degree 8, 16 x 16 cells; stress degree 9, 16 x 16 cells
   [pass] stress tau0: FORMAT coefficient conditions
   [pass] stress tp: FORMAT coefficient conditions
   [pass] stress tm: FORMAT coefficient conditions
-displacement v0: 256 cells evaluated (1 s)
-displacement vp: 256 cells evaluated (1 s)
-displacement vm: 256 cells evaluated (1 s)
-stress tau0: 256 cells evaluated (3 s)
-stress tp: 256 cells evaluated (3 s)
-stress tm: 256 cells evaluated (4 s)
+per-cell results are saved in cache\P1_frictionless_N16_p9_5ed494649168fc75 (a rerun skips the cells found there)
+displacement v0: 256 cells evaluated, 256 of them from the cache (0 s)
+displacement vp: 256 cells evaluated, 256 of them from the cache (0 s)
+displacement vm: 256 cells evaluated, 256 of them from the cache (0 s)
+stress tau0: 256 cells evaluated, 256 of them from the cache (0 s)
+stress tp: 256 cells evaluated, 256 of them from the cache (0 s)
+stress tm: 256 cells evaluated, 224 of them from the cache (1 s)
   [pass] displacement v0: continuous across all 398 interior edges (exact)
   [pass] displacement v0: v_x = 0 on x = 0, v_x = 1/2 on x = 1, v_y = 0 on y = 0, exactly
   [pass] displacement vp: continuous across all 398 interior edges (exact)
@@ -83,4 +84,4 @@ recomputed Q1: [0.591200987507, 0.591200987579]  width 7.144e-11  relative 1.208
 recomputed Q2: [1.03273758048, 1.03276802689]  width 3.045e-05  relative 2.948e-05
   [pass] Q2 claim [1.032737550, 1.032768058] confirmed: 1.032737550 <= 1.03273758048 and 1.03276802689 <= 1.032768058
 builder's own enclosures (diagnostic, not used): {'fields': {'v0': {'a': [0.14780024689467053, 0.14780024689467056], 'l': [1.032752766433997, 1.0327527664339973]}, 'vp': {'a': [0.14780024695060953, 0.14780024695060956], 'l': [1.0328700790217777, 1.032870079021778]}, 'vm': {'a': [0.14780024695060953, 0.14780024695060956], 'l': [1.0326354538462166, 1.0326354538462168]}, 'tau0': {'Q': [0.14780024688511958, 0.1478002468851196], 'F': [0.29560049376193054, 0.2956004937619306], 'Fexact': '1872093197189201/6333186975989760', 'l': [1.0327528410069653, 1.0327528410069655]}, 'tp': {'Q': [0.14779926200332968, 0.1477992620033297], 'F': [0.2955995088520709, 0.295599508852071], 'Fexact': '3744173919141811/12666373951979520', 'l': [1.0326939743439396, 1.0326939743439398]}, 'tm': {'Q': [0.14780123182304908, 0.1478012318230491], 'F': [0.29560147867179015, 0.2956014786717902], 'Fexact': '3744198869614993/12666373951979520', 'l': [1.0328117076699912, 1.0328117076699914]}}, 'bounds': {'K_up': [0.5912009875786821, 0.5912009875786822], 'K_low': [0.5912009875072439, 0.591200987507244], 'm_up_plus': [0.0738996309644715, 0.07389963096447151], 'm_up_minus': [0.07390061587426004, 0.07390061587426006], 'm_low_plus': [0.07389963094991799, 0.073899630949918], 'm_low_minus': [0.07390061585977759, 0.0739006158597776], 'Q2_low': [1.032737580477792, 1.0327375804777923], 'Q2_up': [1.0327680268919663, 1.0327680268919666]}, 'K': [0.5912009875072439, 0.5912009875786822], 'Q2': [1.0327375804777923, 1.0327680268919663]}
-RESULT: ALL CHECKS PASSED   (41 s)
+RESULT: ALL CHECKS PASSED   (2 s)
