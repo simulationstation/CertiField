@@ -111,7 +111,9 @@ def _mref(t, args, dps):
     with mp.workdps(dps):
         try:
             v = t.mref(*[mpf(a) for a in args])
-            return +v if v is not None else None
+            if v is None or not isinstance(v, mpmath.mpf):
+                return None  # e.g. a complex log of a probability that came out < 0: rejected
+            return +v
         except (mpmath.libmp.NoConvergence, ZeroDivisionError, ValueError, OverflowError):
             return None
 

@@ -155,6 +155,12 @@ def _extra_bits(*mags):
     return int(m) + 20
 
 
+def _m(v):
+    """mpf without re-rounding: mpf(v) of an existing mpf rounds it to the working
+    precision, which destroys arguments formed at extra precision (e.g. 1 - 1e-210)."""
+    return v if isinstance(v, mpmath.mpf) else mpf(v)
+
+
 def gamma_P_series(a, x):
     """P(a,x) = x^a e^-x / Gamma(a+1) * sum_k x^k / ((a+1)...(a+k))   (DLMF 8.7.1)."""
     with mp.extraprec(_extra_bits(a * mp.log(x), x, mp.loggamma(a + 1)) + 10):
@@ -184,7 +190,7 @@ def gamma_Q_cf(a, x):
 
 def gamma_PQ(a, x):
     """Return (P, Q) at the current precision, each with relative accuracy."""
-    a, x = mpf(a), mpf(x)
+    a, x = _m(a), _m(x)
     if x == 0:
         return mpf(0), mpf(1)
     if x == mp.inf:
@@ -223,11 +229,11 @@ def _beta_cf(a, b, x, y):
 
 def beta_IJ(a, b, x, y=None):
     """Return (I_x(a,b), I_y(b,a)) with y = 1-x (exact if not given), both relative-accurate."""
-    a, b, x = mpf(a), mpf(b), mpf(x)
+    a, b, x = _m(a), _m(b), _m(x)
     if y is None:
         y = mp.fsub(1, x, exact=True)
     else:
-        y = mpf(y)
+        y = _m(y)
     if x == 0:
         return mpf(0), mpf(1)
     if y == 0:
@@ -336,6 +342,14 @@ def _t_tails_m(df, t):
     """Return (P(T<=t), P(T>t))."""
     if t == 0:
         return mpf(1) / 2, mpf(1) / 2
+    if df > mpf(10) ** 40 and t * t < df * mpf(10) ** -30:
+        # Normal limit: F_df(t) = Phi(t) - phi(t)(t^3 + t)/(4 df) + O(df^-2); the correction is
+        # below 1e-30 relative here.  (The continued fraction below stops early in this
+        # regime: its convergents change by ~1/df per step.)
+        tail = m_ndtr(-abs(t))
+        with mp.extraprec(10):
+            body = 1 - tail
+        return (tail, body) if t < 0 else (body, tail)
     with mp.extraprec(1200):
         t2 = t * t
         w = df / (df + t2)
@@ -659,11 +673,15 @@ def m_dist(dist, method):
     if method == 'logsf':
         def g(*a):
             lo, up = mf(*a)
+            if not (0 <= lo <= 1 and 0 <= up <= 1):
+                raise ValueError('probability outside [0, 1]')
             return mp.log(up) if up < 0.5 else mp.log1p(-lo)
         return g
     if method == 'logcdf':
         def g(*a):
             lo, up = mf(*a)
+            if not (0 <= lo <= 1 and 0 <= up <= 1):
+                raise ValueError('probability outside [0, 1]')
             return mp.log(lo) if lo < 0.5 else mp.log1p(-up)
         return g
     raise ValueError(method)
@@ -830,6 +848,19 @@ def inv_isf(dist):
         lo, hi = ISF_BRACKET[dist]
         return solve_monotone(lambda x: mf(x, *s)[1], mpf(q), lo, hi, False, x0,
                               lambda x: -_pdf_m(dist, x, *s))
+    return solve
+
+
+def inv_logsf(dist):
+    """x with log P(X > x) = lp (R's q-functions with lower.tail = FALSE, log.p = TRUE)."""
+    logsf = m_dist(dist, 'logsf')
+
+    def solve(lp, *shape, x0=None):
+        s = [mpf(v) for v in shape]
+        lo, hi = ISF_BRACKET[dist]
+        # d/dx log sf = -pdf / sf
+        return solve_monotone(lambda x: logsf(x, *s), mpf(lp), lo, hi, False, x0,
+                              lambda x: -_pdf_m(dist, x, *s) / mp.exp(logsf(x, *s)))
     return solve
 
 

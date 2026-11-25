@@ -3,6 +3,7 @@ reference.  Library modules are imported lazily, so worker processes (which only
 references) never import scipy or torch.
 """
 import math
+import os
 
 import numpy as np
 from mpmath import mp, mpf
@@ -129,6 +130,34 @@ def th(name, dtype):
             return out
         ts = [torch.from_numpy(np.ascontiguousarray(v, dtype=ndt)) for v in a]
         return fn(*ts).to(torch.float64).numpy()
+    return f
+
+
+RSCRIPT = os.environ.get('AUDIT_RSCRIPT') or os.path.join(
+    os.environ.get('LOCALAPPDATA', ''), 'Programs', 'R', 'R-4.6.2', 'bin', 'x64', 'Rscript.exe')
+
+
+def rfun(name):
+    """Call R (Rscript harness/r/eval.R) on a batch of points; hexadecimal floats both ways."""
+    def f(*a):
+        import subprocess
+        import tempfile
+        d = os.path.join(os.environ.get('LOCALAPPDATA', tempfile.gettempdir()), 'certifield_audit', 'r')
+        os.makedirs(d, exist_ok=True)
+        fin, fout = os.path.join(d, 'in.csv'), os.path.join(d, 'out.txt')
+        cols = [np.asarray(v, dtype=float) for v in a]
+        with open(fin, 'w') as fh:
+            for row in zip(*cols):
+                fh.write(','.join(float(v).hex() for v in row) + chr(10))
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'r', 'eval.R')
+        subprocess.run([RSCRIPT, script, name, fin, fout], check=True, capture_output=True, timeout=600)
+        out = []
+        with open(fout) as fh:
+            for line in fh:
+                v = line.strip()
+                out.append({'NaN': math.nan, 'NA': math.nan, 'Inf': math.inf, '-Inf': -math.inf}.get(v)
+                           if v in ('NaN', 'NA', 'Inf', '-Inf') else float.fromhex(v))
+        return np.array(out, dtype=float)
     return f
 
 
@@ -279,6 +308,8 @@ def build():
     _build_scipy_stats()
     for dt in ('float64', 'float32'):
         _build_torch(dt)
+    if os.path.exists(RSCRIPT):
+        _build_R()
 
 
 def _beta_sampler(rng, n):
@@ -593,3 +624,50 @@ def _build_torch(dt):
                grid=_prod([1 + 1e-6, 1.5, 2.0, 3.0, 10.0, 100.0], [1e-30, 1e-3, 0.5, 1.0, 10.0, 1e3, 1e10, 1e30]),
                valid=lambda s, q: fin(s) and s > 1 and pos(q), mref=refs.m_zeta2, aref=refs.A_zeta2,
                note='Hurwitz zeta(x, q)'))
+
+
+def _build_R():
+    """R 4.x distribution functions, upper tail on the log scale (spec 4.1)."""
+    L, D = 'R', 'float64'
+    CH = M((1.5, LU(1e-6, 1e-2)), (3.5, LU(1e-2, 20)), (3, LU(20, 1e5)), (2, LU(1e5, 1e12)))
+    FD = M((1.5, LU(1e-3, 1)), (4, LU(1, 1e3)), (3, LU(1e3, 1e8)), (1, LU(1e8, 1e15)))
+    GA = M((1.5, LU(1e-6, 1e-2)), (3.5, LU(1e-2, 10)), (3, LU(10, 1e5)), (2, LU(1e5, 1e12)))
+    spec = {  # R name: (scipy dist, shape generators, x generator, x kind)
+        'pt': ('t', (DF,), SLU(1e-10, 1e300), 'real'),
+        'pf': ('f', (FD, FD), LU(1e-300, 1e300), 'pos'),
+        'pchisq': ('chi2', (CH,), LU(1e-300, 1e300), 'pos'),
+        'pbeta': ('beta', (PAR, PAR), UNIT, 'unit'),
+        'pgamma': ('gamma', (GA,), LU(1e-300, 1e300), 'pos'),
+    }
+
+    def valid_for(dist):
+        def v(x, *sh):
+            if not all(fin(u) and u > 0 for u in sh):
+                return False
+            if dist == 'beta':
+                return 0 <= x <= 1
+            if dist in ('chi2', 'f', 'gamma'):
+                return fin(x) and x >= 0
+            return fin(x)
+        return v
+    for rn, (dist, shp, xg, xk) in spec.items():
+        add(Target('R.%s(lower.tail=FALSE,log.p=TRUE)' % rn, L, D, rfun(rn), (xk,) + ('pos',) * len(shp),
+                   sampler=tail_x(dist, shp, xg), valid=valid_for(dist),
+                   mref=refs.m_dist(dist, 'logsf'), aref=refs.a_dist(dist, 'logsf'),
+                   mfirst=dist in ('chi2', 'gamma')))
+    add(Target('R.pbinom(lower.tail=FALSE,log.p=TRUE)', L, D, rfun('pbinom'), ('int', 'int', 'unit'),
+               sampler=_bdtr_sampler,
+               valid=lambda k, n, p: fin(k) and fin(n) and 0 <= k < n and n == math.floor(n) and n >= 1 and 0 <= p <= 1,
+               mref=refs.m_dist('binom', 'logsf'), aref=refs.a_dist('binom', 'logsf')))
+    LP = M((3, lambda rng, n: -LU(1e-300, 0.69)(rng, n)), (4, lambda rng, n: -LU(0.69, 700)(rng, n)),
+           (3, lambda rng, n: -LU(700, 1e5)(rng, n)))
+    for rn, dist, shp, xdom in (('qt', 't', (DF,), 'real'), ('qbeta', 'beta', (PAR, PAR), 'unit')):
+        add(Target('R.%s(lower.tail=FALSE,log.p=TRUE)' % rn, L, D, rfun(rn), ('real',) + ('pos',) * len(shp),
+                   gens=(LP,) + shp,
+                   grid=[(lp,) + sh for lp in (-1e-300, -1e-20, -1e-5, -0.5, -10.0, -690.0, -800.0, -1e4, -1e5)
+                         for sh in ([(v,) for v in G_DF] if dist == 't' else
+                                    _prod([1e-3, 0.5, 2.0, 1e3, 1e6], [1e-3, 0.5, 2.0, 1e3, 1e6]))],
+                   valid=lambda lp, *sh: fin(lp) and lp < 0 and all(fin(u) and u > 0 for u in sh),
+                   inv=_inv_dict(refs.inv_logsf(dist), refs.a_dist(dist, 'logsf'), False, yi=0,
+                                 fwd_m=refs.m_dist(dist, 'logsf'), xdom=xdom),
+                   note='log upper-tail probability -> quantile'))
