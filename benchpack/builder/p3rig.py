@@ -126,12 +126,12 @@ def _grid(a, axis):
     return I(a.lo[tuple(sl)], a.hi[tuple(sl)])
 
 
-def dual_upper(S, Psi, gam, L, batch=48, verbose=False, checkpoint=None):
+def dual_upper(S, Psi, gam, L, batch=48, verbose=False, checkpoint=None, boxes=None):
     """rigorous upper bound of Q_oct for tau = g + inc(rho^2 Psi); Psi [6, nx, ny, nz], gam = (gamma_k, delta_k).
     checkpoint: a file to store the partial sums per batch (resume after a stop)."""
     nq, p1 = S.nqs, S.ps + 1
     tabs = [DirTables(S.S[k], nq, 2, k, S.N, S.gexp) for k in range(3)]
-    boxes = build_boxes(S.N, L, A2)
+    boxes = build_boxes(S.N, L, A2) if boxes is None else boxes
     nu = pf.NU
     nu_i = I(*frac_enclosure(nu))
     one_nu = I(*frac_enclosure(1 + nu))
@@ -208,11 +208,11 @@ def dual_upper(S, Psi, gam, L, batch=48, verbose=False, checkpoint=None):
     return float(sum_up(np.array(total)))
 
 
-def primal_upper(S, V, L, batch=128, verbose=False, checkpoint=None):
+def primal_upper(S, V, L, batch=128, verbose=False, checkpoint=None, boxes=None):
     """rigorous upper bound of a_oct(v) for v = (x/2, 0, 0) + splines V [3, nx, ny, nz]"""
     nq, p1 = S.nqu, S.pu + 1
     tabs = [DirTables(S.U[k], nq, 1, k, S.N) for k in range(3)]
-    boxes = build_boxes(S.N, L, A2)
+    boxes = build_boxes(S.N, L, A2) if boxes is None else boxes
     lam = I(*frac_enclosure(pf.LAM))
     mu = I(*frac_enclosure(pf.MU))
     done = {}

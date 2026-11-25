@@ -156,6 +156,18 @@ class Setup3:
             return np.concatenate([np.arange(ng), np.arange(ng)]), ng
         return np.arange(2 * ng), 2 * ng
 
+    def solve_boxes(self, L, centre=False):
+        """octree boxes for the float solve: the superset of curved3d (centre=False), or without the cut boxes whose
+        centre lies in the ball (centre=True, close to the exact domain; used when the certificate is exact)"""
+        b = build_boxes(self.N, L, A2)
+        if not centre:
+            return b
+        n = self.N * 2 ** b[:, 3]
+        lo = b[:, :3] * (2 ** b[:, 3])[:, None] + b[:, 4:7]
+        c2 = ((2 * lo + 1) ** 2).sum(axis=1)                     # (2 lo + 1)^2 / (2 n)^2 = |centre|^2
+        keep = (b[:, 7] == 0) | (c2 * 4 >= (2 * n) ** 2)       # |centre|^2 >= 1/4
+        return b[keep]
+
     # ------------------------------------------------------------------ tables
     def _tab(self, Sp, e, lev, j, nq, nder, cache):
         key = (id(Sp), e, lev, j, nq)
@@ -215,7 +227,7 @@ class Setup3:
         loc = ((ix[:, None, None] * ny + iy[None, :, None]) * nz + iz[None, None, :]).ravel()
         return (np.arange(6)[:, None] * (nx * ny * nz) + loc[None, :]).ravel()
 
-    def assemble_dual(self, L, verbose=False):
+    def assemble_dual(self, L, verbose=False, centre=False):
         """dense reduced matrix A (Q = z.A.z), force vector f (F_oct = f.z), z = (gamma, delta, reduced Psi)"""
         red, nr = self.stress_map()
         pidx, npar = self.param_map()
@@ -228,7 +240,7 @@ class Setup3:
         for i, e in enumerate(self.gexp):
             f[pidx[i]] += 0.5 ** (e + 1) / (e + 1)
             f[pidx[ng + i]] += 0.5 ** (e + 1) / (e + 1)
-        boxes = build_boxes(self.N, L, A2)
+        boxes = self.solve_boxes(L, centre)
         order = np.lexsort((boxes[:, 2], boxes[:, 1], boxes[:, 0]))
         boxes = boxes[order]
         cache = {}
@@ -292,14 +304,14 @@ class Setup3:
         loc = ((ix[:, None, None] * ny + iy[None, :, None]) * nz + iz[None, None, :]).ravel()
         return (np.arange(3)[:, None] * (nx * ny * nz) + loc[None, :]).ravel()
 
-    def assemble_primal(self, L):
+    def assemble_primal(self, L, centre=False):
         """a_oct(v,v) = z.K.z + 2 b.z + k0 for the reduced coefficients z"""
         red, nr = self.disp_map()
         K = np.zeros((nr, nr))
         b = np.zeros(nr)
         k0 = 0.0
         e0 = np.array([0.5, 0, 0, 0, 0, 0])
-        boxes = build_boxes(self.N, L, A2)
+        boxes = self.solve_boxes(L, centre)
         boxes = boxes[np.lexsort((boxes[:, 2], boxes[:, 1], boxes[:, 0]))]
         cache = {}
         cur, acc, accb = None, None, None
