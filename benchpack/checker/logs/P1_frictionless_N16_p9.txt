@@ -1,0 +1,86 @@
+checker: P1_frictionless_N16_p9
+problem P1, variant frictionless, model quarter, label 'CERTIFIED (checked by the agent only)'
+  [pass] no module of benchpack/builder is loaded (only definitions.py is shared)
+  [pass] format string benchpack-certificate-1
+  [pass] P1 model is the quarter model
+  [pass] rho of definitions.py = (x^2+y^2-1/4)(7/4+y^2-x^2) exactly
+spaces: displacement degree 8, 16 x 16 cells; stress degree 9, 16 x 16 cells
+  [pass] displacement knots_x open on [0, 1] 
+  [pass] displacement knots_x: interior multiplicity 1 <= 8 (C^0 splines)
+  [pass] displacement knots_y open on [0, 1] 
+  [pass] displacement knots_y: interior multiplicity 1 <= 8 (C^0 splines)
+  [pass] stress knots_x open on [0, 1] 
+  [pass] stress knots_x: interior multiplicity 1 <= 8 (C^1 splines)
+  [pass] stress knots_y open on [0, 1] 
+  [pass] stress knots_y: interior multiplicity 1 <= 8 (C^1 splines)
+  [pass] g_base 1/2 is a knot of the stress knots_y
+  [pass] g vanishes below y = g_base >= 1/2, so g is zero on cells meeting the hole
+  [pass] displacement v0: array shapes (24, 24)
+  [pass] displacement vp: array shapes (24, 24)
+  [pass] displacement vm: array shapes (24, 24)
+  [pass] stress tau0: array shape (25, 25)
+  [pass] stress tau0: 3 g coefficients for 3 exponents
+  [pass] stress tp: array shape (25, 25)
+  [pass] stress tp: 3 g coefficients for 3 exponents
+  [pass] stress tm: array shape (25, 25)
+  [pass] stress tm: 3 g coefficients for 3 exponents
+  [pass] displacement v0: grip/mirror coefficient conditions
+  [pass] displacement vp: grip/mirror coefficient conditions
+  [pass] displacement vm: grip/mirror coefficient conditions
+  [pass] stress tau0: FORMAT coefficient conditions
+  [pass] stress tp: FORMAT coefficient conditions
+  [pass] stress tm: FORMAT coefficient conditions
+displacement v0: 256 cells evaluated (1 s)
+displacement vp: 256 cells evaluated (1 s)
+displacement vm: 256 cells evaluated (1 s)
+stress tau0: 256 cells evaluated (3 s)
+stress tp: 256 cells evaluated (3 s)
+stress tm: 256 cells evaluated (4 s)
+  [pass] displacement v0: continuous across all 398 interior edges (exact)
+  [pass] displacement v0: v_x = 0 on x = 0, v_x = 1/2 on x = 1, v_y = 0 on y = 0, exactly
+  [pass] displacement vp: continuous across all 398 interior edges (exact)
+  [pass] displacement vp: v_x = 0 on x = 0, v_x = 1/2 on x = 1, v_y = 0 on y = 0, exactly
+  [pass] displacement vm: continuous across all 398 interior edges (exact)
+  [pass] displacement vm: v_x = 0 on x = 0, v_x = 1/2 on x = 1, v_y = 0 on y = 0, exactly
+  [pass] stress tau0: div tau = 0 exactly in all 215 cells of the domain
+  [pass] stress tau0: normal traction continuous across all 398 interior edges (exact)
+  [pass] stress tau0: on all 15 cells cut by the hole, both components of tau.grad(rho) are divisible by x^2+y^2-1/4 and by 7/4+y^2-x^2, i.e. by rho (zero traction on the hole, exact)
+  [pass] stress tau0: zero traction on y = 1; zero shear on x = 0, y = 0 and the grip x = 1, exactly
+  [pass] stress tau0: grip force int_0^1 tau_xx(1,y) dy = 0.295600493761931 exactly, equal to sum_k gamma_k (1-g_base)^(e_k+1)/(e_k+1)
+  [pass] stress tp: div tau = 0 exactly in all 215 cells of the domain
+  [pass] stress tp: normal traction continuous across all 398 interior edges (exact)
+  [pass] stress tp: on all 15 cells cut by the hole, both components of tau.grad(rho) are divisible by x^2+y^2-1/4 and by 7/4+y^2-x^2, i.e. by rho (zero traction on the hole, exact)
+  [pass] stress tp: zero traction on y = 1; zero shear on x = 0, y = 0 and the grip x = 1, exactly
+  [pass] stress tp: grip force int_0^1 tau_xx(1,y) dy = 0.295599508852071 exactly, equal to sum_k gamma_k (1-g_base)^(e_k+1)/(e_k+1)
+  [pass] stress tm: div tau = 0 exactly in all 215 cells of the domain
+  [pass] stress tm: normal traction continuous across all 398 interior edges (exact)
+  [pass] stress tm: on all 15 cells cut by the hole, both components of tau.grad(rho) are divisible by x^2+y^2-1/4 and by 7/4+y^2-x^2, i.e. by rho (zero traction on the hole, exact)
+  [pass] stress tm: zero traction on y = 1; zero shear on x = 0, y = 0 and the grip x = 1, exactly
+  [pass] stress tm: grip force int_0^1 tau_xx(1,y) dy = 0.29560147867179 exactly, equal to sum_k gamma_k (1-g_base)^(e_k+1)/(e_k+1)
+  [pass] stress cells: 200 inside, 15 cut by the hole; area of the covered domain [0.803650459150638, 0.803650459150638] encloses |Omega_q| = 1 - pi/16 (width 0.0e+00)
+  [pass] displacement cells: 200 inside, 15 cut by the hole; area of the covered domain [0.803650459150638, 0.803650459150638] encloses |Omega_q| = 1 - pi/16 (width 0.0e+00)
+  [pass] patch: sum over cells of |patch ∩ cell| in [0.002625, 0.002625] encloses 21/8000
+recomputed integrals (exact on cells inside the domain; intervals where curved):
+  F(tau0) = 0.295600493761931 (exact)
+  F(tm) = 0.29560147867179 (exact)
+  F(tp) = 0.295599508852071 (exact)
+  Q(tau0) in [0.14780024688512, 0.14780024688512]  width 0.00e+00
+  Q(tm) in [0.147801231823049, 0.147801231823049]  width 0.00e+00
+  Q(tp) in [0.14779926200333, 0.14779926200333]  width 0.00e+00
+  a(v0) in [0.147800246894671, 0.147800246894671]  width 0.00e+00
+  a(vm) in [0.14780024695061, 0.14780024695061]  width 0.00e+00
+  a(vp) in [0.14780024695061, 0.14780024695061]  width 0.00e+00
+  l(tau0) in [1.03275284100697, 1.03275284100697]  width 0.00e+00
+  l(tm) in [1.03281170766999, 1.03281170766999]  width 0.00e+00
+  l(tp) in [1.03269397434394, 1.03269397434394]  width 0.00e+00
+  l(v0) in [1.032752766434, 1.032752766434]  width 0.00e+00
+  l(vm) in [1.03263545384622, 1.03263545384622]  width 0.00e+00
+  l(vp) in [1.03287007902178, 1.03287007902178]  width 0.00e+00
+  [pass] kappa = 1/2097152 > 0
+  m_up(+k) <= 0.0738996309644715, m_up(-k) <= 0.07390061587426, m_low(+k) >= 0.073899630949918, m_low(-k) >= 0.0739006158597776
+recomputed Q1: [0.591200987507, 0.591200987579]  width 7.144e-11  relative 1.208e-10
+  [pass] Q1 claim [0.5912009869, 0.5912009882] confirmed: 0.5912009869 <= 0.591200987507 and 0.591200987579 <= 0.5912009882
+recomputed Q2: [1.03273758048, 1.03276802689]  width 3.045e-05  relative 2.948e-05
+  [pass] Q2 claim [1.032737550, 1.032768058] confirmed: 1.032737550 <= 1.03273758048 and 1.03276802689 <= 1.032768058
+builder's own enclosures (diagnostic, not used): {'fields': {'v0': {'a': [0.14780024689467053, 0.14780024689467056], 'l': [1.032752766433997, 1.0327527664339973]}, 'vp': {'a': [0.14780024695060953, 0.14780024695060956], 'l': [1.0328700790217777, 1.032870079021778]}, 'vm': {'a': [0.14780024695060953, 0.14780024695060956], 'l': [1.0326354538462166, 1.0326354538462168]}, 'tau0': {'Q': [0.14780024688511958, 0.1478002468851196], 'F': [0.29560049376193054, 0.2956004937619306], 'Fexact': '1872093197189201/6333186975989760', 'l': [1.0327528410069653, 1.0327528410069655]}, 'tp': {'Q': [0.14779926200332968, 0.1477992620033297], 'F': [0.2955995088520709, 0.295599508852071], 'Fexact': '3744173919141811/12666373951979520', 'l': [1.0326939743439396, 1.0326939743439398]}, 'tm': {'Q': [0.14780123182304908, 0.1478012318230491], 'F': [0.29560147867179015, 0.2956014786717902], 'Fexact': '3744198869614993/12666373951979520', 'l': [1.0328117076699912, 1.0328117076699914]}}, 'bounds': {'K_up': [0.5912009875786821, 0.5912009875786822], 'K_low': [0.5912009875072439, 0.591200987507244], 'm_up_plus': [0.0738996309644715, 0.07389963096447151], 'm_up_minus': [0.07390061587426004, 0.07390061587426006], 'm_low_plus': [0.07389963094991799, 0.073899630949918], 'm_low_minus': [0.07390061585977759, 0.0739006158597776], 'Q2_low': [1.032737580477792, 1.0327375804777923], 'Q2_up': [1.0327680268919663, 1.0327680268919666]}, 'K': [0.5912009875072439, 0.5912009875786822], 'Q2': [1.0327375804777923, 1.0327680268919663]}
+RESULT: ALL CHECKS PASSED   (41 s)

@@ -1,0 +1,59 @@
+1. B-splines
+  ok    degree 2: sum of Greville abscissae times B-splines equals x exactly on every span
+  ok    degree 2: B-splines are C^(p-m) across knots of multiplicity m (exact)
+  ok    degree 5: sum of Greville abscissae times B-splines equals x exactly on every span
+  ok    degree 5: B-splines are C^(p-m) across knots of multiplicity m (exact)
+2. curved integrals
+  ok    grid 1/10: area of the quarter minus the disc encloses 1 - pi/16 (width 0.0e+00)
+  ok    grid 1/10: int x^2 over the quarter minus the disc encloses 1/3 - pi/256
+  ok    grid 1/16: area of the quarter minus the disc encloses 1 - pi/16 (width 0.0e+00)
+  ok    grid 1/16: int x^2 over the quarter minus the disc encloses 1/3 - pi/256
+  ok    grid 1/40: int_{P_h} 1 encloses the closed form (width 0.0e+00)
+  ok    grid 1/40: int_{P_h} x encloses the closed form (width 0.0e+00)
+  ok    grid 1/40: int_{P_h} y encloses the closed form (width 0.0e+00)
+  ok    grid 1/40: int_{P_h} x2+y2 encloses the closed form (width 0.0e+00)
+  ok    grid 1/40: int_{P_h} x^3 y^5 agrees with mpmath quadrature to 1e-40 (diagnostic)
+  ok    grid 1/100: int_{P_h} 1 encloses the closed form (width 0.0e+00)
+  ok    grid 1/100: int_{P_h} x encloses the closed form (width 0.0e+00)
+  ok    grid 1/100: int_{P_h} y encloses the closed form (width 0.0e+00)
+  ok    grid 1/100: int_{P_h} x2+y2 encloses the closed form (width 0.0e+00)
+  ok    grid 1/100: int_{P_h} x^3 y^5 agrees with mpmath quadrature to 1e-40 (diagnostic)
+  ok    grid 1/200: int_{P_h} 1 encloses the closed form (width 0.0e+00)
+  ok    grid 1/200: int_{P_h} x encloses the closed form (width 0.0e+00)
+  ok    grid 1/200: int_{P_h} y encloses the closed form (width 0.0e+00)
+  ok    grid 1/200: int_{P_h} x2+y2 encloses the closed form (width 0.0e+00)
+  ok    grid 1/200: int_{P_h} x^3 y^5 agrees with mpmath quadrature to 1e-40 (diagnostic)
+  ok    cut cell with a corner on the circle: closed form agrees with mpmath quadrature (1.0e-52, diagnostic)
+3. known answers: plate without the hole
+  ok    all checks pass on the exact fields of the plate without the hole
+  ok    K: recomputed bounds are [1, 1] exactly (known answer K = 1)
+  ok    Q2: the patch average of sigma_xx of the exact fields encloses 1/2 (width < 1e-200)
+  ok    Q2: the duality bounds [0.395343, 0.604657] contain 1/2
+  ok    Q2: bracket equals [1/2 - kappa c/4, 1/2 + kappa c/4], c = C11/|P_h|, as derived by hand
+4. Green identity with random admissible fields
+  ok    P1 frictionless, random fields: all exact checks pass
+  ok    P1 frictionless: int tau:eps(v) in [-0.312520384782142, -0.312520384782142] encloses F/2 = -0.312520384782142
+  ok    P1 frictionless: int tau:eps(v) in [0.535113792557327, 0.535113792557327] encloses F/2 = 0.535113792557327
+  ok    P1 clamped, random fields: all exact checks pass
+  ok    P1 clamped: int tau:eps(v) in [-0.228924433236984, -0.228924433236984] encloses F/2 = -0.228924433236984
+  ok    P1 clamped: int tau:eps(v) in [0.431154571070623, 0.431154571070623] encloses F/2 = 0.431154571070623
+  ok    P2, random fields: all exact checks pass
+  ok    P2: int tau:eps(v) = F(tau) = 1.15387361089121 exactly
+  ok    P2: int tau:eps(v) = F(tau) = -2.96901698441141 exactly
+5. falsification: random admissible fields
+  ok    P1 trial 0: all K and m(k) lower bounds below all upper bounds (36 pairs), Q2 lower <= upper
+  ok    P2 trial 0: all K and m(k) lower bounds below all upper bounds (36 pairs), Q2 lower <= upper
+  ok    P1 trial 1: all K and m(k) lower bounds below all upper bounds (36 pairs), Q2 lower <= upper
+  ok    P2 trial 1: all K and m(k) lower bounds below all upper bounds (36 pairs), Q2 lower <= upper
+  ok    P1 trial 2: all K and m(k) lower bounds below all upper bounds (36 pairs), Q2 lower <= upper
+  ok    P2 trial 2: all K and m(k) lower bounds below all upper bounds (36 pairs), Q2 lower <= upper
+6. negative tests: broken certificates are rejected
+  ok    rejected: P1 stress with shear on the mirror line x = 0  (failed check: stress tau: zero traction on y = 1; zero shear on x = 0, y = 0 and the grip x = 1, exactly)
+  ok    rejected: P1 displacement with a wrong grip value  (failed check: displacement v: v_x = 0 on x = 0, v_x = 1/2 on x = 1, v_y = 0 on y = 0, exactly -- [('v_x )
+  ok    rejected: P1 stress function only C^0 across x = 3/4  (failed check: stress tau: normal traction continuous across all 22 interior edges (exact) -- fails at [()
+  ok    rejected: P1 displacement discontinuous across x = 1/4  (failed check: displacement v: continuous across all 22 interior edges (exact))
+  ok    rejected: P1 stress function without the weight rho^2 (traction on the hole)  (failed check: stress tau: on all 3 cells cut by the hole, both components of tau.grad(rho) are divisible)
+  ok    rejected: claimed lower bound above the recomputed one  (failed check: Q1 claim [1.0000001, 1.1] confirmed: 1.0000001 <= 1 and 1 <= 1.1)
+  ok    rejected: claimed Q2 interval narrower than the recomputed one  (failed check: Q2 claim [0.4, 0.6] confirmed: 0.4 <= 0.395342752486 and 0.604657247514 <= 0.6)
+  ok    rejected: P2 stress with traction on the free edge x = 0  (failed check: stress tau: zero traction on y = 1, y = -1 (x <= 0), x = 0 (y <= 0), y = 0 (x >= 0), exact)
+ALL TESTS PASSED   (52 s)
