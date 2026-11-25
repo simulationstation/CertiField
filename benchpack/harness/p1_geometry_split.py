@@ -73,6 +73,16 @@ FIELDS = ["h", "element", "ndof", "K_h", "K_polygon", "K_polygon_spread", "K_dis
 LEVELS = [0.05, 0.025, 0.0125, 0.00625]
 
 
+def children_inside(parent, child, pidx):
+    """True if the centroid of every child element lies in its claimed parent element (barycentric test)."""
+    c = child.p[:, child.t].mean(axis=1)
+    a, b, d = (parent.p[:, parent.t[k, pidx]] for k in range(3))
+    det = (b[0] - a[0]) * (d[1] - a[1]) - (b[1] - a[1]) * (d[0] - a[0])
+    l1 = ((c[0] - a[0]) * (d[1] - a[1]) - (c[1] - a[1]) * (d[0] - a[0])) / det
+    l2 = ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / det
+    return bool(np.all(l1 > 0) and np.all(l2 > 0) and np.all(l1 + l2 < 1))
+
+
 def area_excess(h):
     m = cases.make_mesh("P1", h, 1, False)
     P, C = m["points"], m["cells"]
@@ -104,11 +114,16 @@ def main():
         # the polygonal domain Omega_h: refine the straight mesh (quadratic elements) while under the memory cap
         seq = [res["P2-straight"]]
         mesh = mesh0
-        finder = mesh0.element_finder()
+        tag = tag0
         while run_skfem.memory_gb(2, 4 * seq[-1][2], True) <= runlog.MAX_GB:
+            parent = mesh
             mesh = mesh.refined()
-            cen = mesh.p[:, mesh.t].mean(axis=1)
-            patch = np.nonzero(tag0[finder(cen[0], cen[1])])[0]
+            # scikit-fem's uniform refinement puts the children of element i at i + k * N, k = 0..3
+            tag = np.tile(tag, 4)
+            pidx = np.tile(np.arange(parent.nelements), 4)
+            if not children_inside(parent, mesh, pidx):
+                raise RuntimeError("unexpected element order after refinement")
+            patch = np.nonzero(tag)[0]
             t0 = time.perf_counter()
             seq.append(solve(mesh, ElementTriP2(), patch))
             print("h=%g refined %d: K(Omega_h) ~ %.12f  Q2 ~ %.10f  ndof=%d (%.1fs)" % (
