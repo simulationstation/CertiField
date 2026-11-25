@@ -116,9 +116,26 @@ def _mref(t, args, dps):
             return None
 
 
+def _fwd(t, base, pert=None):
+    """Forward function of an inverse target at base (y replaced by x): capped mpmath
+    series / continued fraction first for the incomplete-gamma family, Arb otherwise."""
+    fm = t.inv.get('fwd_m')
+    if getattr(t, 'mfirst', False) and fm:
+        try:
+            with mp.workdps(32), refs.capped(100000):
+                b = [v if isinstance(v, mpmath.mpf) else mpf(v) for v in base]
+                if pert is not None:
+                    b[pert[0]] = b[pert[0]] * (1 + mpf(pert[1]))
+                return +fm(*b)
+        except (mpmath.libmp.NoConvergence, ZeroDivisionError, ValueError, OverflowError):
+            pass
+    v, _, _ = refs.arb_eval(t.inv['fwd_a'], base, min_bits=90, pert=pert, budget=8)
+    return v
+
+
 def inv_fast(t, args, y):
-    """Cheap check of an inverse-function value x = y (the library's output): Arb value
-    and slope of the forward function F at x give the relative error estimate
+    """Cheap check of an inverse-function value x = y (the library's output): value and
+    slope of the forward function F at x give the relative error estimate
     |F(x) - p| / |x F'(x)|.  Returns the estimate, or None when it cannot be formed."""
     if not (math.isfinite(y) and y != 0):
         return None
@@ -126,29 +143,45 @@ def inv_fast(t, args, y):
     base = list(args)
     base[yi] = y
     h = 2.0 ** -40
-    if getattr(t, 'mfirst', False) and t.inv.get('fwd_m'):
-        # incomplete gamma family: mpmath series / continued fraction (capped) first
-        try:
-            with mp.workdps(30), refs.capped(20000):
-                b = [mpf(v) for v in base]
-                F0 = t.inv['fwd_m'](*b)
-                b[yi] = b[yi] * (1 + mpf(h))
-                F1 = t.inv['fwd_m'](*b)
-        except (mpmath.libmp.NoConvergence, ZeroDivisionError, ValueError, OverflowError):
-            F0 = F1 = None
-    else:
-        F0 = F1 = None
-    if F0 is None or F1 is None:
-        F0, _, _ = refs.arb_eval(t.inv['fwd_a'], base, min_bits=90, budget=5)
-        if F0 is None:
-            return None
-        F1, _, _ = refs.arb_eval(t.inv['fwd_a'], base, min_bits=90, pert=(yi, h), budget=5)
-        if F1 is None:
-            return None
+    F0 = _fwd(t, base)
+    if F0 is None:
+        return None
+    F1 = _fwd(t, base, (yi, h))
+    if F1 is None:
+        return None
     dF = (F1 - F0) / (mpf(h) * mpf(y))
     if dF == 0:
         return None
     return float(abs((F0 - mpf(args[yi])) / (dF * mpf(y))))
+
+
+def inv_newton_arb(t, args, y, iters=40):
+    """Screening reference for an inverse function when the library value y is close but
+    not within the fast-path tolerance: Newton steps on the Arb forward function, starting
+    at y (values to >= 90 bits, slope by a 2^-40 relative difference)."""
+    if not (math.isfinite(y) and y != 0):
+        return None
+    yi = inv_yi(t, args)
+    base = list(args)
+    p = mpf(args[yi])
+    h = mpf(2) ** -40
+    with mp.workprec(160):
+        x = mpf(y)
+        for _ in range(iters):
+            base[yi] = x
+            F0 = _fwd(t, base)
+            F1 = _fwd(t, base, (yi, float(h)))
+            if F0 is None or F1 is None or F1 == F0:
+                return None
+            dx = (F0 - p) * h * x / (F1 - F0)
+            xn = x - dx
+            dom = t.inv.get('xdom', 'real')
+            if xn == 0 or (dom != 'real' and xn < 0) or (dom == 'unit' and xn >= 1):
+                return None
+            if abs(dx) <= abs(x) * mpf(10) ** -22:
+                return +xn
+            x = xn
+    return None
 
 
 def binom_isf_fast(args, y):
@@ -175,6 +208,12 @@ def ref_screen(t, args, y):
             k, sfm1, sfk = refs.binom_isf_ref(*args)
         return mpf(k), 'mp30', (sfm1, sfk)
     if t.inv is not None:
+        try:
+            x = inv_newton_arb(t, args, y)
+        except Exception:
+            x = None
+        if x is not None:
+            return x, 'arb-newton', None
         with mp.workdps(30):
             try:
                 x = t.inv['solve'](*args, x0=y if math.isfinite(y) else None)

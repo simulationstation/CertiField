@@ -107,7 +107,7 @@ def lt_half(v):
 # =======================================================================================
 # mpmath: incomplete gamma and beta in mpmath arithmetic (series / continued fractions)
 # =======================================================================================
-MAXIT = 2_000_000
+MAXIT = 50_000_000  # confirmation; screening uses refs.capped(...)
 
 
 def _tol():
@@ -322,8 +322,13 @@ def mb_gammaincc(a, x):
     return mp.gammainc(a, x, mp.inf, regularized=True)
 
 
-A_gammainc = [lambda a, x: a_P(a, x), lambda a, x: a_P(a, x, True)]
-A_gammaincc = [lambda a, x: a_Q(a, x), lambda a, x: a_Q(a, x, True)]
+# Arb's upper incomplete gamma is fast and accurate everywhere tested, its regularized lower
+# one is slow or stalls at ~35 bits for large a below the mean: P = 1 - Q first (with rising
+# precision this covers P down to ~1e-290), the direct lower function second.
+A_gammainc = [lambda a, x: arb(0) if x.is_zero() else 1 - x.gamma_upper(a, 1),
+              lambda a, x: arb(0) if x.is_zero() else x.gamma_lower(a, 1)]
+A_gammaincc = [lambda a, x: arb(1) if x.is_zero() else x.gamma_upper(a, 1),
+               lambda a, x: arb(1) if x.is_zero() else 1 - x.gamma_lower(a, 1)]
 
 
 # Student t: tails via I_w(df/2, 1/2), w = df/(df+t^2), 1-w = t^2/(df+t^2)
@@ -381,7 +386,7 @@ def m_chdtr(v, x):
     return gamma_PQ(v / 2, x / 2)[0]
 
 
-A_chdtr = [lambda v, x: a_P(v / 2, x / 2), lambda v, x: a_P(v / 2, x / 2, True)]
+A_chdtr = [lambda v, x: A_gammainc[0](v / 2, x / 2), lambda v, x: A_gammainc[1](v / 2, x / 2)]
 
 
 def m_bdtr(k, n, p):
@@ -556,12 +561,10 @@ def a_IJ(a, b, x, y, flip=False):
 
 
 def a_PQ(a, x, flip=False):
+    """(P, Q): Q directly and P = 1 - Q (see A_gammainc); flip=True: P directly."""
     if x.is_zero():
         return arb(0), arb(1)
-    direct = _f(x) < _f(a) + 1
     if flip:
-        direct = not direct
-    if direct:
         P = x.gamma_lower(a, 1)
         return P, 1 - P
     Q = x.gamma_upper(a, 1)

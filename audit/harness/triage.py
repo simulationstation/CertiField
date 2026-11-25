@@ -138,7 +138,10 @@ def triage(t, recs):
     for (k, b), rs in cl.items():
         fin = [r for r in rs if isinstance(r.get('relerr'), float) and math.isfinite(r['relerr'])]
         worst = max(rs, key=lambda r: ((r.get('score') or 0), (r.get('relerr') if r in fin else 0)))
+        xs = [r['x'] for r in rs]
         rows.append({'kind': k, 'bucket': b, 'n': len(rs),
+                     'xmin': [min(v[i] for v in xs) for i in range(t.nargs)],
+                     'xmax': [max(v[i] for v in xs) for i in range(t.nargs)],
                      'max_relerr': max((r['relerr'] for r in fin), default=None),
                      'max_ulps': max((r.get('ulps') or 0 for r in rs), default=None) if t.dtype == 'float32' else None,
                      'flags': sorted({r.get('flag') for r in rs if r.get('flag')}),

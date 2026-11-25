@@ -318,8 +318,9 @@ def _bdtr_sampler(rng, n):
     return np.stack([k, N, p], axis=1)
 
 
-def _inv_dict(solve, fwd_a, increasing, yi=None, fwd_m=None):
-    d = dict(solve=solve, fwd_a=fwd_a, increasing=increasing, fwd_m=fwd_m)
+def _inv_dict(solve, fwd_a, increasing, yi=None, fwd_m=None, xdom='real'):
+    # xdom: domain of the result (real, pos, unit)
+    d = dict(solve=solve, fwd_a=fwd_a, increasing=increasing, fwd_m=fwd_m, xdom=xdom)
     if yi is not None:
         d['yi'] = yi
     return d
@@ -339,7 +340,7 @@ def _build_scipy_special():
     add(Target(sp + 'betaincinv', S, D, sc('betaincinv'), ('pos', 'pos', 'unit'),
                gens=(PAR, PAR, PROB), grid=grid3,
                valid=lambda a, b, y: pos(a, b) and unit_open(y),
-               inv=_inv_dict(refs.inv_betaincinv, refs.A_betainc, True, fwd_m=refs.m_betainc)))
+               inv=_inv_dict(refs.inv_betaincinv, refs.A_betainc, True, fwd_m=refs.m_betainc, xdom='unit')))
     grid2 = _prod(G_PAR + [1e8, 1e10, 1e12], [1e-300, 1e-100, 1e-20, 1e-5, 0.01, 0.1, 0.5, 1.0, 2.0,
                                                5.0, 10.0, 30.0, 100.0, 1e3, 1e4, 1e5, 1e6, 1e8, 1e10,
                                                1e12, 1e15, 1e100, 1e300])
@@ -353,7 +354,7 @@ def _build_scipy_special():
                gens=(M((1.5, LU(1e-6, 1e-2)), (3.5, LU(1e-2, 10)), (3, LU(10, 1e5)), (2, LU(1e5, 1e12))), PROB),
                grid=_prod(G_PAR + [1e8, 1e10, 1e12], G_UNIT[:-1] + [1 - 1e-15]),
                valid=lambda a, y: pos(a) and unit_open(y),
-               inv=_inv_dict(refs.inv_gammaincinv, refs.A_gammainc, True, fwd_m=refs.m_gammainc), mfirst=True))
+               inv=_inv_dict(refs.inv_gammaincinv, refs.A_gammainc, True, fwd_m=refs.m_gammainc, xdom='pos'), mfirst=True))
     LG = M((3, REAL_WIDE), (2, NEARINT(0, 170, -1.0, 1e-300, 0.5)), (1, NEAR(1.0)), (1, NEAR(2.0)),
            (2, NEAR_SET('lgamma_zeros', 1e-17, 1e-3)), (1, LU(1e-300, 1e300)))
     gx = [(v,) for v in G_REAL] + [(v,) for v in (1.0 + 2.0 ** -52, 1.0 - 2.0 ** -53, 2.0 + 2.0 ** -51, -0.5, -1.5, -2.5,
@@ -535,7 +536,8 @@ def _build_scipy_stats():
         add(Target(sx + dist + '.isf', S, D, st(dist, 'isf'), ('unit',) + ('pos',) * len(shapes[dist]),
                    gens=(PROB,) + shapes[dist], grid=[(q,) + s for s in gridshape[dist] for q in G_UNIT],
                    valid=lambda q, *s: unit_open(q) and all(fin(t) and t > 0 for t in s),
-                   inv=_inv_dict(refs.inv_isf(dist), refs.a_dist(dist, 'sf'), False, yi=0, fwd_m=refs.m_dist(dist, 'sf')),
+                   inv=_inv_dict(refs.inv_isf(dist), refs.a_dist(dist, 'sf'), False, yi=0, fwd_m=refs.m_dist(dist, 'sf'),
+                                 xdom={'beta': 'unit', 'norm': 'real', 't': 'real'}.get(dist, 'pos')),
                    mfirst=dist in ('chi2', 'gamma'),
                    note='isf(q, *shape)'))
     # binomial: (k, n, p)
