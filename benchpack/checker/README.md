@@ -64,7 +64,8 @@ A claim is confirmed if `lower_claim <= recomputed lower` and `recomputed upper 
 
 - `check.py` the checker; `fields.py` certificate data to per-cell polynomials and the per-cell work;
   `exact.py` exact polynomials, B-splines and integrals; `region.py` integrals over the curved regions;
-  `tests.py`, `synth.py` (test certificates); `logs/` run logs.
+  `tests.py`, `synth.py` (random test certificates), `ritz.py` (near-optimal test fields from a small float Ritz
+  solver; only their coefficients come from floating point, the bounds are the checker's); `logs/` run logs.
 - `logs/p3_exact_*_N24.txt`: P3, the separate exact checker of `Reference/Curved3D` (`exact_check.py`) run on both
   grid-24 certificates.
 

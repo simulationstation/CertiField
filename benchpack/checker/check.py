@@ -227,8 +227,12 @@ def check_cert(meta, arrays, rep, procs=2, claims_required=True, cache=None):
     rep.check(indep, 'no module of benchpack/builder is loaded (only definitions.py is shared)')
     rep.check(meta.get('format') == 'benchpack-certificate-1', 'format string benchpack-certificate-1')
     if prob.name == 'P1':
+        rep.check(prob.variant in ('frictionless', 'clamped', 'nohole-test'),
+                  'P1 variant %r is frictionless or clamped (P1c)' % prob.variant)
         rep.check(meta.get('model') == 'quarter', 'P1 model is the quarter model')
         rep.check(FD.check_rho_factors(), 'rho of definitions.py = (x^2+y^2-1/4)(7/4+y^2-x^2) exactly')
+    else:
+        rep.check(prob.variant == 'standard' and meta.get('model') == 'full', 'P2 variant standard, full model')
     dsp = FD.Space(meta['displacement_space'])
     ssp = FD.Space(meta['stress_space'])
     lo_b, hi_b = prob.box
