@@ -9,6 +9,7 @@
 4. Falsification: random admissible fields, and random perturbations of the optimal ones, never give bounds that
    cross the certified interval of the stored certificate.
 """
+import limits  # noqa: F401  (thread and process limits; must come before numpy)
 import sys
 import time
 from fractions import Fraction as Fr
