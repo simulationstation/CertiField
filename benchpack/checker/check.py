@@ -167,6 +167,12 @@ def check_cert(meta, arrays, rep, procs=8, claims_required=True):
     prob = FD.Problem(meta)
     rep.say('problem %s, variant %s, model %s, label %r' % (prob.name, prob.variant, meta.get('model'),
                                                             meta.get('label')))
+    try:
+        FD.assert_independent()
+        indep = True
+    except AssertionError:
+        indep = False
+    rep.check(indep, 'no module of benchpack/builder is loaded (only definitions.py is shared)')
     rep.check(meta.get('format') == 'benchpack-certificate-1', 'format string benchpack-certificate-1')
     if prob.name == 'P1':
         rep.check(meta.get('model') == 'quarter', 'P1 model is the quarter model')

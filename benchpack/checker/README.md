@@ -7,7 +7,7 @@ file is the problem definition `benchpack/problems/definitions.py`.
 ## Use
 
     cd benchpack/checker
-    python check.py ../certificates/STEM [--procs 8] [--log logs/STEM.log]
+    python check.py ../certificates/STEM [--procs 8] [--log logs/STEM.txt]
     python tests.py
 
 `check.py` prints every check with `[pass]` or `[FAIL]`, the recomputed integrals and bounds, and ends with

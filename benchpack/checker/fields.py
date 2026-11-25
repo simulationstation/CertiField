@@ -15,8 +15,19 @@ import exact as X
 import region as RG
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, '..', 'problems'))
+PROBLEMS = os.path.normpath(os.path.join(HERE, '..', 'problems'))
+if PROBLEMS not in sys.path:
+    sys.path.append(PROBLEMS)            # appended: the checker's own modules always come first
 import definitions as D      # noqa: E402  (the only file shared with the builder)
+assert os.path.normpath(os.path.dirname(os.path.abspath(D.__file__))) == PROBLEMS
+
+
+def assert_independent():
+    """no module of the builder (benchpack/builder) is loaded in this process"""
+    builder = os.path.normpath(os.path.join(HERE, '..', 'builder'))
+    bad = [m for m, mod in list(sys.modules.items())
+           if getattr(mod, '__file__', None) and os.path.normpath(os.path.abspath(mod.__file__)).startswith(builder)]
+    assert not bad, 'builder modules loaded: %s' % bad
 
 R_HOLE2 = D.P1['hole_radius'] ** 2                    # 1/4
 R_PATCH_OUT2 = D.P1['patch']['r_max'] ** 2            # 121/400
@@ -241,6 +252,7 @@ _STATE = {}
 
 
 def init_worker(meta, arrays):
+    assert_independent()
     sys.setrecursionlimit(10000)
     _STATE['meta'] = meta
     _STATE['arrays'] = arrays

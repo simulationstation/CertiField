@@ -56,4 +56,4 @@
   ok    rejected: claimed lower bound above the recomputed one  (failed check: Q1 claim [1.0000001, 1.1] confirmed: 1.0000001 <= 1 and 1 <= 1.1)
   ok    rejected: claimed Q2 interval narrower than the recomputed one  (failed check: Q2 claim [0.4, 0.6] confirmed: 0.4 <= 0.395342752486 and 0.604657247514 <= 0.6)
   ok    rejected: P2 stress with traction on the free edge x = 0  (failed check: stress tau: zero traction on y = 1, y = -1 (x <= 0), x = 0 (y <= 0), y = 0 (x >= 0), exact)
-ALL TESTS PASSED   (51 s)
+ALL TESTS PASSED   (52 s)
