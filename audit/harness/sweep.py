@@ -23,7 +23,7 @@ import runner  # noqa: E402  (sets the thread limits before numpy is imported)
 import numpy as np  # noqa: E402
 
 RESULTS = os.environ.get('AUDIT_RESULTS') or os.path.join(os.path.dirname(HERE), 'results')
-LOGS = os.path.join(os.path.dirname(HERE), 'logs')
+LOGS = os.path.join(os.path.dirname(RESULTS), 'logs')  # follows AUDIT_RESULTS (tests)
 
 
 def fbase(name):

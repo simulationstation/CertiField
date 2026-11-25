@@ -161,6 +161,36 @@ def rfun(name):
     return f
 
 
+JULIA = os.environ.get('AUDIT_JULIA') or os.path.join(
+    os.environ.get('LOCALAPPDATA', ''), 'Programs', 'julia-1.13.4', 'bin', 'julia.exe')
+
+
+def jfun(name):
+    """Call Julia (harness/julia/eval.jl, its own project) on a batch of points."""
+    def f(*a):
+        import subprocess
+        import tempfile
+        d = os.path.join(os.environ.get('LOCALAPPDATA', tempfile.gettempdir()), 'certifield_audit', 'julia')
+        os.makedirs(d, exist_ok=True)
+        fin, fout = os.path.join(d, 'in.csv'), os.path.join(d, 'out.txt')
+        cols = [np.asarray(v, dtype=float) for v in a]
+        with open(fin, 'w') as fh:
+            for row in zip(*cols):
+                fh.write(','.join(float(v).hex() for v in row) + chr(10))
+        proj = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'julia')
+        env = dict(os.environ, JULIA_NUM_THREADS='1', OPENBLAS_NUM_THREADS='1')
+        subprocess.run([JULIA, '--startup-file=no', '--project=' + proj, os.path.join(proj, 'eval.jl'), name, fin, fout],
+                       check=True, capture_output=True, timeout=1200, env=env)
+        out = []
+        with open(fout) as fh:
+            for line in fh:
+                v = line.strip()
+                out.append({'NaN': math.nan, 'Inf': math.inf, '-Inf': -math.inf}[v]
+                           if v in ('NaN', 'Inf', '-Inf') else float.fromhex(v))
+        return np.array(out, dtype=float)
+    return f
+
+
 # =======================================================================================
 # Target
 # =======================================================================================
@@ -310,6 +340,8 @@ def build():
         _build_torch(dt)
     if os.path.exists(RSCRIPT):
         _build_R()
+    if os.path.exists(JULIA):
+        _build_julia()
 
 
 def _beta_sampler(rng, n):
@@ -671,3 +703,48 @@ def _build_R():
                    inv=_inv_dict(refs.inv_logsf(dist), refs.a_dist(dist, 'logsf'), False, yi=0,
                                  fwd_m=refs.m_dist(dist, 'logsf'), xdom=xdom),
                    note='log upper-tail probability -> quantile'))
+
+
+def _build_julia():
+    """SpecialFunctions.jl and Distributions.jl (spec 4.1, optional): the same samplers,
+    domains and references as the corresponding SciPy targets."""
+    J, D = 'julia', 'float64'
+    sf, ds = 'julia.SpecialFunctions.', 'julia.Distributions.'
+
+    def like(src, name, jname, inv=None):
+        s = get(src)
+        add(Target(name, J, D, jfun(jname), s.kinds, gens=s.gens, sampler=s._sampler, grid=s.grid,
+                   valid=s.valid, mref=s.mref, aref=s.aref, malt=s.malt, inv=inv or s.inv, out=s.out,
+                   osc=s.osc, note=s.note, mfirst=s.mfirst))
+    like('scipy.special.gammainc', sf + 'gamma_inc[p]', 'gamma_inc_p')
+    like('scipy.special.gammaincc', sf + 'gamma_inc[q]', 'gamma_inc_q')
+    like('scipy.special.gammaincinv', sf + 'gamma_inc_inv', 'gamma_inc_inv')
+    like('scipy.special.betainc', sf + 'beta_inc[p]', 'beta_inc_p')
+    like('scipy.special.betaincc', sf + 'beta_inc[q]', 'beta_inc_q')
+    like('scipy.special.betaincinv', sf + 'beta_inc_inv', 'beta_inc_inv')
+    like('scipy.special.gammaln', sf + 'logabsgamma', 'logabsgamma')
+    like('scipy.special.digamma', sf + 'digamma', 'digamma')
+    like('scipy.special.erfcinv', sf + 'erfcinv', 'erfcinv')
+    like('scipy.special.erfcx', sf + 'erfcx', 'erfcx')
+    like('scipy.special.zeta2', sf + 'zeta(s,q)', 'zeta')
+    like('scipy.special.jv', sf + 'besselj', 'besselj')
+    add(Target(sf + 'trigamma', J, D, jfun('trigamma'), ('real',),
+               gens=(M((4, SLU(1e-3, 1e6)), (3, U(-30, 30)), (2, NEARINT(0, 1e4, -1.0, 1e-12, 0.5)), (1, SLU(1e-30, 1e300))),),
+               grid=[(v,) for v in G_REAL], valid=lambda x: fin(x) and not is_nonpos_int(x),
+               mref=lambda x: refs.m_polygamma(1, x), aref=[(lambda x, f=f: f(refs.arb(1), x)) for f in refs.A_polygamma]))
+    BV = M((3, U(0, 5)), (3, LU(1e-3, 1e3)), (2, lambda rng, n: np.floor(U(0, 100)(rng, n))))
+    BX = M((3, LU(1e-3, 1e3)), (5, LU(10, 1e4)), (2, LU(1e4, 1e300)))
+    add(Target(sf + 'besselix', J, D, jfun('besselix'), ('real', 'pos'), gens=(BV, BX),
+               valid=lambda v, x: fin(v) and v >= 0 and pos(x),
+               mref=lambda v, x: mp.besseli(v, x) * mp.exp(-x), aref=[lambda v, x: x.bessel_i(v, scaled=True)]))
+    add(Target(sf + 'besselkx', J, D, jfun('besselkx'), ('real', 'pos'), gens=(BV, BX),
+               valid=lambda v, x: fin(v) and v >= 0 and pos(x),
+               mref=lambda v, x: mp.besselk(v, x) * mp.exp(x), aref=[lambda v, x: x.bessel_k(v, scaled=True)]))
+    for dist, jn in (('norm', 'normal'), ('t', 't'), ('chi2', 'chisq'), ('f', 'f'), ('beta', 'beta'),
+                     ('gamma', 'gamma'), ('binom', 'binom')):
+        like('scipy.stats.%s.logsf' % dist, ds + 'logccdf(%s)' % jn, jn + '_logccdf')
+    R_t = 'R.qt(lower.tail=FALSE,log.p=TRUE)'
+    R_b = 'R.qbeta(lower.tail=FALSE,log.p=TRUE)'
+    if R_t in REG:
+        like(R_t, ds + 'invlogccdf(t)', 't_invlogccdf')
+        like(R_b, ds + 'invlogccdf(beta)', 'beta_invlogccdf')

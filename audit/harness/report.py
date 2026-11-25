@@ -31,7 +31,28 @@ ARGS = {
 STATS_ARGS = {'norm': '', 't': 'df', 'chi2': 'df', 'f': 'dfn,dfd', 'beta': 'a,b', 'gamma': 'a', 'binom': 'n,p'}
 
 
+OTHER = {
+    'R.pt': 'x,df', 'R.pf': 'x,df1,df2', 'R.pchisq': 'x,df', 'R.pbeta': 'x,a,b', 'R.pgamma': 'x,shape',
+    'R.pbinom': 'k,n,p', 'R.qt': 'lp,df', 'R.qbeta': 'lp,a,b',
+    'julia.SpecialFunctions.gamma_inc': 'a,x', 'julia.SpecialFunctions.gamma_inc_inv': 'a,p',
+    'julia.SpecialFunctions.beta_inc': 'a,b,x', 'julia.SpecialFunctions.beta_inc_inv': 'a,b,p',
+    'julia.SpecialFunctions.logabsgamma': 'x', 'julia.SpecialFunctions.digamma': 'x',
+    'julia.SpecialFunctions.trigamma': 'x', 'julia.SpecialFunctions.erfcinv': 'y',
+    'julia.SpecialFunctions.erfcx': 'x', 'julia.SpecialFunctions.zeta(s,q)': 's,q',
+    'julia.SpecialFunctions.besselj': 'v,x', 'julia.SpecialFunctions.besselix': 'v,x',
+    'julia.SpecialFunctions.besselkx': 'v,x',
+    'julia.Distributions.logccdf(normal)': 'x', 'julia.Distributions.logccdf(t)': 'x,df',
+    'julia.Distributions.logccdf(chisq)': 'x,k', 'julia.Distributions.logccdf(f)': 'x,d1,d2',
+    'julia.Distributions.logccdf(beta)': 'x,a,b', 'julia.Distributions.logccdf(gamma)': 'x,a',
+    'julia.Distributions.logccdf(binom)': 'k,n,p', 'julia.Distributions.invlogccdf(t)': 'lp,df',
+    'julia.Distributions.invlogccdf(beta)': 'lp,a,b',
+}
+
+
 def argnames(target):
+    for k, v in OTHER.items():
+        if target.startswith(k) and (len(target) == len(k) or target[len(k)] in '([' or k.endswith(')')):
+            return v.split(',')
     base = target.split('[')[0]
     lib, rest = base.split('.', 1)
     if rest.startswith('stats.'):
