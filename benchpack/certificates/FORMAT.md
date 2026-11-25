@@ -1,6 +1,7 @@
 # Certificate format (P1, P2)
 
-Version: `benchpack-certificate-1`. This file describes the certificate data completely, so that the stress and
+Version: `benchpack-certificate-1`, revision 2 (general base point `b` of `g`, the clamped variant P1c, exact
+integration in section 7). This file describes the certificate data completely, so that the stress and
 displacement fields can be rebuilt from the data alone and every identity and bound checked in exact arithmetic,
 without reading the builder's code. The problem data (domain, material, grips, patch, the weight `rho` of P1, the
 symmetry reduction of P1) are in `benchpack/problems/definitions.py`, the only file the checker may share with the
@@ -50,18 +51,19 @@ npz array names: a displacement field called `NAME` is stored as `NAME_A` and `N
 displacement space); a stress field called `NAME` as `NAME_C` (shape `(n_x, n_y)` of the stress space) and
 `NAME_par` (P1: the coefficients `gamma_k` of `g`; P2: `(alpha, beta, gamma)`).
 
-## 3. P1 (frictionless grips; quarter model)
+## 3. P1 (quarter model; variant `frictionless`, and `clamped` = P1c)
 
 Model: `Omega_q = {(x,y) in [0,1]^2 : x^2 + y^2 >= 1/4}` (`P1_QUARTER` in definitions.py). Mirror lines x = 0 and
-y = 0, grip x = 1 (frictionless), free edge y = 1, free arc `x^2 + y^2 = 1/4`.
+y = 0, grip x = 1 (frictionless or clamped), free edge y = 1, free arc `x^2 + y^2 = 1/4`. Where the two variants
+differ this is stated.
 
 ### 3.1 Displacement fields
 
     v_x(x, y) = x/2 + sum A[i,j] B_i(x) B'_j(y),       v_y(x, y) = sum B[i,j] B_i(x) B'_j(y).
 
-Conditions (exact equalities of stored floats): `A[0, :] = 0`, `A[n_x−1, :] = 0`, `B[:, 0] = 0`. With open knot
-vectors this gives `v_x = 0` on x = 0, `v_x = 1/2 = δ/2` on x = 1, `v_y = 0` on y = 0: every such `v` is
-kinematically admissible for the quarter model.
+Conditions (exact equalities of stored floats): `A[0, :] = 0`, `A[n_x−1, :] = 0`, `B[:, 0] = 0`; for `clamped` also
+`B[n_x−1, :] = 0`. With open knot vectors this gives `v_x = 0` on x = 0, `v_x = 1/2 = δ/2` on x = 1, `v_y = 0` on
+y = 0 (and `v_y = 0` on x = 1 for `clamped`): every such `v` is kinematically admissible for the quarter model.
 
 Strain and energy: `eps = (dv_x/dx, dv_y/dy, dv_x/dy + dv_y/dx)`, `a_q(v, v) = ∫_{Omega_q} eps.C.eps dA` with `C` of
 definitions.py (`C = [[100/91, 30/91, 0], [30/91, 100/91, 0], [0, 0, 5/13]]`). Stress of `v`: `C eps(v)`.
@@ -70,17 +72,18 @@ definitions.py (`C = [[100/91, 30/91, 0], [30/91, 100/91, 0], [0, 0, 5/13]]`). S
 
     tau = g(y) e_x⊗e_x + Airy(rho^2 Psi),
     Psi(x, y) = sum C[i,j] B_i(x) B'_j(y)                (stress space, degree ps),
-    g(y)      = sum_k gamma_k (y − 1/2)^{e_k} for y >= 1/2,   g(y) = 0 for y < 1/2,
+    g(y)      = sum_k gamma_k (y − b)^{e_k} for y >= b,   g(y) = 0 for y < b,          (b = g_base >= 1/2)
     rho(x, y) = 2x^2 − x^4 + y^4 + (3/2)y^2 − 7/16 = (x^2 + y^2 − 1/4)(7/4 + y^2 − x^2)   (RHO in definitions.py),
     Airy(phi): tau_xx = phi_yy, tau_yy = phi_xx, tau_xy = −phi_xy.
 
-The exponents `e_k` (non-negative integers) are `stress_space.g_exponents`, the base point 1/2 is
-`stress_space.g_base`; `gamma_k = NAME_par[k]`. So on each cell `tau` is a polynomial; `g` adds a polynomial in y on
-cells with y >= 1/2 (`1/2` is always a knot of `knots_y` of the stress space, so `g` is polynomial on every cell).
+The exponents `e_k` (non-negative integers) are `stress_space.g_exponents`, the base point `b` (a rational >= 1/2)
+is `stress_space.g_base`; `gamma_k = NAME_par[k]`. So on each cell `tau` is a polynomial; `g` adds a polynomial in y
+on cells with y >= b (`b` is always a knot of `knots_y` of the stress space, so `g` is polynomial on every cell).
 
 Conditions on the coefficients (exact equalities of stored floats):
 
-- `C[0, :] = C[1, :]` and `C[n_x−1, :] = C[n_x−2, :]` (so `Psi_x = 0` on x = 0 and on x = 1);
+- `C[0, :] = C[1, :]` (`Psi_x = 0` on x = 0); for `frictionless` also `C[n_x−1, :] = C[n_x−2, :]` (`Psi_x = 0` on
+  x = 1); for `clamped` no condition at x = 1;
 - `C[:, 0] = C[:, 1]` (`Psi_y = 0` on y = 0);
 - `C[:, n_y−1] = C[:, n_y−2] = 0` (`Psi = Psi_y = 0` on y = 1).
 
@@ -89,13 +92,14 @@ Identities that make `tau` statically admissible (all are polynomial identities,
 1. `div tau = 0` on every cell (true for any Airy field and for `g(y) e_x⊗e_x`).
 2. Traction continuity across every interior cell edge: across x = const, `(tau_xx, tau_xy)` continuous; across
    y = const, `(tau_xy, tau_yy)` continuous (follows from `rho^2 Psi` being C^1: knot multiplicities are at most
-   `ps − 1`; `g` jumps only across y = 1/2, where it is tangential).
+   `ps − 1`; `g` can jump only across y = b, where it is tangential).
 3. Hole: on every cell meeting the circle, both components of `tau ∇rho` are divisible by `rho` (as polynomials). For
    the Airy part this holds because `rho^2 Psi` and its gradient vanish on `rho = 0`; the `g` part vanishes on all
-   cells with y < 1/2, and the circle has no points with y > 1/2. Since `rho = 0` on the circle exactly, the
+   cells with y < b, and the circle has no points with y > 1/2. Since `rho = 0` on the circle exactly, the
    traction on the hole is zero.
-4. Free edge y = 1: `tau_xy = tau_yy = 0`. Mirror lines and grip: `tau_xy = 0` on x = 0, on y = 0 and on x = 1.
-5. Force: `F_q(tau) = ∫_0^1 tau_xx(1, y) dy = sum_k gamma_k (1/2)^{e_k+1}/(e_k+1)` (the Airy part contributes
+4. Free edge y = 1: `tau_xy = tau_yy = 0`. Mirror lines: `tau_xy = 0` on x = 0 and on y = 0. Frictionless grip:
+   `tau_xy = 0` on x = 1 (no condition at x = 1 for `clamped`).
+5. Force: `F_q(tau) = ∫_0^1 tau_xx(1, y) dy = sum_k gamma_k (1 − b)^{e_k+1}/(e_k+1)` (the Airy part contributes
    `[d(rho^2 Psi)/dy](1, y)` from y = 0 to 1, which is 0).
 
 Complementary energy: `Q_q(tau) = ∫_{Omega_q} tau.S.tau dA` with `S = [[1, −3/10, 0], [−3/10, 1, 0], [0, 0, 13/5]]`,
@@ -192,10 +196,10 @@ and the same two quotients for Q2.
 ## 5. JSON keys
 
     format              "benchpack-certificate-1"
-    problem, variant    "P1" "frictionless" | "P1" "clamped" | "P2" "standard"
+    problem, variant    "P1" "frictionless" | "P1" "clamped" (P1c) | "P2" "standard"
     model               "quarter" (P1) | "full" (P2)
     displacement_space  {"degree": pu, "knots_x": [...], "knots_y": [...]}
-    stress_space        {"degree": ps, "knots_x": [...], "knots_y": [...], "g_exponents": [...], "g_base": "1/2"} (P1)
+    stress_space        {"degree": ps, "knots_x": [...], "knots_y": [...], "g_exponents": [...], "g_base": "b"} (P1)
     fields              {"Q1": {"v": NAME, "tau": NAME},
                          "Q2": {"kappa": "p/q", "v_plus": NAME, "v_minus": NAME, "tau_plus": NAME, "tau_minus": NAME}}
     claims              {"Q1": {"lower": "...", "upper": "..."}, "Q2": {"lower": "...", "upper": "..."}}
@@ -207,26 +211,27 @@ A certificate may contain only `Q1` (then `fields.Q2` and `claims.Q2` are absent
 
 ## 6. Claims
 
-The builder computes rigorous bounds `lo <= Q <= hi` (outward-rounded interval arithmetic, exact rationals and
-ball arithmetic for the transcendental constants of P1; see section 7). The claim is weakened before it is stored:
+The builder computes rigorous bounds `lo <= Q <= hi` (exact rationals, and Arb ball arithmetic for the
+transcendental constants of P1; see section 7). The claim is weakened before it is stored:
 with `s = max(|lo|, |hi|)` and `w = max(1e-9 s, 1e-3 (hi − lo))`, the claimed lower number is `lo − w` rounded down
 and the claimed upper number `hi + w` rounded up, both to 10 significant decimal digits. A checker confirms a claim
 if its own rigorous bounds satisfy `lower_claim <= lo_checker` and `hi_checker <= upper_claim`.
 
 ## 7. How the builder evaluates the integrals (informational)
 
-- Cells entirely in `Omega` (P1: `min x^2+y^2 over the cell >= 1/4`, decided exactly): tensor Gauss–Legendre rules
-  exact for the degree (n points per direction, `2n − 1 >=` the degree of the integrand in each variable), nodes and
-  weights enclosed in rational intervals, values in outward-rounded float64 interval arithmetic, sums rounded up.
-- P1 cells cut by the circle: exact polynomial integrand (rational coefficients) integrated over the cell minus the
-  disc by Green's formula; the arc part reduces to `∫ cos^n t dt` between endpoints whose cosines and sines are
-  square roots of rationals; the only transcendental numbers are the endpoint angles, enclosed with Arb balls
-  (python-flint).
+- On every cell the integrand is built as one polynomial with rational coefficients (python-flint `fmpq_mpoly`; the
+  stored floats are exact binary rationals) and integrated over the cell exactly (rational result). No quadrature
+  rule and no floating-point rounding are involved.
+- P1 cells cut by the circle (`min x^2+y^2 over the cell < 1/4 < max`, decided exactly): the exact integral over the
+  cell minus the integral over the part inside the disc. The latter is integrated in y first, then along the arc,
+  which reduces to `∫ cos^n t dt` between endpoints whose cosines and sines are rationals or square roots of
+  rationals; the only transcendental numbers are the endpoint angles. They are enclosed in Arb balls (python-flint,
+  320 bits). Cells inside the disc are skipped.
 - P1 patch integrals: divergence theorem on `P_h` (`∫ dv_x/dx = ∮ v_x n_x`, `∫ dv_y/dy = ∮ v_y n_y`,
   `∫ tau_xx = ∮ (phi_y) n_y` with `phi` the full Airy function of `tau`, which is C^1 and has `phi_y = 0` on the
   hole); the boundary pieces are the two arcs, the ray at angle `pi/2 − 1/10` and the segment on x = 0, split at the
   cell lines; trigonometric constants (`sin(1/10)`, `cos(1/10)`, crossing angles) as Arb balls.
-- P2: all cells are rectangles inside `Omega`; Gauss rules as above.
+- P2: every cell is inside or outside `Omega`; exact rational integrals as above.
 
 ## 8. What a checker has to do
 
