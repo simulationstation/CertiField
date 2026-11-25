@@ -29,9 +29,10 @@ def vcvars():
 def build(inc, exe):
     os.makedirs(OUT, exist_ok=True)
     src = os.path.join(HERE, 'boost', 'check.cpp')
-    cmd = ('call "%s" >nul && cl /nologo /EHsc /O2 /std:c++17 /fp:precise /I "%s" "%s" /Fe:"%s" /Fo:"%s\\\\"'
-           % (vcvars(), inc, src, exe, OUT))
-    r = subprocess.run(['cmd', '/c', cmd], capture_output=True, text=True)
+    inner = ('"%s" >nul && cl /nologo /EHsc /O2 /std:c++17 /fp:precise /I "%s" "%s" /Fe:"%s" /Fo:"%s\\\\"'
+             % (vcvars(), inc, src, exe, OUT))
+    # one string, so that cmd sees the quotes unchanged (/s: strip only the outer pair)
+    r = subprocess.run('cmd /s /c "%s"' % inner, capture_output=True, text=True)
     if r.returncode != 0:
         print(r.stdout[-3000:], r.stderr[-3000:])
         raise SystemExit('build failed')
@@ -49,10 +50,9 @@ def run(lines):
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     if len(sys.argv) > 1 and sys.argv[-1] == 'build':
-        old = sys.argv[sys.argv.index('--old') + 1]
-        new = sys.argv[sys.argv.index('--new') + 1]
-        build(old, os.path.join(OUT, 'check_old.exe'))
-        build(new, os.path.join(OUT, 'check_new.exe'))
+        for tag in ('old', 'new'):
+            if '--' + tag in sys.argv:
+                build(sys.argv[sys.argv.index('--' + tag) + 1], os.path.join(OUT, 'check_%s.exe' % tag))
         print('built in', OUT)
         return
     lines = [l.strip() for l in sys.stdin if l.strip()]
