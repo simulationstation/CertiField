@@ -1,0 +1,18 @@
+[    0s] 1. known answers of the exact evaluator
+   a(lift) = 15/52, Q(particular) = 1349/40, l = -839/400, F = 5/4
+[    2s]    ok
+[    2s] 2. exact identities of random admissible stress fields
+   all identities hold exactly (399 cells, 56 free cell edges)
+[    2s]    ok
+[    2s] 3. exact evaluator against the float assembly (random admissible fields)
+   8748787.82918  756.437068981  -1.35974754031  1239.53674249  -0.177834449784
+[    5s]    ok
+[    5s] 4. falsification against the stored certificate P2_h32_L7_p6
+   eps=0, kappa'=3.784 kappa: K in [0.1226044422, 0.1226073816]  Q2 in [-0.30964696, -0.30926157]  no crossing
+   eps=1e-06, kappa'=2.204 kappa: K in [0.1226044422, 0.1226073816]  Q2 in [-0.30959155, -0.30931698]  no crossing
+   eps=0.0001, kappa'=1.471 kappa: K in [0.1226044410, 0.1226073832]  Q2 in [-0.30957747, -0.30933106]  no crossing
+   eps=0.01, kappa'=2.970 kappa: K in [0.1225921831, 0.1226239670]  Q2 in [-0.30989259, -0.30901594]  no crossing
+[  249s]    ok
+[  249s] 5. re-evaluation of the stored certificate
+P2_h32_L7_p6: K in [0.122604442179, 0.122607381577], Q2 in [-0.3095829569, -0.3093255745]; claims {'Q1': {'lower': '0.1226044392', 'upper': '0.1226073846'}, 'Q2': {'lower': '-0.3095832144', 'upper': '-0.3093253171'}}: OK
+[  300s] ALL P2 TESTS PASSED

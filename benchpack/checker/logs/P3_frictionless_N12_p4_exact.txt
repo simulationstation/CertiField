@@ -1,0 +1,39 @@
+p3check: P3_frictionless_N12_p4_exact   (checkpoints in cache\P3_frictionless_N12_p4_exact_806a688ac7cc7a47)
+  [pass] no module of benchpack/builder is loaded (only definitions.py is shared)
+  [pass] format, problem P3, octant model
+  [pass] variant 'frictionless'
+grid N = 12; displacement degree 3, stress degree 4; integration {'mode': 'exact'}
+  [pass] displacement knots x: open on [0, 1], break points on the grid 1/N 
+  [pass] displacement knots x: interior multiplicity 1 <= 3
+  [pass] displacement knots y: open on [0, 1], break points on the grid 1/N 
+  [pass] displacement knots y: interior multiplicity 1 <= 3
+  [pass] displacement knots z: open on [0, 1], break points on the grid 1/N 
+  [pass] displacement knots z: interior multiplicity 1 <= 3
+  [pass] stress knots x: open on [0, 1], break points on the grid 1/N 
+  [pass] stress knots x: interior multiplicity 3 <= 3
+  [pass] stress knots y: open on [0, 1], break points on the grid 1/N 
+  [pass] stress knots y: interior multiplicity 1 <= 3
+  [pass] stress knots z: open on [0, 1], break points on the grid 1/N 
+  [pass] stress knots z: interior multiplicity 1 <= 3
+  [pass] V shape (3, 15, 15, 15)
+  [pass] Psi shape (6, 18, 16, 16)
+  [pass] gam has 2 n_g entries
+  [pass] N = 12 divisible by 4 (1/2 and 3/4 are grid points)
+  [pass] g_base = 1/2 and eta_flat_from = 3/4
+  [pass] integration mode 'exact' is superset or exact
+  [pass] displacement: coefficient conditions of FORMAT.md 9
+  [pass] stress potential: parity and free-face conditions of FORMAT.md 9
+all slabs evaluated (466 s)
+  [pass] div tau = 0 exactly in all 1650 cells of the domain
+  [pass] traction continuous across all 4518 faces meeting the domain
+  [pass] zero traction on the sphere: tau.grad(rho) divisible by rho in all 79 cut cells
+  [pass] zero traction on y = 1, z = 1; zero shear on the mirror planes and the grip
+  [pass] grip force F_o = 0.878970777738754 exactly, equal to sum (gamma_k + delta_k) (1/2)^(e_k+1)/(e_k+1)
+  [pass] displacement continuous across all 4518 faces; mirror and grip values exact
+  [pass] volume of the integration domain [0.934550153050213, 0.934550153050213] encloses |Omega_o| = 1 - pi/48 (exact domain)
+energies (enclosures): Q_o in [0.879235922968824, 0.879235922968824] (width 4.3e-163), a_o in [0.219702744469193, 0.219702744469193] (width 3.5e-167); the bounds use the upper ends
+recomputed (exact rationals): F_o = 0.878970777738754, Q_o = 0.879235922968824, a_o = 0.219702744469193
+recomputed K: [1.75741142493, 1.75762195575]  width 2.105e-04  relative 1.198e-04
+  [pass] claim [1.757411214, 1.757622167] confirmed: 1.757411214 <= 1.75741142493 and 1.75762195575 <= 1.757622167
+builder's own values (diagnostic): {'Q_oct_upper': 0.8792359230231355, 'F_oct': '25977869315303111/29554872554618880', 'a_oct_upper': 0.21970274446996424, 'K': [1.7574114248249175, 1.757621955759714]}
+RESULT: ALL CHECKS PASSED   (466 s)

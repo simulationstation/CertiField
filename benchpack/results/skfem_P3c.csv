@@ -1,0 +1,17 @@
+code,case,element,h,ndof,nfree,nelem,time_s,mesh_time_s,K,K_energy,Q2,patch_area,note
+scikit-fem,P3c,P1,0.4,1086,614,1007,0.427,0.065,1.88450058786,1.88450058786,nan,nan,
+scikit-fem,P3c,P1,0.2,3933,2620,4602,0.267,0.121,1.85160084205,1.85160084205,nan,nan,
+scikit-fem,P3c,P1,0.1,19350,15037,28406,1.765,0.397,1.83839133797,1.83839133797,nan,nan,
+scikit-fem,P3c,P1,0.07,48795,40376,78316,4.741,1.295,1.8355189951,1.8355189951,nan,nan,
+scikit-fem,P3c,P1,0.05,121887,105887,209921,13.205,3.749,1.83405018668,1.83405018668,nan,nan,
+scikit-fem,P3c,P2-straight,0.4,6186,4514,1007,0.597,0.052,1.84131866085,1.84131866085,nan,nan,
+scikit-fem,P3c,P2-straight,0.2,24696,19832,4602,3.235,0.159,1.83455939574,1.83455939574,nan,nan,
+scikit-fem,P3c,P2-straight,0.1,134541,118038,28406,25.039,0.437,1.83295257544,1.83295257544,nan,nan,
+scikit-fem,P3c,P2-straight,0.07,353841,321230,78316,81.979,1.359,1.83266727536,1.83266727536,nan,nan,"computed before the 4 GB memory cap was set (estimated 9.5 GB); kept, not rerun"
+scikit-fem,P3c,P2-curved,0.4,6186,4514,1007,0.924,0.094,1.83502523922,1.83502523922,nan,nan,
+scikit-fem,P3c,P2-curved,0.2,24696,19832,4602,3.033,0.204,1.83288782371,1.83288782371,nan,nan,
+scikit-fem,P3c,P2-curved,0.1,134541,118038,28406,26.452,0.918,1.83249765087,1.83249765087,nan,nan,
+scikit-fem,P3c,P2-curved,0.07,353841,321230,78316,95.39,3.268,1.8324420718,1.8324420718,nan,nan,"computed before the 4 GB memory cap was set (estimated 9.5 GB); kept, not rerun"
+scikit-fem,P3c,P1,0.085,29544,23714,45291,5.483,1.733,1.83677438936,1.83677438936,nan,nan,
+scikit-fem,P3c,P2-straight,0.085,209595,,45291,,,,,,,"not run: estimated 5.7 GB, above the 4 GB cap"
+scikit-fem,P3c,P2-curved,0.085,209595,,45291,,,,,,,"not run: estimated 5.7 GB, above the 4 GB cap"

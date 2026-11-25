@@ -1,0 +1,31 @@
+  P3 frictionless: N=8, degrees 4/3; to resume after a stop rerun the same command (checkpoints in benchpack/work/P3_frictionless_N8_p4_exact)
+    dual assembly 0/3185 boxes  0s
+    dual assembly 200/3185 boxes  26s
+    dual assembly 400/3185 boxes  52s
+    dual assembly 600/3185 boxes  77s
+    dual assembly 800/3185 boxes  103s
+    dual assembly 1000/3185 boxes  128s
+    dual assembly 1200/3185 boxes  153s
+    dual assembly 1400/3185 boxes  179s
+    dual assembly 1600/3185 boxes  204s
+    dual assembly 1800/3185 boxes  230s
+    dual assembly 2000/3185 boxes  255s
+    dual assembly 2200/3185 boxes  280s
+    dual assembly 2400/3185 boxes  305s
+    dual assembly 2600/3185 boxes  330s
+    dual assembly 2800/3185 boxes  355s
+    dual assembly 3000/3185 boxes  381s
+  dual solved: 3027 dofs, float K >= 1.75817609  (407s)
+  primal solved: 1804 dofs, float K <= 1.75765143  (58s)
+    primal certificate 0/461 boxes  0s
+    primal cut cells 0/34  0s
+    primal cut cells 10/34  1s
+    primal cut cells 20/34  5s
+    primal cut cells 30/34  16s
+  certified upper bound K <= 1.75762799  (483s)
+    dual certificate 0/461 boxes  3s
+    dual cut cells 0/34  0s
+    dual cut cells 10/34  7s
+    dual cut cells 20/34  19s
+    dual cut cells 30/34  57s
+  CERTIFIED  1.75716672 <= K <= 1.75762799   rel width 2.62e-04;  claim [1.757166257, 1.757628452]  (564s)

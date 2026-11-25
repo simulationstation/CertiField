@@ -1,0 +1,20 @@
+[    0s] 1. known answers: plate without hole, K = 1, Q2 = 1/2
+   1.0 <= K <= 1.0;   0.4999987825646648 <= Q2 <= 0.5000012174353352
+[    0s]    ok
+[    0s] 2. exact identities of random admissible stress fields (N = 4, ps = 5)
+   [frictionless] all identities hold exactly (15 cells, 3 cut by the circle)
+   [clamped] all identities hold exactly (15 cells, 3 cut by the circle)
+[    0s]    ok
+[    0s] 3. rigorous evaluator against the float assembly (random admissible fields, N = 8)
+   142500.108525  70.817649842  -3.77871222788  -16.0327651614  -0.00904942653697
+   380010.218231  82.8229421877  -8.73621858503  -3.56306477832  -0.00265098781065
+[    2s]    ok
+[    2s] 4. falsification against the stored certificate P1c_N32_p7
+   eps=0, kappa'=1.09 kappa: K in [0.595719616964, 0.595722280058]  Q2 in [1.04504795, 1.04609556]  no crossing
+   eps=1e-06, kappa'=1.70 kappa: K in [0.595719616964, 0.595722280058]  Q2 in [1.04498493, 1.04615858]  no crossing
+   eps=0.0001, kappa'=2.38 kappa: K in [0.595719611007, 0.595722282932]  Q2 in [1.04485882, 1.04628469]  no crossing
+   eps=0.01, kappa'=1.47 kappa: K in [0.595660050960, 0.595751021067]  Q2 in [1.03886766, 1.05227585]  no crossing
+[  418s]    ok
+[  418s] 5. re-evaluation of the stored certificate
+P1c_N32_p7: K in [0.595719616964, 0.595722280058], Q2 in [1.0450481089, 1.0460953984]; claims {'Q1': {'lower': '0.5957196143', 'upper': '0.5957222828'}, 'Q2': {'lower': '1.045047061', 'upper': '1.046096446'}}: OK
+[  512s] ALL P1 TESTS PASSED

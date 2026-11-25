@@ -1,0 +1,75 @@
+  P3 clamped: N=12, degrees 4/3; to resume after a stop rerun the same command (checkpoints in benchpack/work/P3_clamped_N12_p4_exact)
+    dual assembly 0/7692 boxes  0s
+    dual assembly 200/7692 boxes  26s
+    dual assembly 400/7692 boxes  52s
+    dual assembly 600/7692 boxes  78s
+    dual assembly 800/7692 boxes  104s
+    dual assembly 1000/7692 boxes  131s
+    dual assembly 1200/7692 boxes  157s
+    dual assembly 1400/7692 boxes  182s
+    dual assembly 1600/7692 boxes  207s
+    dual assembly 1800/7692 boxes  231s
+    dual assembly 2000/7692 boxes  255s
+    dual assembly 2200/7692 boxes  280s
+    dual assembly 2400/7692 boxes  305s
+    dual assembly 2600/7692 boxes  330s
+    dual assembly 2800/7692 boxes  355s
+    dual assembly 3000/7692 boxes  379s
+    dual assembly 3200/7692 boxes  404s
+    dual assembly 3400/7692 boxes  428s
+    dual assembly 3600/7692 boxes  454s
+    dual assembly 3800/7692 boxes  479s
+    dual assembly 4000/7692 boxes  504s
+    dual assembly 4200/7692 boxes  529s
+    dual assembly 4400/7692 boxes  553s
+    dual assembly 4600/7692 boxes  581s
+    dual assembly 4800/7692 boxes  606s
+    dual assembly 5000/7692 boxes  632s
+    dual assembly 5200/7692 boxes  657s
+    dual assembly 5400/7692 boxes  683s
+    dual assembly 5600/7692 boxes  709s
+    dual assembly 5800/7692 boxes  736s
+    dual assembly 6000/7692 boxes  762s
+    dual assembly 6200/7692 boxes  788s
+    dual assembly 6400/7692 boxes  814s
+    dual assembly 6600/7692 boxes  839s
+    dual assembly 6800/7692 boxes  866s
+    dual assembly 7000/7692 boxes  894s
+    dual assembly 7200/7692 boxes  923s
+    dual assembly 7400/7692 boxes  953s
+    dual assembly 7600/7692 boxes  981s
+  dual solved: 8843 dofs, float K >= 1.83184822  (1001s)
+  primal solved: 4500 dofs, float K <= 1.83283887  (138s)
+Traceback (most recent call last):
+  File "C:\Users\price\OneDrive\Desktop\certifield\.claude\worktrees\agent-ae7e4a53eaffba7de\benchpack\builder\p3cert.py", line 168, in <module>
+    sys.stdout.reconfigure(encoding='utf-8')
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\price\OneDrive\Desktop\certifield\.claude\worktrees\agent-ae7e4a53eaffba7de\benchpack\builder\p3cert.py", line 97, in build
+    import p3exact
+           ^^^^^^^^
+  File "C:\Users\price\OneDrive\Desktop\certifield\.claude\worktrees\agent-ae7e4a53eaffba7de\benchpack\builder\p3exact.py", line 73, in full_cell_boxes
+    b = pf.octree_boxes(S, 0)
+        ^^^^^^^^^^^^^^^
+AttributeError: module 'p3float' has no attribute 'octree_boxes'
+  P3 clamped: N=12, degrees 4/3; to resume after a stop rerun the same command (checkpoints in benchpack/work/P3_clamped_N12_p4_exact)
+  solved fields loaded from the checkpoint
+    primal certificate 0/1571 boxes  0s
+    primal cut cells 0/79  0s
+    primal cut cells 10/79  1s
+    primal cut cells 20/79  2s
+    primal cut cells 30/79  3s
+    primal cut cells 40/79  7s
+    primal cut cells 50/79  12s
+    primal cut cells 60/79  17s
+    primal cut cells 70/79  27s
+  certified upper bound K <= 1.83284522  (34s)
+    dual certificate 0/1571 boxes  3s
+    dual cut cells 0/79  0s
+    dual cut cells 10/79  6s
+    dual cut cells 20/79  11s
+    dual cut cells 30/79  19s
+    dual cut cells 40/79  32s
+    dual cut cells 50/79  54s
+    dual cut cells 60/79  72s
+    dual cut cells 70/79  116s
+  CERTIFIED  1.83130558 <= K <= 1.83284522   rel width 8.40e-04;  claim [1.831304038, 1.832846763]  (228s)

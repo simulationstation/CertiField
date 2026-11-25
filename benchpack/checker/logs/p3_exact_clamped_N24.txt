@@ -1,0 +1,41 @@
+grid 24, clamped grips: exact check of 13824 cells (all)
+   500 cells   14s
+   1000 cells   33s
+   1500 cells   54s
+   2000 cells   78s
+   2500 cells   106s
+   3000 cells   132s
+   3500 cells   154s
+   4000 cells   179s
+   4500 cells   216s
+   5000 cells   245s
+   5500 cells   269s
+   6000 cells   293s
+   6500 cells   318s
+   7000 cells   340s
+   7500 cells   358s
+   8000 cells   378s
+   8500 cells   405s
+   9000 cells   429s
+   9500 cells   455s
+   10000 cells   480s
+   10500 cells   504s
+   11000 cells   528s
+   11500 cells   550s
+   12000 cells   572s
+   12500 cells   593s
+   13000 cells   619s
+   13500 cells   647s
+   (a) div tau = 0 exactly in 13824 cells
+   (b) normal traction continuous across 39744 interior faces
+   (c) zero traction on the curved surface, as a polynomial identity, in 325 cut cells
+   (d) zero traction on 1152 free-face cells; zero shear on 1728 mirror-plane cells
+   (e) force through the grip (octant): potential part 0, total 1 (expected 0 and 1)
+   (f) exact integrals on 6 boxes: the interval bounds are above them, by at most 8.5e-13 (relative)
+   (g) depth 3: all 192^3 finest boxes enumerated, 452365 uncovered, all inside the void   673s
+   (g) depth 4: all 384^3 finest boxes enumerated, 3662579 uncovered, all inside the void   675s
+   (g) depth 5: 1713501 random points of the body next to the surface, all covered   682s
+   (g) depth 6: 1713565 random points of the body next to the surface, all covered   711s
+   (h) displacement: continuous across 39744 faces, grip and mirror conditions exact
+EXACT CHECK PASSED   791s
+exit 0

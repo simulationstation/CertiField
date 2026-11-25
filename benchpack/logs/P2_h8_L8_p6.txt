@@ -1,0 +1,5 @@
+  89 x 89 cells, degrees 6/5; to resume after a stop rerun the same command (checkpoints in benchpack/work/P2_h8_L8_p6)
+  float: K in [0.1226041460, 0.1226102102], adjoint gap 2.079e-02, kappa 1.208e-02 (29s)
+  CERTIFIED  0.122603934395 <= K  <= 0.122610210236   rel width 5.12e-05
+  CERTIFIED  -0.3097348053 <= Q2 <= -0.3092223558   rel width 1.66e-03
+  claims: K in [0.1226039281, 0.1226102166],  Q2 in [-0.3097353178, -0.3092218433]   (55s)

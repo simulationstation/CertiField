@@ -1,0 +1,4 @@
+  P3 frictionless: N=8, degrees 4/3; to resume after a stop rerun the same command (checkpoints in benchpack/work/P3_frictionless_N8_p4)
+  solved fields loaded from the checkpoint
+  certified upper bound K <= 1.75956610  (4s)
+  CERTIFIED  1.75451382 <= K <= 1.75956610   rel width 2.87e-03;  claim [1.754508766, 1.759571150]  (4s)
