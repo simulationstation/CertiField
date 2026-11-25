@@ -399,17 +399,18 @@ def confirm(name, args, y):
         res['mp_agree'] = _agree(r50, r100)
         # Arb bracket: F(x(1-d)) and F(x(1+d)) on opposite sides of y
         ok = None
-        if r100 is not None and (not mpmath.isfinite(r100) or r100 == refs.SMALL / 10 or r100 == 1 - refs.SMALL / 10):
+        if r100 is not None and (not mpmath.isfinite(r100) or r100 == refs.UNDER or (r100 == 1 and inv_yi(t, args) is not None)):
             # root outside the double range: check the side of F at the boundary double
             yi = inv_yi(t, args)
             if r100 == mp.inf:
                 b, below = DBL_MAX, True          # root above b
             elif r100 == -mp.inf:
                 b, below = -DBL_MAX, False        # root below b
-            elif r100 == refs.SMALL / 10:
-                b, below = 2.0 ** -1075, False    # root below half the smallest subnormal
-            else:
-                b, below = 1 - 2.0 ** -54, True
+            elif r100 == refs.UNDER:
+                b, below = mpf(2) ** -1075, False  # root below half the smallest subnormal
+            else:                                  # (exact mpf: as floats these are 0.0, 1.0)
+                with mp.workprec(80):
+                    b, below = 1 - mpf(2) ** -54, True
             ab = list(args)
             ab[yi] = b
             _, bb, _ = refs.arb_eval(t.inv['fwd_a'], ab, min_bits=60, precs=(256, 1024, 4096))
@@ -420,9 +421,10 @@ def confirm(name, args, y):
                 ok = bool(bb < yy) if (inc == below) else bool(bb > yy)
             res['arb_check'] = ok
         elif r100 is not None and r100 != 0:
-            d = mpf(10) ** -25
             yi = inv_yi(t, args)
-            lo_, hi_ = (r100 * (1 - d), r100 * (1 + d)) if r100 > 0 else (r100 * (1 + d), r100 * (1 - d))
+            with mp.workdps(120):  # (at the default 53 bits the endpoints would coincide)
+                d = mpf(10) ** -25
+                lo_, hi_ = (r100 * (1 - d), r100 * (1 + d)) if r100 > 0 else (r100 * (1 + d), r100 * (1 - d))
             alo, ahi = list(args), list(args)
             alo[yi], ahi[yi] = lo_, hi_
             _, blo, _ = refs.arb_eval(t.inv['fwd_a'], alo, min_bits=100, precs=(256, 512, 1024, 2048, 4096))

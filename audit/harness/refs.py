@@ -40,7 +40,8 @@ def _arb_to_mpf(v):
 def mpf_to_arb(x):
     """Exact conversion of an mpf to an arb (the context precision must exceed the
     mantissa length; callers use >= 512 bits)."""
-    x = mpf(x)
+    if not isinstance(x, mpmath.mpf):
+        x = mpf(x)  # (an existing mpf is NOT passed through mpf(): that would round it)
     if x == 0:
         return arb(0)
     s, mant, e, bc = x._mpf_
@@ -716,13 +717,13 @@ def solve_monotone(F, y, lo, hi, increasing=True, x0=None, fprime=None, max_iter
         if lo == -BIG:
             return -mp.inf
         if lo == SMALL:
-            return SMALL / 10
+            return UNDER
         return None
     if G(hi) < 0:
         if hi == BIG:
             return mp.inf
         if hi == 1 - SMALL:
-            return 1 - SMALL / 10
+            return mpf(1)
         return None
     tol = mpf(2) ** (-mp.prec + 12)
     x = None
@@ -757,6 +758,7 @@ def solve_monotone(F, y, lo, hi, increasing=True, x0=None, fprime=None, max_iter
 
 BIG = mpf(10) ** 320
 SMALL = mpf(10) ** -330
+UNDER = mpf(2) ** -1100  # exact sentinel: root below the double range (rounds to 0)
 
 
 def inv_ndtri(p, x0=None):
