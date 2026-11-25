@@ -21,9 +21,11 @@ import intervals  # noqa: E402
 
 NOTE_Q1 = ("Note on Q1: the grips are displacement-loaded, so a conforming displacement finite-element model on a mesh\n"
            "that contains the body (e.g. straight edges with vertices on a hole) gives a value ABOVE the exact K.\n"
-           "A value below the lower end then points to an error: geometry (a mesh hole larger than the true hole),\n"
-           "grip conditions, the quantity (e.g. the force of half the grip), non-conforming or under-integrated\n"
-           "elements, or an unconverged solver.")
+           "A value above the upper end should fall towards the interval as the mesh is refined (discretisation\n"
+           "error, or a polygonal hole: see benchpack/results/VERDICTS.md). A value below the lower end points to an\n"
+           "error: geometry (a mesh hole larger than the true hole), grip conditions, the quantity (e.g. the force of\n"
+           "half the grip), non-conforming or under-integrated elements, inaccurate post-processing, or an\n"
+           "unconverged solver.")
 
 
 def fmt(x):

@@ -80,8 +80,8 @@ def load(cert_dir=CERT_DIR):
             entry[q] = (lo, hi)
             used = True
         if used:
-            entry["sources"].append("%s (%s)" % (os.path.relpath(path, os.path.dirname(os.path.dirname(HERE))),
-                                                 d.get("label", "no label")))
+            rel = os.path.relpath(path, os.path.dirname(os.path.dirname(HERE))).replace(os.sep, "/")
+            entry["sources"].append("%s (%s)" % (rel, d.get("label", "no label")))
     return out
 
 
