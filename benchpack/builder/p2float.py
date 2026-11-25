@@ -26,6 +26,34 @@ PATCH_AREA = D.P2['patch_area']                              # 1/100
 CHI = [Fr(1), Fr(0), Fr(-3), Fr(2)]
 
 
+class SparseAcc:
+    """sum of local matrices into a csr matrix, flushed in pieces to bound the memory"""
+
+    def __init__(self, n, flush=4_000_000):
+        self.n, self.flush_at = n, flush
+        self.r, self.c, self.v, self.count = [], [], [], 0
+        self.A = sp.csr_matrix((n, n))
+
+    def add(self, gidx, Aloc):
+        nb, nl = gidx.shape
+        self.r.append(np.repeat(gidx, nl, axis=1).ravel())
+        self.c.append(np.tile(gidx, (1, nl)).ravel())
+        self.v.append(Aloc.ravel())
+        self.count += nb * nl * nl
+        if self.count > self.flush_at:
+            self.flush()
+
+    def flush(self):
+        if self.count:
+            self.A = self.A + sp.coo_matrix((np.concatenate(self.v), (np.concatenate(self.r), np.concatenate(self.c))),
+                                            shape=(self.n, self.n)).tocsr()
+            self.r, self.c, self.v, self.count = [], [], [], 0
+
+    def result(self):
+        self.flush()
+        return self.A
+
+
 def graded_breaks(lo, hi, h, targets, extra=()):
     """sorted rational breakpoints: uniform spacing h, plus geometric layers towards the targets.
     targets: list of (c, sides, L, m): points c +- h 2^-k (1 + j/m), k = 0..L-1, j = 0..m-1, on the given sides"""
@@ -132,14 +160,14 @@ class Setup2:
         return Bm, W, np.concatenate([gidx, gidx + nA], axis=1)
 
     # ------------------------------------------------------------------ assembly
-    def assemble_dual(self, batch=256):
+    def assemble_dual(self, batch=128):
         """Q(tau) = z^T A z for z = (alpha, beta, gamma, C.ravel());  F = f.z;  l(tau) = lt.z"""
         X, Y = self.sx, self.sy
         nC = X.n * Y.n
         Smat = np.array([[1, -NU, 0], [-NU, 1, 0], [0, 0, 2 * (1 + NU)]])
         nq = self.ps + 1
         cells = self.cells(X, Y)
-        rows, cols, vals = [], [], []
+        acc = SparseAcc(nC)
         App = np.zeros((3, 3))
         Apc = np.zeros((3, nC))
         for s in range(0, len(cells), batch):
@@ -147,14 +175,12 @@ class Setup2:
             ST = np.einsum('cd,bqdn->bqcn', Smat, T)
             Al = np.einsum('bq,bqcm,bqcn->bmn', W, T, ST)
             nb, nl = gidx.shape
-            rows.append(np.repeat(gidx, nl, axis=1).ravel())
-            cols.append(np.tile(gidx, (1, nl)).ravel())
-            vals.append(Al.ravel())
+            acc.add(gidx, Al)
             cr = np.einsum('bq,bqck,bqcn->bkn', W, Tp, ST)
             for b in range(nb):
                 np.add.at(Apc, (slice(None), gidx[b]), cr[b])
             App += np.einsum('bq,bqck,cd,bqdl->kl', W, Tp, Smat, Tp)
-        Acc = sp.coo_matrix((np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))), shape=(nC, nC)).tocsr()
+        Acc = acc.result()
         A = sp.bmat([[sp.csr_matrix(App), sp.csr_matrix(Apc)], [sp.csr_matrix(Apc.T), Acc]], format='csr')
         f = np.zeros(3 + nC)
         f[1] = -1.0                                         # F = -beta
@@ -166,7 +192,7 @@ class Setup2:
         np.add.at(lt, (gidx + 3).ravel(), np.einsum('bq,bqn->bn', W, T[:, :, 0, :]).ravel())
         return A, f, lt / float(PATCH_AREA)
 
-    def assemble_primal(self, batch=512):
+    def assemble_primal(self, batch=256):
         """a(v,v) = z^T K z + 2 b.z + k0 for z = (A.ravel(), B.ravel()); lift (0, -(x+1)/2); l(v) = l0 + lv.z"""
         X, Y = self.ux, self.uy
         n = 2 * X.n * Y.n
@@ -174,20 +200,17 @@ class Setup2:
         e0 = np.array([0.0, 0.0, -0.5])                     # strain of the lift: gamma_xy = d/dx(-(x+1)/2) = -1/2
         nq = self.pu + 1
         cells = self.cells(X, Y)
-        rows, cols, vals = [], [], []
+        acc = SparseAcc(n)
         b = np.zeros(n)
         k0 = 0.0
         for s in range(0, len(cells), batch):
             Bm, W, gidx = self.primal_basis(cells[s:s + batch], nq)
             CB = np.einsum('cd,bqdn->bqcn', Cm, Bm)
             Kl = np.einsum('bq,bqcm,bqcn->bmn', W, Bm, CB)
-            nb, nl = gidx.shape
-            rows.append(np.repeat(gidx, nl, axis=1).ravel())
-            cols.append(np.tile(gidx, (1, nl)).ravel())
-            vals.append(Kl.ravel())
+            acc.add(gidx, Kl)
             np.add.at(b, gidx.ravel(), np.einsum('bq,c,bqcn->bn', W, Cm @ e0, Bm).ravel())
             k0 += float(np.sum(W)) * float(e0 @ Cm @ e0)
-        K = sp.coo_matrix((np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))), shape=(n, n)).tocsr()
+        K = acc.result()
         lv = np.zeros(n)
         Bm, W, gidx = self.primal_basis(self.patch_cells(X, Y), nq)
         sxx = C11 * Bm[:, :, 0, :] + C12 * Bm[:, :, 1, :]
