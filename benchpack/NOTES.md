@@ -4,7 +4,7 @@ Labels as in the ground rules (PROVED / CERTIFIED / FLOAT / DIAGNOSTIC / OPEN). 
 agent only. The certificate data are described in `certificates/FORMAT.md`; the problem data are in
 `problems/definitions.py`; the builder code is in `builder/`.
 
-## 1. Bounds on the energy (both problems)
+## 1. Bounds on the energy (all problems; P3 in 3D, section 5)
 
 Linear elasticity, plane stress, E = 1, ν = 3/10, unit thickness, δ = 1; `C` the stiffness, `S = C^-1` the
 compliance (definitions.py). `V` = displacements in H¹ that satisfy the prescribed displacement conditions,
@@ -19,7 +19,7 @@ frictionless grips. Integrating by parts cell by cell, for every `v ∈ V`
 
 because the traction terms on interior edges cancel, vanish on free boundaries, and on mirror lines and grips only
 the prescribed normal displacement does work. P1 quarter: `W(τ) = (1/2) F_q(τ)`, `F_q = ∫_0^1 τ_xx(1,y) dy`.
-P2: `W(τ) = F(τ) = −∫_0^1 τ_xy(1,y) dy`.
+P2: `W(τ) = F(τ) = −∫_0^1 τ_xy(1,y) dy`. P3 octant (3D elasticity): `W(τ) = (1/2) F_o(τ)`, `F_o = ∫∫ τ_xx(1,y,z) dy dz`.
 
 **Upper bound (PROVED, classical).** `(1/2) a(u,u) <= (1/2) a(v,v)` for every `v ∈ V`.
 
