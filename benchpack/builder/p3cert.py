@@ -100,12 +100,12 @@ def build(stem, N, ps, pu, Ls, Lc, Lus, Luc, grip='frictionless', verbose=True):
     assert K_lo <= K_hi
     cK = cio.claim_strings(K_lo, K_hi)
     meta = dict(
-        format='benchpack-certificate-1', problem='P3', variant=grip, model='octant',
+        format='benchpack-certificate-1', problem='P3', variant=grip, model='octant', N=N,
         displacement_space=dict(degree=pu, knots=[[cio.fstr(t) for t in S.U[k].t] for k in range(3)]),
         stress_space=dict(degree=ps, knots=[[cio.fstr(t) for t in S.S[k].t] for k in range(3)],
                           g_exponents=list(S.gexp), g_base='1/2', rho='eta(x) + y^2 + z^2 - 1/4',
                           eta_flat_from='3/4'),
-        octree=dict(stress_depth=Lc, displacement_depth=Luc, rule='curved3d.build_boxes(N, depth, 1/4)'),
+        integration=dict(mode='superset', stress_depth=Lc, displacement_depth=Luc),
         claims=dict(Q1=dict(lower=cK[0], upper=cK[1])),
         computed=dict(Q_oct_upper=Q_up, F_oct=cio.fstr(F), a_oct_upper=a_up, K=[float(K_lo), float(K_hi)]),
         label=cio.LABEL,

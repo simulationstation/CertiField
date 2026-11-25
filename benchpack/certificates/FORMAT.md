@@ -239,3 +239,79 @@ if its own rigorous bounds satisfy `lower_claim <= lo_checker` and `hi_checker <
 2. Check the coefficient conditions (3.1, 3.2, 4.1, 4.2) exactly, and the identities 1–5 of 3.2 (P1) or of 4.2 (P2).
 3. Compute rigorous enclosures of `a`, `Q`, `F`, `l` for every field over the exact domain (or patch).
 4. Form the bounds of 3.4 / 4.4 and compare with the claims (section 6).
+
+## 9. P3 (block with a spherical cavity, 3D; octant model; only Q1 = K)
+
+Problem data: `P3`, `P3_OCTANT`, `P3_LAME` in definitions.py. 3D isotropic elasticity, E = 1, ν = 3/10,
+`λ = 15/26`, `μ = 5/13`; `C ε = λ tr(ε) I + 2μ ε`, `S τ = (1+ν) τ − ν tr(τ) I` (E = 1). Voigt order
+`(xx, yy, zz, xy, yz, xz)`; tensor indices 0, 1, 2 = x, y, z.
+
+**Model.** `Omega_o = {(x,y,z) in [0,1]^3 : x^2+y^2+z^2 >= 1/4}` (the whole octant; no wedge). Mirror planes x = 0,
+y = 0, z = 0; grip x = 1; free faces y = 1, z = 1 and the sphere. All three coordinate directions use the same
+cell size `1/N` (N in the JSON); cells `[e/N, (e+1)/N]` per axis, `e = 0..N−1`.
+
+**Splines.** As in section 2, with three knot vectors (JSON `knots`: list of three lists, axes x, y, z). Tensor
+product `s(x,y,z) = sum A[i,j,k] B_i(x) B'_j(y) B''_k(z)`.
+
+**Displacement** (`V`, shape `(3, n_x, n_y, n_z)`, degree `pu`):
+
+    v = (x/2) e_x + (s_0, s_1, s_2),   s_a = sum V[a, i, j, k] B_i(x) B'_j(y) B''_k(z).
+
+Conditions (exact): `V[0, 0, :, :] = V[0, n_x−1, :, :] = 0` (v_x = 0 on x = 0, = 1/2 on x = 1);
+`V[1, :, 0, :] = 0` (v_y = 0 on y = 0); `V[2, :, :, 0] = 0` (v_z = 0 on z = 0); clamped grips also
+`V[1, n_x−1, :, :] = V[2, n_x−1, :, :] = 0`. The builder also imposes the y↔z symmetry of the problem:
+`V[0, i, j, k] = V[0, i, k, j]` and `V[2, i, j, k] = V[1, i, k, j]` (this needs the same knots in y and z); a
+checker need not rely on it (it is a restriction, not an admissibility condition).
+
+**Stress** (`Psi`, shape `(6, n_x, n_y, n_z)`, degree `ps`; `gam`, length `2 n_g`):
+
+    tau = g(y, z) e_x⊗e_x + inc(Phi),   Phi = rho^2 Psi  (a symmetric tensor field),
+    Psi_c = sum Psi[c, i, j, k] B_i(x) B'_j(y) B''_k(z),  c = 0..5 for the components (xx, yy, zz, xy, yz, xz),
+    inc(Phi)_ij = sum_{k,l,m,n} e_ikl e_jmn d_k d_m Phi_ln   (e the Levi-Civita symbol, d_k = d/dx_k),
+    rho = eta(x) + y^2 + z^2 − 1/4,  eta(x) = x^2 for x <= 3/4,  eta(x) = x^2 − 4 (x − 3/4)^2 for x >= 3/4,
+    g(y, z) = sum_k gamma_k (y − 1/2)^{e_k} [y >= 1/2] + sum_k delta_k (z − 1/2)^{e_k} [z >= 1/2],
+
+with `(gamma_1..gamma_ng, delta_1..delta_ng) = gam` and `e_k = stress_space.g_exponents`. 1/2 is a knot in y and z and
+3/4 a knot in x, so every field is one polynomial per cell. On the cube `rho` vanishes exactly on the sphere
+(`eta >= 9/16 > 1/4` for x >= 3/4), is negative inside it and positive outside; `eta` is C¹ with `eta'(0) = eta'(1) = 0`.
+The knot 3/4 has multiplicity `ps − 1` in the x-knots of the stress space (Psi is only C¹ there, like rho^2).
+
+Conditions on `Psi` (exact). For component c = (a, b) and axis k let `s = (−1)^{[a=k] + [b=k]}` (+1: even, −1: odd):
+- at the plane x_k = 0 (first index along axis k): even: index 0 equals index 1; odd: index 0 is zero;
+- at x = 1 (last index along x), frictionless grips only: even: index n_x−1 equals index n_x−2; odd: index n_x−1 is
+  zero; clamped grips: no condition at x = 1;
+- at y = 1 and at z = 1 (last two indices along y, resp. z): zero, for all six components.
+The builder also imposes the y↔z symmetry `Psi[swap(c), i, k, j] = Psi[c, i, j, k]` with swap = (xx→xx, yy→zz,
+zz→yy, xy→xz, yz→yz, xz→xy), and `delta_k = gamma_k` (again a restriction a checker need not rely on).
+
+Identities that make `tau` statically admissible (polynomial identities, cell by cell):
+1. `div tau = 0` (true for any inc field and for `g(y,z) e_x⊗e_x`).
+2. Traction continuity across cell faces: across x_k = const, `tau_kj` continuous for all j (Phi is C¹; the jumps of
+   `g` across y = 1/2 or z = 1/2 are tangential).
+3. Sphere: on every cell meeting it, each component of `tau ∇rho` is divisible by `rho`; `g` vanishes on every
+   cell with y < 1/2 and z < 1/2, and the sphere has no point with y > 1/2 or z > 1/2.
+4. Free faces y = 1, z = 1: zero traction. Mirror planes: x = 0: `tau_xy = tau_xz = 0`; y = 0: `tau_xy = tau_yz = 0`;
+   z = 0: `tau_xz = tau_yz = 0`. Frictionless grip x = 1: `tau_xy = tau_xz = 0`.
+5. Force through the grip: `F_o = ∫∫_{[0,1]^2} tau_xx(1, y, z) dy dz = sum_k (gamma_k + delta_k) (1/2)^{e_k+1}/(e_k+1)`
+   (the inc part carries no force).
+
+**Bounds.** `a_o(v) = ∫ eps(v):C:eps(v)`, `Q_o(tau) = ∫ tau:S:tau` over `Omega_o`;
+
+    2 F_o(tau)^2 / Q_o(tau)  <=  K  <=  8 a_o(v).
+
+(Solid cube, frictionless: `tau = (1/2) e_x⊗e_x`, `F_o = 1/2`, `Q_o = 1/4`, `v = (x/2, −νy/2, −νz/2)`, `a_o = 1/4`:
+both give K = 2.)
+
+**Integration domain** (JSON `integration`). Both integrands are non-negative, so a checker may integrate over the
+exact domain or over any superset; the claims hold for the builder's choice, which is stated:
+- `{"mode": "superset", "stress_depth": L, "displacement_depth": Lu}`: the union of the boxes of the octree rule
+  below (depth L for `Q_o`, Lu for `a_o`), which contains `Omega_o`. Rule (curved3d's `build_boxes`): for each cell
+  `(e_x, e_y, e_z)`, start with the cell (level 0). A box at level l has integer corner `lo = e 2^l + j` and side
+  `1/(N 2^l)`; with `r_min = sum lo_k^2`, `r_max = sum (lo_k + 1)^2` and `t = (N 2^l)^2 / 4`: if `r_max <= t` the
+  box is dropped (it lies in the closed ball); if `r_min >= t` it is kept whole; otherwise it is kept whole if
+  l = L, else split into its 8 children at level l + 1.
+- `{"mode": "exact"}`: `Omega_o` itself (cells cut by the sphere integrated over their part outside the ball).
+
+JSON keys for P3: `problem "P3"`, `variant`, `model "octant"`, `N`, `displacement_space {"degree", "knots"}`,
+`stress_space {"degree", "knots", "g_exponents", "g_base": "1/2", "rho", "eta_flat_from": "3/4"}`, `integration`,
+`claims {"Q1": {"lower", "upper"}}` (section 6), `computed` (diagnostic), `label`; npz arrays `V`, `Psi`, `gam`.
