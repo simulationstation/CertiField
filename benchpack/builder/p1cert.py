@@ -5,6 +5,7 @@ usage:
     python p1cert.py verify STEM                                    re-evaluate a stored certificate (this builder's
                                                                     evaluator; the independent checker is separate)
 """
+import limits  # noqa: F401  (thread and process limits; must come before numpy)
 import math
 import sys
 import time

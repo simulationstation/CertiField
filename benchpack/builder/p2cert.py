@@ -5,7 +5,11 @@ usage:
     python p2cert.py verify STEM               re-evaluate a stored certificate with this builder's evaluator
 All certified numbers of P2 are exact rationals (no transcendental constants occur).
 """
+import limits  # noqa: F401  (thread and process limits; must come before numpy)
+import json
 import math
+import os
+import shutil
 import sys
 import time
 from fractions import Fraction as Fr
@@ -102,12 +106,35 @@ def solve(S, verbose=True):
     return V, Z, kf
 
 
+def _fingerprint(par):
+    return json.dumps({k: (str(v) if not isinstance(v, list) else [str(x) for x in v]) for k, v in sorted(par.items())})
+
+
 def build(stem, par, verbose=True):
+    """resumable: rerun the same command; the float solution and the finished chunks of the exact evaluation are
+    kept in benchpack/work/STEM and reused"""
     t0 = time.time()
     S = setup_from_params(par)
+    wd = os.path.join(limits.WORK_DIR, stem) if stem else None
     if verbose:
-        print(f"  {S.sx.ne} x {S.sy.ne} cells, degrees {S.ps}/{S.pu}", flush=True)
-    V, Z, kf = solve(S, verbose)
+        print(f"  {S.sx.ne} x {S.sy.ne} cells, degrees {S.ps}/{S.pu}"
+              + (f"; to resume after a stop rerun the same command (checkpoints in benchpack/work/{stem})" if wd else ''),
+              flush=True)
+    sol = os.path.join(wd, 'solve.npz') if wd else None
+    fp = _fingerprint(par)
+    if sol and os.path.exists(sol) and str(np.load(sol)['fp']) == fp:
+        d = np.load(sol)
+        V, Z, kf = d['V'], d['Z'], float(d['kf'])
+        if verbose:
+            print("  float solution loaded from the checkpoint", flush=True)
+    else:
+        V, Z, kf = solve(S, verbose)
+        if sol:
+            if os.path.isdir(wd):                       # stale checkpoints of another solution
+                shutil.rmtree(wd)
+            os.makedirs(wd, exist_ok=True)
+            np.savez(sol + '.tmp.npz', V=V, Z=Z, kf=kf, fp=fp)
+            os.replace(sol + '.tmp.npz', sol)
     kappa = cio.kappa_dyadic(kf)
     kk = float(kappa)
     nA = S.ux.n * S.uy.n
@@ -117,7 +144,7 @@ def build(stem, par, verbose=True):
     for name, z in (('tau0', Z[:, 0]), ('tp', Z[:, 0] + kk * Z[:, 1]), ('tm', Z[:, 0] - kk * Z[:, 1])):
         fields[name] = dict(par=z[:3].copy(), C=z[3:].reshape(S.sx.n, S.sy.n).copy())
     check_ties(S, fields)
-    out = p2rig.evaluate(S, fields)
+    out = p2rig.evaluate(S, fields, checkpoint=os.path.join(wd, 'chunks') if wd else None)
     res = bounds(out, kappa)
     K_lo, K_hi, Q_lo, Q_hi = res['K_low'], res['K_up'], res['Q2_low'], res['Q2_up']
     assert K_lo <= K_hi and Q_lo <= Q_hi

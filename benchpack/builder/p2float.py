@@ -177,8 +177,7 @@ class Setup2:
             nb, nl = gidx.shape
             acc.add(gidx, Al)
             cr = np.einsum('bq,bqck,bqcn->bkn', W, Tp, ST)
-            for b in range(nb):
-                np.add.at(Apc, (slice(None), gidx[b]), cr[b])
+            np.add.at(Apc, (slice(None), gidx.ravel()), cr.transpose(1, 0, 2).reshape(3, -1))
             App += np.einsum('bq,bqck,cd,bqdl->kl', W, Tp, Smat, Tp)
         Acc = acc.result()
         A = sp.bmat([[sp.csr_matrix(App), sp.csr_matrix(Apc)], [sp.csr_matrix(Apc.T), Acc]], format='csr')

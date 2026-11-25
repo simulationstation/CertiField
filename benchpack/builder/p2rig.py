@@ -4,8 +4,9 @@ Every cell of the L-bracket is a rectangle on which each field is one polynomial
 (python-flint fmpq_mpoly; stored floats are exact binary rationals); its energy density is integrated exactly.
 So a(v,v), Q(tau), l(v), l(tau) and F(tau) are exact rationals.  The cells are split over worker processes.
 """
+import json
 import os
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from fractions import Fraction as Fr
 
 import numpy as np
@@ -85,22 +86,45 @@ def _work(args):
     return out
 
 
-def evaluate(S, fields, nproc=None):
-    """exact a (or Q) and patch integrals of every field: dict name -> dict(a|Q=Fraction, l=Fraction[, F=Fraction])"""
-    nproc = nproc or int(os.environ.get('BENCHPACK_NPROC', '8'))
+def evaluate(S, fields, nproc=None, checkpoint=None, nchunk=16):
+    """exact a (or Q) and patch integrals of every field: dict name -> dict(a|Q=Fraction, l=Fraction[, F=Fraction]).
+    checkpoint: a directory; the partial sums of finished chunks are stored there and reused when rerun."""
+    nproc = nproc or int(os.environ.get('BENCHPACK_NPROC', '2'))
     cu, cs = S.cells(S.ux, S.uy), S.cells(S.sx, S.sy)
     patch = dict(u=set(S.patch_cells(S.ux, S.uy)), s=set(S.patch_cells(S.sx, S.sy)))
-    nchunk = 4 * nproc
     jobs = [(S, fields, dict(u=cu[k::nchunk], s=cs[k::nchunk]), patch) for k in range(nchunk)]
+    results = {}
+    if checkpoint:
+        os.makedirs(checkpoint, exist_ok=True)
+        for k in range(nchunk):
+            fn = os.path.join(checkpoint, f'chunk_{k:03d}.json')
+            if os.path.exists(fn):
+                with open(fn) as fh:
+                    results[k] = json.load(fh)
+    todo = [k for k in range(nchunk) if k not in results]
+
+    def done(k, res):
+        results[k] = res
+        if checkpoint:
+            fn = os.path.join(checkpoint, f'chunk_{k:03d}.json')
+            with open(fn + '.tmp', 'w') as fh:
+                json.dump(res, fh)
+            os.replace(fn + '.tmp', fn)
+
+    if todo:
+        try:
+            with ProcessPoolExecutor(max_workers=nproc) as ex:
+                futs = {ex.submit(_work, jobs[k]): k for k in todo}
+                for fu in as_completed(futs):
+                    done(futs[fu], fu.result())
+        except Exception as err:                 # e.g. a worker could not start (memory): evaluate serially
+            print(f"    parallel evaluation failed ({type(err).__name__}); evaluating serially", flush=True)
+            for k in todo:
+                if k not in results:
+                    done(k, _work(jobs[k]))
     tot = {name: [Fr(0), Fr(0)] for name in fields}
-    try:
-        with ProcessPoolExecutor(max_workers=nproc) as ex:
-            results = list(ex.map(_work, jobs))
-    except Exception as err:                     # e.g. a worker could not start (memory): evaluate serially
-        print(f"    parallel evaluation failed ({type(err).__name__}); evaluating serially", flush=True)
-        results = [_work(j) for j in jobs]
-    for res in results:
-        for name, (a, p) in res.items():
+    for k in range(nchunk):
+        for name, (a, p) in results[k].items():
             tot[name][0] += Fr(a)
             tot[name][1] += Fr(p)
     out = {}

@@ -206,8 +206,7 @@ class Setup:
             vals.append(Al.ravel())
             # g part: tau_g = (Gx, 0, 0): Q cross terms 2 tau_g S tau = 2 Gx (S00 Txx + S01 Tyy)
             cr = np.einsum('bq,bqk,bqn->bkn', w, Gx, ST[:, :, 0, :])
-            for b in range(nb):
-                np.add.at(Agc, (slice(None), gidx[b]), cr[b])
+            np.add.at(Agc, (slice(None), gidx.ravel()), cr.transpose(1, 0, 2).reshape(cr.shape[1], -1))
             Agg[:] += np.einsum('bq,bqk,bql->kl', w, Gx, Gx)
 
         full = rl['full']

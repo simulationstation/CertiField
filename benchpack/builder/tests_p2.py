@@ -9,6 +9,7 @@
 4. Falsification against the stored certificate: perturbed certified fields and other kappa never cross.
 5. The stored certificate re-evaluates to its claims.
 """
+import limits  # noqa: F401  (thread and process limits; must come before numpy)
 import sys
 import time
 from fractions import Fraction as Fr
