@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this benchmark pack, please cite it as below."
+title: "Certified benchmark pack for linear elasticity"
+version: "0.1"
+date-released: "2026-11-25"
+authors:
+  - name: "SimulationStation"
+repository-code: "https://github.com/simulationstation/CertiField/tree/main/benchpack"
+license: MIT
+abstract: >-
+  Verification problems in linear elasticity (a plate with a circular hole, an L-bracket, a cube with a spherical
+  cavity) whose stiffness and local stress averages come with guaranteed two-sided intervals, computed with exact
+  curved geometry and outward-rounded arithmetic and re-checked by an independent program; with a harness that
+  runs finite-element codes against the intervals. Data are licensed CC BY 4.0.
+keywords:
+  - verification
+  - finite element method
+  - linear elasticity
+  - complementary energy
+  - interval arithmetic
