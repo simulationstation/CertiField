@@ -190,11 +190,15 @@ def adversarial(R, t, args, stuck, path, ckpt):
               'sig': [0.3] * len(starts), 'rng': arng.bit_generator.state, 'skip': []}
     if stuck and stuck.get('t') == t.name and stuck.get('ph') == 'a':
         st['skip'].append([stuck['step'], stuck['j']])
+        st['elapsed'] = st.get('elapsed', 0.0) + args.timeout  # the lost task's time
         with open(ckpt, 'w', encoding='utf-8') as f:
             json.dump(st, f)
     floor = 2.0 ** -22 if t.dtype == 'float32' else 1e-14
     skip = {tuple(s) for s in st['skip']}
     while st['step'] < args.adv_steps:
+        if st.get('elapsed', 0.0) > args.adv_time:
+            break  # wall-time cap for the adversarial search of one target
+        t_step = time.time()
         s = st['step']
         rng = np.random.default_rng()
         rng.bit_generator.state = st['rng']
@@ -232,6 +236,7 @@ def adversarial(R, t, args, stuck, path, ckpt):
                 f.write(json.dumps(r, default=float) + '\n')
         st['step'] = s + 1
         st['rng'] = rng.bit_generator.state
+        st['elapsed'] = st.get('elapsed', 0.0) + (time.time() - t_step)
         with open(ckpt, 'w', encoding='utf-8') as f:
             json.dump(st, f)
 
@@ -267,6 +272,7 @@ def main():
     ap.add_argument('--adv-starts', type=int, default=16)
     ap.add_argument('--adv-steps', type=int, default=40)
     ap.add_argument('--timeout', type=float, default=20)
+    ap.add_argument('--adv-time', type=float, default=900, help='wall-time cap (s) of the adversarial search per target')
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--list', action='store_true')
     args = ap.parse_args()
