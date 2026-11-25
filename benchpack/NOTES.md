@@ -236,3 +236,39 @@ valid bound). Validity is never affected, only sharpness.
 - Assumptions: A1 (the clamped edge and the grip exclude rigid motions), linear plane-stress elasticity, the weak
   (H¹) solution, which exists although the stress is singular at the re-entrant corner.
 - Nothing is claimed about the stress at the corner itself (it is unbounded) or about other patches.
+
+## 5. P3: block with a spherical cavity (new certificates; the stored curved3d certificates are unchanged)
+
+**Model** (FORMAT.md section 9): the octant `[0,1]^3` minus the ball of radius 1/2, mirror planes x, y, z = 0, grip
+x = 1, free faces y = 1, z = 1 and the sphere; `K = 8 a_o(u,u)`; bounds `2 F_o(tau)^2 / Q_o(tau) <= K <= 8 a_o(v)`
+(section 1 with the octant's grip work `F_o / 2`).
+
+**What changes against curved3d** (whose lower bound was the weak side: 1.745105 at 24 cells per half-edge while
+its upper bound was 1.758277):
+- Degree. The stress is a second derivative of the potential, so with the same spline degree the stress converges
+  one order slower than the strain of the displacement. The potential now has degree 4 (curved3d: 2).
+- Particular field. curved3d's step column (axial stress outside the square column `|y|, |z| < 1/2`) jumps at the
+  column faces, and the potential `rho^2 Psi` cannot cancel the jump near the points where the column touches the
+  sphere (`rho^2` vanishes there to second order); in 2D (P1) step-like particular fields stalled the lower bound
+  in the same way. It is replaced by `g(y, z) = sum gamma_k (y − 1/2)_+^{e_k} + delta_k (z − 1/2)_+^{e_k}` with
+  exponents 4, 5, 6, whose coefficients are optimised together with the potential.
+- Weight and ties as in curved3d (`rho = eta(x) + y^2 + z^2 − 1/4` with the flattened `eta`, parity ties at the
+  mirror planes and the frictionless grip, potential and normal derivative zero on the free faces); the knot 3/4,
+  where `eta` is only C¹, has multiplicity `ps − 1`.
+- The y ↔ z symmetry of the problem is imposed on both fields (half the unknowns); dense direct solves.
+
+**Integration.** Both integrands are non-negative. Mode `superset` integrates over curved3d's octree boxes (a cut
+box is kept whole), which overestimates both energies by an amount proportional to the box size near the sphere;
+for the displacement energy this bias is large (DIAGNOSTIC: at 8 cells per half-edge the float upper bound is
+1.7732, 1.7653, 1.7615 at depths 3, 4, 5, halving with each level). Mode `exact` integrates the cells cut by the
+sphere over their part outside the ball: the polynomial is integrated in z; the remaining integrals over a
+rectangle intersected with a disc are reduced to arc integrals (`cos^n`, Arb endpoints) for the polynomial part
+and, for the part with `sqrt(a^2 − x^2 − y^2)`, integrated exactly in y (closed forms with sqrt and asin) and in x
+by Arb's rigorous integration (acb.integral), with the branch cuts checked. Full cells use the interval Gauss rules
+of curved3d's kind (exact for the degree).
+
+**Tests (`builder/tests_p3.py`, pass).** 1. Known answer: the lift alone has energy `(λ + 2μ)(1 − π/48)/4` over the
+octant minus the ball; the computed upper bound exceeds it by 2e-13. 2. Exact identities of random admissible
+stress fields (both grip variants): equilibrium, `tau ∇rho` divisible by `rho` on every cut cell, free faces, mirror
+and grip shear, traction continuity, grip force formula. 3. Interval evaluator against the float assembly. The cut
+cell integration agrees with mpmath on four cut cells to 1e-18.
