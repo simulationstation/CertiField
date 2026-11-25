@@ -115,6 +115,8 @@ def st(dist, method):
 def th(name, dtype):
     def f(*a):
         import torch
+        if torch.get_num_threads() > 2:
+            torch.set_num_threads(2)  # resource limit requested by the owner
         tdt = torch.float32 if dtype == 'float32' else torch.float64
         ndt = np.float32 if dtype == 'float32' else np.float64
         fn = getattr(torch.special, name)

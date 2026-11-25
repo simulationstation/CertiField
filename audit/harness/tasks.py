@@ -116,6 +116,45 @@ def _mref(t, args, dps):
             return None
 
 
+def inv_fast(t, args, y):
+    """Cheap check of an inverse-function value x = y (the library's output): Arb value
+    and slope of the forward function F at x give the relative error estimate
+    |F(x) - p| / |x F'(x)|.  Returns the estimate, or None when it cannot be formed."""
+    if not (math.isfinite(y) and y != 0):
+        return None
+    yi = inv_yi(t, args)
+    base = list(args)
+    base[yi] = y
+    F0, _, _ = refs.arb_eval(t.inv['fwd_a'], base, min_bits=90, budget=5)
+    if F0 is None:
+        return None
+    h = 2.0 ** -40
+    F1, _, _ = refs.arb_eval(t.inv['fwd_a'], base, min_bits=90, pert=(yi, h), budget=5)
+    if F1 is None:
+        return None
+    dF = (F1 - F0) / (mpf(h) * mpf(y))
+    if dF == 0:
+        return None
+    return float(abs((F0 - mpf(args[yi])) / (dF * mpf(y))))
+
+
+def binom_isf_fast(args, y):
+    """True when the library's k satisfies sf(k-1) > q >= sf(k) (Arb balls)."""
+    q, n, p = args
+    if not (math.isfinite(y) and y == math.floor(y) and -1 <= y <= n):
+        return False
+    sf = refs.a_dist('binom', 'sf')
+    _, b1, _ = refs.arb_eval(sf, (y, n, p), min_bits=60, budget=5)
+    if b1 is None or not bool(b1 <= q):
+        return False
+    if y - 1 < -1:
+        return True
+    if y - 1 == -1:
+        return 1 > q
+    _, b0, _ = refs.arb_eval(sf, (y - 1, n, p), min_bits=60, budget=5)
+    return b0 is not None and bool(b0 > q)
+
+
 def ref_screen(t, args, y):
     """Reference for screening: Arb (>= 64 bits) with an mpmath (30 digits) fallback."""
     if t.out == 'discrete':
@@ -195,8 +234,28 @@ def inv_yi(t, args):
     return t.inv.get('yi', len(args) - 1)
 
 
+FAST_OK = {'float64': 1e-12, 'float32': 8 * U32}
+
+
 def screen(name, args, y):
     t = targets.get(name)
+    # cheap paths: verify the library's answer instead of recomputing an inverse
+    if t.out == 'discrete':
+        try:
+            if binom_isf_fast(args, y):
+                return {'relerr': 0.0, 'ulps': None, 'flag': None, 'r': repr(y), 'src': 'arb-check',
+                        'kappa': None, 'score': 0.0, 'cand': False}
+        except Exception:
+            pass
+    elif t.inv is not None:
+        try:
+            est = inv_fast(t, args, y)
+        except Exception:
+            est = None
+        if est is not None and est < FAST_OK[t.dtype]:
+            m = {'relerr': est, 'ulps': (int(round(est / (2 * U32))) if t.dtype == 'float32' else None),
+                 'flag': None}
+            return dict(m, r=None, src='arb-fwd', kappa=None, score=score(t.dtype, m, None), cand=False)
     try:
         r, src, extra = ref_screen(t, args, y)
     except Exception as e:  # reference failure: recorded, never counted

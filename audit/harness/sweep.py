@@ -1,11 +1,12 @@
-"""Screening sweep: grid + random sampling + adversarial search, per target.
+"""Screening sweep: grid + random sampling + adversarial search, per target, in ONE process.
 
-    python sweep.py --targets scipy.special.betainc,torch.special  [--n 3000] [--workers 12]
+    bash run.sh sweep.py --targets scipy.special,torch.special [--n 2000]
 
-A target is selected when its name starts with one of the given prefixes.  Every
-evaluated point is written to audit/results/<target>.jsonl (git-ignored) with the
-library value, the screening reference, the relative error (and float32 ULPs), the
-condition number for points near the threshold, and flags.
+A target is selected when its name starts with one of the given prefixes.  Records are
+appended to audit/results/<target>.jsonl in batches as they are produced; the adversarial
+search keeps a checkpoint (<target>.adv.json); a finished target gets <target>.done.  A
+rerun skips what is done.  A point that runs longer than --timeout ends the process
+(runner.py); run.sh restarts it and the point is recorded as a timeout.
 """
 import argparse
 import json
@@ -16,15 +17,22 @@ import time
 import warnings
 import zlib
 
-import numpy as np
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-RESULTS = os.path.join(os.path.dirname(HERE), 'results')
+import runner  # noqa: E402  (sets the thread limits before numpy is imported)
+import numpy as np  # noqa: E402
+
+RESULTS = os.environ.get('AUDIT_RESULTS') or os.path.join(os.path.dirname(HERE), 'results')
+LOGS = os.path.join(os.path.dirname(HERE), 'logs')
+
+
+def fbase(name):
+    return os.path.join(RESULTS, name.replace('[', '_').replace(']', ''))
 
 
 def cast(t, pts):
     """Make the points exactly representable in the target dtype; drop invalid ones."""
+    pts = np.asarray(pts, dtype=float).reshape(-1, t.nargs)
     if t.dtype == 'float32':
         with np.errstate(all='ignore'):
             p32 = pts.astype(np.float32)
@@ -80,72 +88,152 @@ def perturb(rng, t, x, sigma):
     return tuple(x)
 
 
-def run_target(pool, t, args):
-    rng = np.random.default_rng(args.seed * 1000003 + zlib.crc32(t.name.encode()))
+class Sink:
+    """Appends records to the results file in batches."""
+
+    def __init__(self, path):
+        self.path, self.buf, self.t0 = path, [], time.time()
+
+    def add(self, rec):
+        self.buf.append(rec)
+        if len(self.buf) >= 200 or time.time() - self.t0 > 60:
+            self.flush()
+
+    def flush(self):
+        if self.buf:
+            with open(self.path, 'a', encoding='utf-8') as f:
+                for r in self.buf:
+                    f.write(json.dumps(r, default=float) + '\n')
+            self.buf = []
+        self.t0 = time.time()
+
+
+def load(path):
+    if not os.path.exists(path):
+        return []
+    out = []
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            try:
+                out.append(json.loads(line))
+            except ValueError:
+                pass  # a line cut by a hard stop
+    return out
+
+
+def run_target(R, t, args, stuck):
+    import tasks
+    base = fbase(t.name)
+    if os.path.exists(base + '.done'):
+        return
     t0 = time.time()
-    grid = np.array(t.grid, dtype=float).reshape(-1, t.nargs) if t.grid else np.zeros((0, t.nargs))
+    rng = np.random.default_rng(args.seed * 1000003 + zlib.crc32(t.name.encode()))
+    grid = cast(t, t.grid) if t.grid else np.zeros((0, t.nargs))
     with np.errstate(all='ignore'):
-        rnd = t.sample(rng, args.n)
-    grid, rnd = cast(t, grid), cast(t, rnd)
+        rnd = cast(t, t.sample(rng, args.n))
     pts = np.concatenate([grid, rnd])
     phase = ['grid'] * len(grid) + ['random'] * len(rnd)
-    y = call(t, pts)
-    tasks_ = [('screen', t.name, tuple(float(v) for v in p), float(yy)) for p, yy in zip(pts, y)]
-    res = pool.map(tasks_, progress=lambda d, n: print('   %s %d/%d' % (t.name, d, n), flush=True))
-    recs = []
-    for p, yy, r, ph in zip(pts, y, res, phase):
-        r = dict(r or {})
-        r.update(x=[float(v) for v in p], y=float(yy), phase=ph)
-        recs.append(r)
-    # adversarial search from the worst points (by excess score) and some random points
-    if args.adv_steps > 0 and recs:
+    path = base + '.jsonl'
+    recs = load(path)
+    done_i = {r['i'] for r in recs if 'i' in r}
+    sink = Sink(path)
+    if stuck and stuck.get('t') == t.name and stuck.get('ph') == 's' and stuck['i'] not in done_i:
+        i = stuck['i']
+        sink.add({'flag': 'timeout', 'x': [float(v) for v in pts[i]], 'phase': phase[i], 'i': i})
+        sink.flush()  # must survive a further stop, or the point would hang again
+        done_i.add(i)
+    todo = [i for i in range(len(pts)) if i not in done_i]
+    if todo:
+        y = call(t, pts[todo])
+        for i, yy in zip(todo, y):
+            p = tuple(float(v) for v in pts[i])
+            rec = R.run({'t': t.name, 'ph': 's', 'i': i}, lambda: tasks.screen(t.name, p, float(yy)))
+            rec = dict(rec or {})
+            rec.update(x=list(p), y=float(yy), phase=phase[i], i=i)
+            sink.add(rec)
+        sink.flush()
+    if args.adv_steps > 0:
+        adversarial(R, t, args, stuck, path, base + '.adv.json')
+    with open(base + '.done', 'w') as f:
+        f.write('%s\n' % time.strftime('%Y-%m-%d %H:%M'))
+    summarize(t, load(path), time.time() - t0)
+
+
+def adversarial(R, t, args, stuck, path, ckpt):
+    """(1+1) evolution strategy from the worst screening points (by score: the error in
+    excess of what conditioning explains) and from random points."""
+    import tasks
+    if os.path.exists(ckpt):
+        with open(ckpt, encoding='utf-8') as f:
+            st = json.load(f)
+    else:
+        recs = [r for r in load(path) if r.get('phase') in ('grid', 'random')]
+        if not recs:
+            return
+        arng = np.random.default_rng(args.seed * 7919 + zlib.crc32(t.name.encode()))
         order = sorted(range(len(recs)), key=lambda i: -(recs[i].get('score') or 0))
         starts, seen = [], set()
         for i in order:
+            if recs[i].get('flag') in ('noref', 'timeout'):
+                continue
             key = tuple(np.round(np.log10(np.abs(np.array(recs[i]['x'])) + 1e-300), 1))
-            if key in seen or recs[i].get('flag') in ('noref', 'timeout'):
+            if key in seen:
                 continue
             seen.add(key)
             starts.append(i)
             if len(starts) >= args.adv_starts * 2 // 3:
                 break
-        extra = rng.choice(len(recs), min(len(recs), args.adv_starts - len(starts)), replace=False)
-        starts += [int(i) for i in extra if recs[int(i)].get('flag') not in ('noref', 'timeout')]
-        cur = [(tuple(recs[i]['x']), recs[i].get('score') or 0.0) for i in starts]
-        sig = [0.3] * len(cur)
-        floor = 2.0 ** -22 if t.dtype == 'float32' else 1e-14
-        for step in range(args.adv_steps):
-            props = []
-            for (x, s), sg in zip(cur, sig):
-                for _ in range(30):
-                    q = perturb(rng, t, x, sg)
-                    qa = cast(t, np.array([q], dtype=float))
-                    if len(qa):
-                        props.append(tuple(float(v) for v in qa[0]))
-                        break
-                else:
-                    props.append(x)
-            pa = np.array(props, dtype=float)
-            ya = call(t, pa)
-            rr = pool.map([('screen', t.name, p, float(v)) for p, v in zip(props, ya)])
-            for j, (p, v, r) in enumerate(zip(props, ya, rr)):
-                r = dict(r or {})
-                r.update(x=list(p), y=float(v), phase='adv')
-                recs.append(r)
-                sc = r.get('score') or 0.0
-                if sc > cur[j][1]:
-                    cur[j] = (p, sc)
-                    sig[j] = min(sig[j] * 1.6, 3.0)
-                else:
-                    sig[j] = max(sig[j] * 0.8, floor)
-                    if sig[j] <= floor * 1.0001:
-                        sig[j] = 0.3  # restart the step size
-    os.makedirs(RESULTS, exist_ok=True)
-    fn = os.path.join(RESULTS, t.name.replace('[', '_').replace(']', '') + '.jsonl')
-    with open(fn, 'w', encoding='utf-8') as f:
-        for r in recs:
-            f.write(json.dumps(r, default=float) + '\n')
-    summarize(t, recs, time.time() - t0)
+        pool = [i for i in range(len(recs)) if recs[i].get('flag') not in ('noref', 'timeout')]
+        extra = arng.choice(pool, min(len(pool), args.adv_starts - len(starts)), replace=False) if pool else []
+        starts += [int(i) for i in extra]
+        st = {'step': 0, 'cur': [[recs[i]['x'], recs[i].get('score') or 0.0] for i in starts],
+              'sig': [0.3] * len(starts), 'rng': arng.bit_generator.state, 'skip': []}
+    if stuck and stuck.get('t') == t.name and stuck.get('ph') == 'a':
+        st['skip'].append([stuck['step'], stuck['j']])
+        with open(ckpt, 'w', encoding='utf-8') as f:
+            json.dump(st, f)
+    floor = 2.0 ** -22 if t.dtype == 'float32' else 1e-14
+    skip = {tuple(s) for s in st['skip']}
+    while st['step'] < args.adv_steps:
+        s = st['step']
+        rng = np.random.default_rng()
+        rng.bit_generator.state = st['rng']
+        props = []
+        for (x, sc), sg in zip(st['cur'], st['sig']):
+            for _ in range(30):
+                q = perturb(rng, t, x, sg)
+                qa = cast(t, [q])
+                if len(qa):
+                    props.append(tuple(float(v) for v in qa[0]))
+                    break
+            else:
+                props.append(tuple(x))
+        ya = call(t, np.array(props, dtype=float))
+        out = []
+        for j, (p, v) in enumerate(zip(props, ya)):
+            if (s, j) in skip:
+                r = {'flag': 'timeout'}
+            else:
+                r = R.run({'t': t.name, 'ph': 'a', 'step': s, 'j': j},
+                          lambda: tasks.screen(t.name, p, float(v)))
+            r = dict(r or {})
+            r.update(x=list(p), y=float(v), phase='adv', step=s)
+            out.append(r)
+            sc = r.get('score') or 0.0
+            if sc > st['cur'][j][1]:
+                st['cur'][j] = [list(p), sc]
+                st['sig'][j] = min(st['sig'][j] * 1.6, 3.0)
+            else:
+                st['sig'][j] = max(st['sig'][j] * 0.8, floor)
+                if st['sig'][j] <= floor * 1.0001:
+                    st['sig'][j] = 0.3
+        with open(path, 'a', encoding='utf-8') as f:
+            for r in out:
+                f.write(json.dumps(r, default=float) + '\n')
+        st['step'] = s + 1
+        st['rng'] = rng.bit_generator.state
+        with open(ckpt, 'w', encoding='utf-8') as f:
+            json.dump(st, f)
 
 
 def summarize(t, recs, dt):
@@ -165,6 +253,9 @@ def summarize(t, recs, dt):
         mu = max(good, key=lambda r: r.get('ulps') or 0, default=None)
         line += '  max_ulps=%s at %s' % (mu.get('ulps') if mu else None, mu['x'] if mu else None)
     print(line, flush=True)
+    os.makedirs(LOGS, exist_ok=True)
+    with open(os.path.join(LOGS, 'sweep_summary.txt'), 'a', encoding='utf-8') as f:
+        f.write(line + '\n')
 
 
 def main():
@@ -172,11 +263,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--targets', default='')
     ap.add_argument('--exclude', default='')
-    ap.add_argument('--n', type=int, default=3000)
-    ap.add_argument('--adv-starts', type=int, default=24)
-    ap.add_argument('--adv-steps', type=int, default=60)
-    ap.add_argument('--workers', type=int, default=12)
-    ap.add_argument('--timeout', type=float, default=30)
+    ap.add_argument('--n', type=int, default=2000)
+    ap.add_argument('--adv-starts', type=int, default=16)
+    ap.add_argument('--adv-steps', type=int, default=40)
+    ap.add_argument('--timeout', type=float, default=20)
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--list', action='store_true')
     args = ap.parse_args()
@@ -187,15 +277,23 @@ def main():
     sel = [n for n in names if (not pre or any(n.startswith(p) for p in pre)) and not any(n.startswith(p) for p in exc)]
     if args.list:
         print('\n'.join(sel))
-        return
-    from pool import Pool
-    pool = Pool(args.workers, args.timeout)
-    try:
-        for nm in sel:
-            run_target(pool, targets.get(nm), args)
-    finally:
-        pool.close()
+        return 0
+    os.makedirs(RESULTS, exist_ok=True)
+    R = runner.Runner('sweep', args.timeout)
+    stuck = R.take_timed_out()
+    if stuck:
+        print('resuming after a timeout at %s' % stuck, flush=True)
+    for nm in sel:
+        run_target(R, targets.get(nm), args, stuck)
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        sys.exit(main())
+    except SystemExit:
+        raise
+    except BaseException:
+        import traceback
+        traceback.print_exc()
+        sys.exit(2)  # a real error: run.sh does not restart
