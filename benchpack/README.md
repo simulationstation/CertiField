@@ -16,7 +16,7 @@ still be wrong.
 | [P1](problems/P1.md) | square plate with a circular hole, pulled by frictionless grips | stiffness K; mean of σ<sub>xx</sub> over a small patch at the edge of the hole | 0.5912009869 ≤ K ≤ 0.5912009882; 1.032737550 ≤ Q2 ≤ 1.032768058 |
 | [P1c](problems/P1.md) | the same plate, clamped grips | the same | 0.5957196143 ≤ K ≤ 0.5957222828; 1.045047061 ≤ Q2 ≤ 1.046096446 |
 | [P2](problems/P2.md) | L-bracket, clamped on one edge, the opposite grip moved | stiffness K; mean of σ<sub>xx</sub> over a square at the re-entrant corner | 0.1226044392 ≤ K ≤ 0.1226073846; −0.3095832144 ≤ Q2 ≤ −0.3093253171 |
-| [P3](problems/P3.md) | cube with a spherical cavity, pulled by rigid grips | stiffness K | clamped: 1.81732246 ≤ K ≤ 1.83348613; frictionless: 1.74510549 ≤ K ≤ 1.75827651 |
+| [P3](problems/P3.md) | cube with a spherical cavity, pulled by rigid grips | stiffness K | clamped: 1.832048486 ≤ K ≤ 1.832438844; frictionless: 1.757411214 ≤ K ≤ 1.757622167 |
 
 All intervals are CERTIFIED and re-checked by the independent checker; the arguments have been checked by their
 author only. Certificates are in `certificates/` (format in `certificates/FORMAT.md`), the method and derivations in
@@ -56,6 +56,7 @@ entirely the polygonal approximation of the hole (`harness/README.md` has the co
 cd benchpack/checker
 python check.py ../certificates/P1_frictionless_N16_p9        # about a minute; P1c, P2 likewise
 python tests.py
+python p3check.py ../certificates/P3_frictionless_N12_p4_exact   # P3 (see checker/README.md)
 
 cd Reference/Curved3D                                         # P3, from the repository root
 python verify.py 24 frictionless certificates/psi_frictionless_N24.npz certificates/v_frictionless_N24.npz 3 5

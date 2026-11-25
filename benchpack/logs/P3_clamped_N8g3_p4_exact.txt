@@ -1,0 +1,36 @@
+  P3 clamped: N=8, degrees 4/3; to resume after a stop rerun the same command (checkpoints in benchpack/work/P3_clamped_N8g3_p4_exact)
+    dual assembly 0/4004 boxes  0s
+    dual assembly 200/4004 boxes  26s
+    dual assembly 400/4004 boxes  52s
+    dual assembly 600/4004 boxes  78s
+    dual assembly 800/4004 boxes  104s
+    dual assembly 1000/4004 boxes  130s
+    dual assembly 1200/4004 boxes  156s
+    dual assembly 1400/4004 boxes  182s
+    dual assembly 1600/4004 boxes  209s
+    dual assembly 1800/4004 boxes  235s
+    dual assembly 2000/4004 boxes  260s
+    dual assembly 2200/4004 boxes  286s
+    dual assembly 2400/4004 boxes  312s
+    dual assembly 2600/4004 boxes  338s
+    dual assembly 2800/4004 boxes  364s
+    dual assembly 3000/4004 boxes  390s
+    dual assembly 3200/4004 boxes  417s
+    dual assembly 3400/4004 boxes  446s
+    dual assembly 3600/4004 boxes  475s
+    dual assembly 3800/4004 boxes  504s
+    dual assembly 4000/4004 boxes  533s
+  dual solved: 7107 dofs, float K >= 1.83259427  (538s)
+  primal solved: 3626 dofs, float K <= 1.83246545  (70s)
+    primal certificate 0/1280 boxes  0s
+    primal cut cells 0/34  0s
+    primal cut cells 10/34  1s
+    primal cut cells 20/34  4s
+    primal cut cells 30/34  14s
+  certified upper bound K <= 1.83243845  (625s)
+    dual certificate 0/1280 boxes  2s
+    dual cut cells 0/34  0s
+    dual cut cells 10/34  5s
+    dual cut cells 20/34  16s
+    dual cut cells 30/34  51s
+  CERTIFIED  1.83204888 <= K <= 1.83243845   rel width 2.13e-04;  claim [1.832048486, 1.832438844]  (723s)

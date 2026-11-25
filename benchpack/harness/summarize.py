@@ -238,6 +238,12 @@ def plot_case(case, data, ivs, path):
             if win is not None:
                 ax.set_ylim(*win)
                 ax.ticklabel_format(axis="y", useOffset=False)
+            if rel is not None:
+                # inside the band only the midpoint gets a tick (the band is labelled by its edges' lines)
+                lim = ax.get_ylim()
+                ticks = [t for t in ax.get_yticks() if t == 0 or abs(t) >= 1.5 * rel[1]]
+                ax.set_yticks(ticks)
+                ax.set_ylim(*lim)
             if qi == 0:
                 ax.set_title(code, color=INK, fontsize=10)
             if ci == 0:
@@ -248,7 +254,8 @@ def plot_case(case, data, ivs, path):
                     ax.set_ylabel(name if q == "Q1" else "Q2 = mean of sigma_xx on the patch", color=INK2, fontsize=9)
             if qi == len(qs) - 1:
                 ax.set_xlabel("degrees of freedom", color=INK2, fontsize=9)
-            ax.legend(fontsize=7, frameon=False, labelcolor=INK2, loc="upper right")
+            ax.legend(fontsize=7, frameon=False, labelcolor=INK2,
+                      loc="center right" if code == "NDSolve, own mesh" else "upper right")
     fig.suptitle("%s: finite element values (FLOAT) against the certified interval%s" % (
         TITLE[case], "" if ivs else " (no interval stored yet)"), color=INK, fontsize=11)
     if ivs:

@@ -49,22 +49,28 @@ def tensor_cell(px, py, pz, coef, fx, fy, fz):
     return tot
 
 
-def cut_cells(N):
+def _cell_box(S, cell):
+    return [v for k in range(3) for v in (S.S[k].a[cell[k]], S.S[k].b[cell[k]])]
+
+
+def cut_cells(S):
+    """cells of the (stress) grid cut by the sphere (exact test)"""
     out = []
     a2 = Fr(1, 4)
-    for ex in range(N):
-        for ey in range(N):
-            for ez in range(N):
-                lo = Fr(ex * ex + ey * ey + ez * ez, N * N)
-                hi = Fr((ex + 1) ** 2 + (ey + 1) ** 2 + (ez + 1) ** 2, N * N)
+    X, Y, Z = S.S
+    for ex in range(X.ne):
+        for ey in range(Y.ne):
+            for ez in range(Z.ne):
+                lo = X.a[ex] ** 2 + Y.a[ey] ** 2 + Z.a[ez] ** 2
+                hi = X.b[ex] ** 2 + Y.b[ey] ** 2 + Z.b[ez] ** 2
                 if lo < a2 < hi:
                     out.append((ex, ey, ez))
     return out
 
 
-def full_cell_boxes(N):
+def full_cell_boxes(S):
     """the cells entirely outside the open ball, as level-0 boxes in curved3d's box format"""
-    b = pf.build_boxes(N, 0, A2)
+    b = pf.octree_boxes(S, 0)
     return b[b[:, 7] == 0]
 
 
@@ -103,7 +109,7 @@ def dual_cut_upper(S, Psi, gam, checkpoint=None, verbose=False):
     def one(cell):
         ex, ey, ez = cell
         fx, fy, fz = [int(S.S[k].first[e]) for k, e in enumerate(cell)]
-        rho = uni3(eta_poly(ex, S.N), X3) + Y3 * Y3 + Z3 * Z3 - q(Fr(1, 4))
+        rho = uni3(eta_poly(S.S[0].a[ex]), X3) + Y3 * Y3 + Z3 * Z3 - q(Fr(1, 4))
         R = rho * rho
         Phi = [R * tensor_cell(px(ex), py(ey), pz(ez), Psi[c], fx, fy, fz) for c in range(6)]
         names = 'xyz'
@@ -126,10 +132,9 @@ def dual_cut_upper(S, Psi, gam, checkpoint=None, verbose=False):
         tr = tau[0] + tau[1] + tau[2]
         dens = (tau[0] * tau[0] + tau[1] * tau[1] + tau[2] * tau[2]
                 + 2 * (tau[3] * tau[3] + tau[4] * tau[4] + tau[5] * tau[5])) * (1 + nu) - nu * tr * tr
-        box = [Fr(ex, S.N), Fr(ex + 1, S.N), Fr(ey, S.N), Fr(ey + 1, S.N), Fr(ez, S.N), Fr(ez + 1, S.N)]
-        return outside_integral(dens, box)
+        return outside_integral(dens, _cell_box(S, cell))
 
-    return _run(cut_cells(S.N), one, checkpoint, verbose, 'dual')
+    return _run(cut_cells(S), one, checkpoint, verbose, 'dual')
 
 
 def primal_cut_upper(S, V, checkpoint=None, verbose=False):
@@ -147,7 +152,6 @@ def primal_cut_upper(S, V, checkpoint=None, verbose=False):
         tr = e[0] + e[1] + e[2]
         dens = lam * tr * tr + 2 * mu * (e[0] * e[0] + e[1] * e[1] + e[2] * e[2]) + mu * (e[3] * e[3] + e[4] * e[4]
                                                                                           + e[5] * e[5])
-        box = [Fr(ex, S.N), Fr(ex + 1, S.N), Fr(ey, S.N), Fr(ey + 1, S.N), Fr(ez, S.N), Fr(ez + 1, S.N)]
-        return outside_integral(dens, box)
+        return outside_integral(dens, _cell_box(S, cell))
 
-    return _run(cut_cells(S.N), one, checkpoint, verbose, 'primal')
+    return _run(cut_cells(S), one, checkpoint, verbose, 'primal')

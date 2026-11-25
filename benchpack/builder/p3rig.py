@@ -16,7 +16,7 @@ from fractions import Fraction as Fr
 import numpy as np
 
 import p3float as pf
-from p3float import G, COMPS, VAR, build_boxes, A2, eta_poly
+from p3float import G, COMPS, VAR, A2, eta_poly, octree_boxes
 from splines import poly_der, gauss01_rig
 from ia import I, frac_enclosure, sqr, sum_up, up
 from curved3d import RI, ri_horner
@@ -48,7 +48,7 @@ class DirTables:
         X = [RI(a + h * t.lo, a + h * t.hi) for t in T]               # physical coordinates (exact intervals)
         # weight function pieces: eta (x direction) or the square (y, z), with first and second derivatives
         if self.dir == 0:
-            c = eta_poly(e, self.N)
+            c = eta_poly(Sp.a[e])
         else:
             c = [Fr(0), Fr(0), Fr(1)]
         rho = []
@@ -131,7 +131,7 @@ def dual_upper(S, Psi, gam, L, batch=48, verbose=False, checkpoint=None, boxes=N
     checkpoint: a file to store the partial sums per batch (resume after a stop)."""
     nq, p1 = S.nqs, S.ps + 1
     tabs = [DirTables(S.S[k], nq, 2, k, S.N, S.gexp) for k in range(3)]
-    boxes = build_boxes(S.N, L, A2) if boxes is None else boxes
+    boxes = octree_boxes(S, L) if boxes is None else boxes
     nu = pf.NU
     nu_i = I(*frac_enclosure(nu))
     one_nu = I(*frac_enclosure(1 + nu))
@@ -212,7 +212,7 @@ def primal_upper(S, V, L, batch=128, verbose=False, checkpoint=None, boxes=None)
     """rigorous upper bound of a_oct(v) for v = (x/2, 0, 0) + splines V [3, nx, ny, nz]"""
     nq, p1 = S.nqu, S.pu + 1
     tabs = [DirTables(S.U[k], nq, 1, k, S.N) for k in range(3)]
-    boxes = build_boxes(S.N, L, A2) if boxes is None else boxes
+    boxes = octree_boxes(S, L) if boxes is None else boxes
     lam = I(*frac_enclosure(pf.LAM))
     mu = I(*frac_enclosure(pf.MU))
     done = {}

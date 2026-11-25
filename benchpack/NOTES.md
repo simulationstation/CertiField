@@ -4,7 +4,7 @@ Labels as in the ground rules (PROVED / CERTIFIED / FLOAT / DIAGNOSTIC / OPEN). 
 agent only. The certificate data are described in `certificates/FORMAT.md`; the problem data are in
 `problems/definitions.py`; the builder code is in `builder/`.
 
-## 1. Bounds on the energy (both problems)
+## 1. Bounds on the energy (all problems; P3 in 3D, section 5)
 
 Linear elasticity, plane stress, E = 1, ν = 3/10, unit thickness, δ = 1; `C` the stiffness, `S = C^-1` the
 compliance (definitions.py). `V` = displacements in H¹ that satisfy the prescribed displacement conditions,
@@ -19,7 +19,7 @@ frictionless grips. Integrating by parts cell by cell, for every `v ∈ V`
 
 because the traction terms on interior edges cancel, vanish on free boundaries, and on mirror lines and grips only
 the prescribed normal displacement does work. P1 quarter: `W(τ) = (1/2) F_q(τ)`, `F_q = ∫_0^1 τ_xx(1,y) dy`.
-P2: `W(τ) = F(τ) = −∫_0^1 τ_xy(1,y) dy`.
+P2: `W(τ) = F(τ) = −∫_0^1 τ_xy(1,y) dy`. P3 octant (3D elasticity): `W(τ) = (1/2) F_o(τ)`, `F_o = ∫∫ τ_xx(1,y,z) dy dz`.
 
 **Upper bound (PROVED, classical).** `(1/2) a(u,u) <= (1/2) a(v,v)` for every `v ∈ V`.
 
@@ -113,8 +113,8 @@ for the adjoint parts, then `v_± = v_0 ± k v_1`, `τ_± = τ_0 ± k τ_1`. Flo
 
 | Quantity | Rigorous bounds (builder) | Relative width | Claim (weakened, FORMAT §6) | Label |
 |---|---|---|---|---|
-| Q1 = K | 0.591200987507 <= K <= 0.591200987579 | 1.2e-10 | [0.5912009869, 0.5912009882] | CERTIFIED (checked by the agent only; independent checker pending) |
-| Q2 | 1.0327375805 <= Q2 <= 1.0327680269 | 2.9e-5 | [1.032737550, 1.032768058] | CERTIFIED (checked by the agent only; independent checker pending) |
+| Q1 = K | 0.591200987507 <= K <= 0.591200987579 | 1.2e-10 | [0.5912009869, 0.5912009882] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
+| Q2 | 1.0327375805 <= Q2 <= 1.0327680269 | 2.9e-5 | [1.032737550, 1.032768058] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
 
 Both meet the acceptance criterion (1e-3) and the stretch goal (1e-4). The width of Q2 is set by the adjoint
 problem, whose solution has stress jumps across the curved boundary of the patch that the smooth spline spaces do
@@ -136,7 +136,7 @@ not follow (adjoint energy gap about 25 against an adjoint energy of about 125-1
   the K and Q2 of P1 (frictionless grips, as defined in problems/P1.md) lie in the claimed intervals. No
   floating-point rounding enters the certified numbers; the circle is not approximated.
 - The argument is classical but has been checked by the agent only; the independent checker (a separate program,
-  written from FORMAT.md) had not reported when these notes were written.
+  written from FORMAT.md) passed this certificate and the P1c one (benchpack/checker/logs).
 - Assumptions A1, A2 above; linear plane-stress elasticity; the weak (H¹) solution.
 - Nothing is claimed about pointwise stresses, other patches, or the clamped variant (separate certificate).
 
@@ -153,8 +153,8 @@ sides of x = 21/400 and y = 11/20), where the adjoint stress jumps.
 
 | Quantity | Rigorous bounds (builder) | Relative width | Claim (weakened) | Label |
 |---|---|---|---|---|
-| Q1 = K | 0.595719616964 <= K <= 0.595722280058 | 4.5e-6 | [0.5957196143, 0.5957222828] | CERTIFIED (checked by the agent only; independent checker pending) |
-| Q2 | 1.0450481089 <= Q2 <= 1.0460953984 | 1.0e-3 | [1.045047061, 1.046096446] | CERTIFIED (checked by the agent only; independent checker pending) |
+| Q1 = K | 0.595719616964 <= K <= 0.595722280058 | 4.5e-6 | [0.5957196143, 0.5957222828] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
+| Q2 | 1.0450481089 <= Q2 <= 1.0460953984 | 1.0e-3 | [1.045047061, 1.046096446] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
 
 P1c has no acceptance criterion of its own; measured against those of P1, K meets 1e-4 and Q2 sits at 1.0e-3.
 Clamping raises K by 0.77 % and the patch average by 1.2 % against the frictionless grips. Deeper grading towards the
@@ -196,8 +196,8 @@ the re-entrant corner lines, 6 towards the clamped corners, 4 towards 1/10; stre
 
 | Quantity | Rigorous bounds (builder, exact rationals) | Relative width | Claim (weakened) | Label |
 |---|---|---|---|---|
-| Q1 = K | 0.122603934395 <= K <= 0.122610210236 | 5.1e-5 | [0.1226039281, 0.1226102166] | CERTIFIED (checked by the agent only; independent checker pending) |
-| Q2 | −0.3097348053 <= Q2 <= −0.3092223558 | 1.7e-3 | [−0.3097353178, −0.3092218433] | CERTIFIED (checked by the agent only; independent checker pending) |
+| Q1 = K | 0.122603934395 <= K <= 0.122610210236 | 5.1e-5 | [0.1226039281, 0.1226102166] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
+| Q2 | −0.3097348053 <= Q2 <= −0.3092223558 | 1.7e-3 | [−0.3097353178, −0.3092218433] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
 
 Both meet the acceptance criteria (K: 1e-3, Q2: 1e-2). Q2 is negative: the patch at the re-entrant corner is in
 compression.
@@ -207,8 +207,8 @@ towards the corner lines, 5 towards the clamped corners, 4 towards 1/10; degrees
 
 | Quantity | Rigorous bounds (builder, exact rationals) | Relative width | Claim (weakened) | Label |
 |---|---|---|---|---|
-| Q1 = K | 0.122604442179 <= K <= 0.122607381577 | 2.4e-5 | [0.1226044392, 0.1226073846] | CERTIFIED (checked by the agent only; independent checker pending) |
-| Q2 | −0.3095829569 <= Q2 <= −0.3093255745 | 8.3e-4 | [−0.3095832144, −0.3093253171] | CERTIFIED (checked by the agent only; independent checker pending) |
+| Q1 = K | 0.122604442179 <= K <= 0.122607381577 | 2.4e-5 | [0.1226044392, 0.1226073846] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
+| Q2 | −0.3095829569 <= Q2 <= −0.3093255745 | 8.3e-4 | [−0.3095832144, −0.3093253171] | CERTIFIED (checked by the agent only; independent checker passed, checker/logs) |
 
 This meets the stretch goal for Q2 (1e-3). A finer base grid with fewer layers keeps the cells less elongated for
 the same smallest cell, which the float solve needs (see below). The two certificates are independent; their
@@ -232,7 +232,7 @@ valid bound). Validity is never affected, only sharpness.
 **What is guaranteed and what is not (P2).**
 - Guaranteed, if the argument of sections 1, 2 and 4 is right and python-flint's rational arithmetic is correct:
   the K and Q2 of P2 (problems/P2.md) lie in the claimed intervals. All certified numbers are exact rationals.
-- The argument has been checked by the agent only; the independent checker had not reported when this was written.
+- The argument has been checked by the agent only; the independent checker passed both P2 certificates (checker/logs).
 - Assumptions: A1 (the clamped edge and the grip exclude rigid motions), linear plane-stress elasticity, the weak
   (H¹) solution, which exists although the stress is singular at the re-entrant corner.
 - Nothing is claimed about the stress at the corner itself (it is unbounded) or about other patches.
@@ -292,19 +292,22 @@ integrating to a nearby exact point and adding `|end − point| · sup|f|` over 
 | curved3d N = 24 (stored, unchanged) | superset | 1.74510549 <= K <= 1.75827651 | 7.5e-3 | | CERTIFIED (stored earlier) |
 
 Both exact certificates meet the target (0.1 %): by a factor of about four at N = 8 (564 s on one process) and of
-about eight at N = 12 (1368 s). The intervals are consistent (each finer one lies inside the coarser ones).
+about eight at N = 12 (1368 s). The intervals are consistent (each finer one lies inside the coarser ones). The
+superset certificate shows how much of curved3d's width came from the integration domain: the same displacement
+space gives 1.75957 over the superset at depth 6 and 1.75763 over the exact domain.
 
-Clamped grips (same discretisation; the potential has no condition at x = 1 and `v_y = v_z = 0` there):
+Clamped grips (the potential has no condition at x = 1 and `v_y = v_z = 0` there):
 
-| Certificate | Integration | Rigorous bounds (builder) | Relative width | Claim (weakened) | Label |
+| Certificate | Grid | Rigorous bounds (builder) | Relative width | Claim (weakened) | Label |
 |---|---|---|---|---|---|
-| `P3_clamped_N8_p4_exact` | exact | 1.83043704 <= K <= 1.83320745 | 1.5e-3 | [1.830434273, 1.833210223] | CERTIFIED (checked by the agent only; independent checker pending) |
+| `P3_clamped_N8g3_p4_exact` | N = 8, graded (3 halvings towards x, y, z = 1), exact | 1.83204888 <= K <= 1.83243845 | 2.1e-4 | [1.832048486, 1.832438844] | CERTIFIED (checked by the agent only; independent checker pending) |
+| `P3_clamped_N12_p4_exact` | N = 12, uniform, exact | 1.83130558 <= K <= 1.83284522 | 8.4e-4 | [1.831304038, 1.832846763] | CERTIFIED (checked by the agent only; independent checker pending) |
+| `P3_clamped_N8_p4_exact` | N = 8, uniform, exact | 1.83043704 <= K <= 1.83320745 | 1.5e-3 | [1.830434273, 1.833210223] | CERTIFIED (checked by the agent only; independent checker pending) |
 | curved3d N = 24 (stored, unchanged) | superset | 1.81732246 <= K <= 1.83348613 | 8.9e-3 | | CERTIFIED (stored earlier) |
 
-The clamped grip meets the free faces y = 1 and z = 1 along edges where the stress is singular, so the clamped
-bounds converge more slowly; at 8 cells per half-edge the width is 1.5e-3, above the 0.1 % target. The superset certificate shows how
-much of curved3d's width came from the integration domain: the same displacement space gives 1.75957 over the
-superset at depth 6 and 1.75763 over the exact domain.
+The clamped grip meets the free faces y = 1 and z = 1 along edges where the stress is singular; on the uniform grid
+the width is 1.5e-3, above the target. Three geometric layers of cells towards x, y, z = 1 (FORMAT.md 9, `grade`)
+bring it to 2.1e-4, below the target (723 s). The intervals are nested in curved3d's.
 
 **Tests (`builder/tests_p3.py`, pass).** 1. Known answer: the lift alone has energy `(λ + 2μ)(1 − π/48)/4` over the
 octant minus the ball; the computed upper bound exceeds it by 2e-13. 2. Exact identities of random admissible
