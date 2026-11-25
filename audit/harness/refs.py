@@ -29,8 +29,12 @@ acb = flint.acb
 
 
 def _arb_to_mpf(v):
+    """Exact midpoint of a ball as an mpf (built at the mantissa's own precision, not at
+    mpmath's current one)."""
     man, exp = v.mid().man_exp()
-    return mpf((int(man), int(exp)))
+    man, exp = int(man), int(exp)
+    with mp.workprec(max(53, man.bit_length() + 4)):
+        return mpf((man, exp))
 
 
 def mpf_to_arb(x):
@@ -50,16 +54,24 @@ def _to_arb(x):
     return mpf_to_arb(x)
 
 
-def arb_eval(forms, args, min_bits=64, precs=(128, 256, 512, 1024, 2048), pert=None):
-    """Try each Arb formulation with rising precision until the ball is tight.
+def arb_eval(forms, args, min_bits=64, precs=(128, 256, 512, 1024, 2048), pert=None, budget=20.0):
+    """Evaluate Arb formulations with rising precision (all formulations at one precision
+    before the next precision) until a ball has >= min_bits of relative accuracy.
 
     args are floats or mpf (converted exactly); pert = (i, h) multiplies args[i] by
-    (1 + h) exactly (h a power of two) for derivative estimates.
-    Returns (mpf midpoint, arb ball, formulation index) or (None, None, None)."""
+    (1 + h) exactly (h a power of two) for derivative estimates.  Gives up after
+    `budget` seconds.  Returns (mpf midpoint, arb ball, formulation index) or Nones."""
+    import time
     old = flint.ctx.prec
+    t0 = time.time()
+    dead = set()
     try:
-        for i, fn in enumerate(forms):
-            for p in precs:
+        for p in precs:
+            for i, fn in enumerate(forms):
+                if i in dead:
+                    continue
+                if time.time() - t0 > budget:
+                    return None, None, None
                 flint.ctx.prec = p
                 a = [_to_arb(x) for x in args]
                 if pert is not None:
@@ -67,12 +79,15 @@ def arb_eval(forms, args, min_bits=64, precs=(128, 256, 512, 1024, 2048), pert=N
                 try:
                     v = fn(*a)
                 except (ValueError, ZeroDivisionError, AssertionError, NotImplementedError):
-                    break
+                    dead.add(i)
+                    continue
                 if v is None:
-                    break
+                    dead.add(i)
+                    continue
                 if isinstance(v, acb):
                     if not v.imag.contains(0):
-                        break
+                        dead.add(i)
+                        continue
                     v = v.real
                 if v.is_zero():
                     return mpf(0), v, i
@@ -231,10 +246,46 @@ def mb_betaincc(a, b, x):
     return mp.betainc(b, a, 0, mp.fsub(1, x, exact=True), regularized=True)
 
 
-A_betainc = [lambda a, b, x: x.beta_lower(a, b, 1),
-             lambda a, b, x: 1 - (1 - x).beta_lower(b, a, 1)]
-A_betaincc = [lambda a, b, x: (1 - x).beta_lower(b, a, 1),
-              lambda a, b, x: 1 - x.beta_lower(a, b, 1)]
+def _f(v):
+    return float(v.mid())
+
+
+def a_I(a, b, x, y, flip=False):
+    """I_x(a,b) with y = 1-x: computed directly below the transition point
+    x < (a+1)/(a+b+2), and as 1 - I_y(b,a) above it (then I > ~1/2, no cancellation).
+    flip=True takes the other branch (fallback formulation)."""
+    if x.is_zero():
+        return arb(0)
+    if y.is_zero():
+        return arb(1)
+    direct = _f(x) * (_f(a) + _f(b) + 2) < _f(a) + 1
+    if flip:
+        direct = not direct
+    if direct:
+        return x.beta_lower(a, b, 1)
+    return 1 - y.beta_lower(b, a, 1)
+
+
+def a_P(a, x, flip=False):
+    if x.is_zero():
+        return arb(0)
+    direct = _f(x) < _f(a) + 1
+    if flip:
+        direct = not direct
+    return x.gamma_lower(a, 1) if direct else 1 - x.gamma_upper(a, 1)
+
+
+def a_Q(a, x, flip=False):
+    if x.is_zero():
+        return arb(1)
+    direct = not (_f(x) < _f(a) + 1)
+    if flip:
+        direct = not direct
+    return x.gamma_upper(a, 1) if direct else 1 - x.gamma_lower(a, 1)
+
+
+A_betainc = [lambda a, b, x: a_I(a, b, x, 1 - x), lambda a, b, x: a_I(a, b, x, 1 - x, True)]
+A_betaincc = [lambda a, b, x: a_I(b, a, 1 - x, x), lambda a, b, x: a_I(b, a, 1 - x, x, True)]
 
 
 def m_gammainc(a, x):
@@ -253,11 +304,8 @@ def mb_gammaincc(a, x):
     return mp.gammainc(a, x, mp.inf, regularized=True)
 
 
-A_gammainc = [lambda a, x: x.gamma_lower(a, 1) if x < a + 1 else 1 - x.gamma_upper(a, 1),
-              lambda a, x: 1 - x.gamma_upper(a, 1),
-              lambda a, x: x.gamma_lower(a, 1)]
-A_gammaincc = [lambda a, x: x.gamma_upper(a, 1),
-               lambda a, x: 1 - x.gamma_lower(a, 1)]
+A_gammainc = [lambda a, x: a_P(a, x), lambda a, x: a_P(a, x, True)]
+A_gammaincc = [lambda a, x: a_Q(a, x), lambda a, x: a_Q(a, x, True)]
 
 
 # Student t: tails via I_w(df/2, 1/2), w = df/(df+t^2), 1-w = t^2/(df+t^2)
@@ -276,25 +324,14 @@ def _t_tails_m(df, t):
     return (tail, body) if t < 0 else (body, tail)
 
 
-def _t_tails_a(df, t):
+def _t_tails_a(df, t, flip=False):
+    """(P(T<=t), P(T>t)): tail = I_w(df/2, 1/2)/2, w = df/(df+t^2), 1-w = t^2/(df+t^2)."""
     if t.is_zero():
         return arb(1) / 2, arb(1) / 2
     t2 = t * t
     w = df / (df + t2)
     y = t2 / (df + t2)
-    tail = w.beta_lower(df / 2, arb(1) / 2, 1) / 2
-    if not (tail.rel_accuracy_bits() > 60):
-        tail = (1 - y.beta_lower(arb(1) / 2, df / 2, 1)) / 2
-    body = 1 - tail
-    return (tail, body) if t < 0 else (body, tail)
-
-
-def _t_tails_a2(df, t):
-    if t.is_zero():
-        return arb(1) / 2, arb(1) / 2
-    t2 = t * t
-    y = t2 / (df + t2)
-    tail = (1 - y.beta_lower(arb(1) / 2, df / 2, 1)) / 2
+    tail = a_I(df / 2, arb(1) / 2, w, y, flip) / 2
     body = 1 - tail
     return (tail, body) if t < 0 else (body, tail)
 
@@ -303,7 +340,7 @@ def m_stdtr(df, t):
     return _t_tails_m(df, t)[0]
 
 
-A_stdtr = [lambda df, t: _t_tails_a(df, t)[0], lambda df, t: _t_tails_a2(df, t)[0]]
+A_stdtr = [lambda df, t: _t_tails_a(df, t)[0], lambda df, t: _t_tails_a(df, t, True)[0]]
 
 
 def m_fdtr(dfn, dfd, x):
@@ -313,16 +350,20 @@ def m_fdtr(dfn, dfd, x):
     return beta_IJ(dfn / 2, dfd / 2, w, y)[0]
 
 
-A_fdtr = [lambda dfn, dfd, x: (dfn * x / (dfn * x + dfd)).beta_lower(dfn / 2, dfd / 2, 1),
-          lambda dfn, dfd, x: 1 - (dfd / (dfn * x + dfd)).beta_lower(dfd / 2, dfn / 2, 1)]
+def _a_fdtr(dfn, dfd, x, flip=False):
+    w = dfn * x / (dfn * x + dfd)
+    y = dfd / (dfn * x + dfd)
+    return a_I(dfn / 2, dfd / 2, w, y, flip)
+
+
+A_fdtr = [lambda dfn, dfd, x: _a_fdtr(dfn, dfd, x), lambda dfn, dfd, x: _a_fdtr(dfn, dfd, x, True)]
 
 
 def m_chdtr(v, x):
     return gamma_PQ(v / 2, x / 2)[0]
 
 
-A_chdtr = [lambda v, x: A_gammainc[0](v / 2, x / 2), lambda v, x: A_gammainc[1](v / 2, x / 2),
-           lambda v, x: A_gammainc[2](v / 2, x / 2)]
+A_chdtr = [lambda v, x: a_P(v / 2, x / 2), lambda v, x: a_P(v / 2, x / 2, True)]
 
 
 def m_bdtr(k, n, p):
@@ -341,9 +382,7 @@ def _a_bdtr(k, n, p, flip):
         return arb(0)
     if k >= n:
         return arb(1)
-    if flip:
-        return 1 - p.beta_lower(k + 1, n - k, 1)
-    return (1 - p).beta_lower(n - k, k + 1, 1)
+    return a_I(n - k, k + 1, 1 - p, p, flip)
 
 
 A_bdtr = [lambda k, n, p: _a_bdtr(k, n, p, False), lambda k, n, p: _a_bdtr(k, n, p, True)]
@@ -375,7 +414,12 @@ def m_polygamma(n, x):
     return mp.psi(int(n), x)
 
 
-A_polygamma = [lambda n, x: acb(x).polygamma(acb(n)).real]
+A_polygamma = [lambda n, x: acb(x).polygamma(acb(n)).real,
+               # psi^(n)(x) = (-1)^(n+1) n! zeta(n+1, x) (integer n >= 1)
+               lambda n, x: (-1) ** (int(_f(n)) + 1) * arb.fac_ui(int(_f(n))) * acb(n + 1).zeta(acb(x)).real,
+               # trigamma reflection: psi_1(x) = -psi_1(1-x) + (pi / sin(pi x))^2
+               lambda n, x: (None if _f(n) != 1 or _f(x) > 0 else
+                             -acb(1 - x).polygamma(acb(1)).real + (arb.pi() / x.sin_pi()) ** 2)]
 
 # ---- error function family ---------------------------------------------------------------
 
@@ -476,7 +520,37 @@ def _m_norm(x):
     return m_ndtr(x), m_ndtr(-x)
 
 
-def _a_norm(x):
+def a_IJ(a, b, x, y, flip=False):
+    """(I_x(a,b), I_y(b,a)), y = 1-x, from one beta_lower call: the smaller of the two is
+    computed directly and the other as its complement.  flip=True swaps (fallback)."""
+    if x.is_zero():
+        return arb(0), arb(1)
+    if y.is_zero():
+        return arb(1), arb(0)
+    direct = _f(x) * (_f(a) + _f(b) + 2) < _f(a) + 1
+    if flip:
+        direct = not direct
+    if direct:
+        I = x.beta_lower(a, b, 1)
+        return I, 1 - I
+    J = y.beta_lower(b, a, 1)
+    return 1 - J, J
+
+
+def a_PQ(a, x, flip=False):
+    if x.is_zero():
+        return arb(0), arb(1)
+    direct = _f(x) < _f(a) + 1
+    if flip:
+        direct = not direct
+    if direct:
+        P = x.gamma_lower(a, 1)
+        return P, 1 - P
+    Q = x.gamma_upper(a, 1)
+    return 1 - Q, Q
+
+
+def _a_norm(x, flip=False):
     return _a_ndtr(x), _a_ndtr(-x)
 
 
@@ -484,31 +558,24 @@ def _m_t(x, df):
     return _t_tails_m(df, x)
 
 
-def _a_t(x, df):
-    return _t_tails_a(df, x)
+def _a_t(x, df, flip=False):
+    return _t_tails_a(df, x, flip)
 
 
 def _m_chi2(x, df):
     return gamma_PQ(df / 2, x / 2)
 
 
-def _a_chi2(x, df):
-    return _a_gamma(x / 2, df / 2)
+def _a_chi2(x, df, flip=False):
+    return a_PQ(df / 2, x / 2, flip)
 
 
 def _m_gamma(x, a):
     return gamma_PQ(a, x)
 
 
-def _a_gamma(x, a):
-    Q = x.gamma_upper(a, 1)
-    if lt_half(Q) or not (x < a + 1):
-        P = x.gamma_lower(a, 1) if x < a + 1 else 1 - Q
-        if not (P.rel_accuracy_bits() > 60):
-            P = 1 - Q
-        return P, Q
-    P = x.gamma_lower(a, 1)
-    return P, 1 - P
+def _a_gamma(x, a, flip=False):
+    return a_PQ(a, x, flip)
 
 
 def _m_f(x, dfn, dfd):
@@ -518,18 +585,18 @@ def _m_f(x, dfn, dfd):
     return beta_IJ(dfn / 2, dfd / 2, w, y)
 
 
-def _a_f(x, dfn, dfd):
+def _a_f(x, dfn, dfd, flip=False):
     w = dfn * x / (dfn * x + dfd)
     y = dfd / (dfn * x + dfd)
-    return w.beta_lower(dfn / 2, dfd / 2, 1), y.beta_lower(dfd / 2, dfn / 2, 1)
+    return a_IJ(dfn / 2, dfd / 2, w, y, flip)
 
 
 def _m_beta(x, a, b):
     return beta_IJ(a, b, x)
 
 
-def _a_beta(x, a, b):
-    return x.beta_lower(a, b, 1), (1 - x).beta_lower(b, a, 1)
+def _a_beta(x, a, b, flip=False):
+    return a_IJ(a, b, x, 1 - x, flip)
 
 
 def _m_binom(k, n, p):
@@ -542,13 +609,13 @@ def _m_binom(k, n, p):
     return J, I
 
 
-def _a_binom(k, n, p):
+def _a_binom(k, n, p, flip=False):
     k = k.floor()
     if k < 0:
         return arb(0), arb(1)
     if k >= n:
         return arb(1), arb(0)
-    return (1 - p).beta_lower(n - k, k + 1, 1), p.beta_lower(k + 1, n - k, 1)
+    return a_IJ(n - k, k + 1, 1 - p, p, flip)
 
 
 DISTS = {
@@ -582,22 +649,26 @@ def m_dist(dist, method):
 
 
 def a_dist(dist, method):
+    """Two Arb formulations (natural branch, flipped branch) of a distribution method."""
     af = DISTS[dist][1]
-    if method == 'sf':
-        return [lambda *a: af(*a)[1]]
-    if method == 'cdf':
-        return [lambda *a: af(*a)[0]]
-    if method == 'logsf':
-        def g(*a):
-            lo, up = af(*a)
-            return up.log() if lt_half(up) else (-lo).log1p()
-        return [g]
-    if method == 'logcdf':
-        def g(*a):
-            lo, up = af(*a)
-            return lo.log() if lt_half(lo) else (-up).log1p()
-        return [g]
-    raise ValueError(method)
+
+    def make(flip):
+        if method == 'sf':
+            return lambda *a: af(*a, flip=flip)[1]
+        if method == 'cdf':
+            return lambda *a: af(*a, flip=flip)[0]
+        if method == 'logsf':
+            def g(*a):
+                lo, up = af(*a, flip=flip)
+                return up.log() if lt_half(up) else (-lo).log1p()
+            return g
+        if method == 'logcdf':
+            def g(*a):
+                lo, up = af(*a, flip=flip)
+                return lo.log() if lt_half(lo) else (-up).log1p()
+            return g
+        raise ValueError(method)
+    return [make(False), make(True)]
 
 
 # =======================================================================================

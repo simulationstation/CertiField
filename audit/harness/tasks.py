@@ -16,7 +16,8 @@ FLT_MAX = float(np.finfo(np.float32).max)
 FLT_MIN = float(np.finfo(np.float32).tiny)
 U64 = 2.0 ** -53
 U32 = 2.0 ** -24
-H = 2.0 ** -30  # relative perturbation for condition numbers
+H = 2.0 ** -60  # relative perturbation for condition numbers
+KB = 110        # bits of the values differenced for condition numbers
 
 
 # ---------------------------------------------------------------------------------------
@@ -61,7 +62,7 @@ def metrics(dtype, y, r):
             out['ulps'] = 0
         else:
             out['flag'] = 'finite_for_overflow' if math.isfinite(y) else 'inf'
-            out['relerr'] = abs(mpf(y) - r) / ar if math.isfinite(y) else math.inf
+            out['relerr'] = float(abs(mpf(y) - r) / ar) if (math.isfinite(y) and mpmath.isfinite(r)) else math.inf
         return out
     if math.isinf(y):
         out['flag'] = 'inf'
@@ -143,20 +144,26 @@ def kappa(t, args, r, pts=None):
     if t.out == 'discrete':
         return None
     if t.inv is None:
+        # step 2^-60 (much smaller than the distance to any pole or zero that a double input
+        # can resolve), values to >= 110 bits so the difference keeps ~50 bits
+        r0, _, _ = refs.arb_eval(t.aref, args, min_bits=KB) if t.aref else (None, None, None)
         tot = 0.0
         for i in cont:
             if args[i] == 0:
                 continue
-            v, _, _ = refs.arb_eval(t.aref, args, pert=(i, H)) if t.aref else (None, None, None)
+            v, _, _ = refs.arb_eval(t.aref, args, min_bits=KB, pert=(i, H)) if (t.aref and r0 is not None) else (None, None, None)
             if v is None:
-                with mp.workdps(30):
+                with mp.workdps(50):
                     try:
                         a = [mpf(x) for x in args]
-                        a[i] = a[i] * (1 + mpf(H))
-                        v = t.mref(*a)
+                        b = list(a)
+                        b[i] = b[i] * (1 + mpf(H))
+                        r0m, v = t.mref(*a), t.mref(*b)
                     except Exception:
                         return None
-            tot += float(abs((v - r) / (H * r)))
+                tot += float(abs((v - r0m) / (H * r0m)))
+            else:
+                tot += float(abs((v - r0) / (H * r0)))
         return tot
     # inverse: x solves F(fwd args) = y, the forward args being args with y replaced by x
     yi = inv_yi(t, args)
@@ -164,8 +171,8 @@ def kappa(t, args, r, pts=None):
     fa = t.inv['fwd_a']
     base = list(args)
     base[yi] = r
-    F0, _, _ = refs.arb_eval(fa, base)
-    Fx, _, _ = refs.arb_eval(fa, base, pert=(yi, H))
+    F0, _, _ = refs.arb_eval(fa, base, min_bits=KB)
+    Fx, _, _ = refs.arb_eval(fa, base, min_bits=KB, pert=(yi, H))
     if F0 is None or Fx is None:
         return None
     dFx = (Fx - F0) / (H * r)  # dF/dx
@@ -175,7 +182,7 @@ def kappa(t, args, r, pts=None):
     for i in cont:
         if i == yi or args[i] == 0:
             continue
-        Fi, _, _ = refs.arb_eval(fa, base, pert=(i, H))
+        Fi, _, _ = refs.arb_eval(fa, base, min_bits=KB, pert=(i, H))
         if Fi is None:
             continue
         dFi = (Fi - F0) / (H * mpf(args[i]))
@@ -297,7 +304,27 @@ def confirm(name, args, y):
         res['mp_agree'] = _agree(r50, r100)
         # Arb bracket: F(x(1-d)) and F(x(1+d)) on opposite sides of y
         ok = None
-        if r100 is not None and r100 != 0:
+        if r100 is not None and (not mpmath.isfinite(r100) or r100 == refs.SMALL / 10 or r100 == 1 - refs.SMALL / 10):
+            # root outside the double range: check the side of F at the boundary double
+            yi = inv_yi(t, args)
+            if r100 == mp.inf:
+                b, below = DBL_MAX, True          # root above b
+            elif r100 == -mp.inf:
+                b, below = -DBL_MAX, False        # root below b
+            elif r100 == refs.SMALL / 10:
+                b, below = 2.0 ** -1075, False    # root below half the smallest subnormal
+            else:
+                b, below = 1 - 2.0 ** -54, True
+            ab = list(args)
+            ab[yi] = b
+            _, bb, _ = refs.arb_eval(t.inv['fwd_a'], ab, min_bits=60, precs=(256, 1024, 4096))
+            if bb is not None:
+                yy = refs.arb(args[yi])
+                inc = t.inv['increasing']
+                # increasing F: root above b  <=>  F(b) < y
+                ok = bool(bb < yy) if (inc == below) else bool(bb > yy)
+            res['arb_check'] = ok
+        elif r100 is not None and r100 != 0:
             d = mpf(10) ** -25
             yi = inv_yi(t, args)
             lo_, hi_ = (r100 * (1 - d), r100 * (1 + d)) if r100 > 0 else (r100 * (1 + d), r100 * (1 - d))

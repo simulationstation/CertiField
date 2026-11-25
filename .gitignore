@@ -58,3 +58,4 @@ audit/drafts/
 audit/summary.md
 audit/.venv/
 audit/results/
+audit/logs/

@@ -531,7 +531,7 @@ def _build_scipy_stats():
         add(Target(sx + dist + '.isf', S, D, st(dist, 'isf'), ('unit',) + ('pos',) * len(shapes[dist]),
                    gens=(PROB,) + shapes[dist], grid=[(q,) + s for s in gridshape[dist] for q in G_UNIT],
                    valid=lambda q, *s: unit_open(q) and all(fin(t) and t > 0 for t in s),
-                   inv=_inv_dict(refs.inv_isf(dist), [(lambda mf: lambda x, *s: mf(x, *s)[1])(mf)], False, yi=0),
+                   inv=_inv_dict(refs.inv_isf(dist), refs.a_dist(dist, 'sf'), False, yi=0),
                    note='isf(q, *shape)'))
     # binomial: (k, n, p)
 
