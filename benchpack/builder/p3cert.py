@@ -133,9 +133,39 @@ def build(stem, N, ps, pu, Ls, Lc, Lus, Luc, grip='frictionless', verbose=True, 
     return meta
 
 
+def verify(stem, verbose=True):
+    """re-evaluate a stored P3 certificate with this builder's evaluators (not the independent checker)"""
+    meta, arr = cio.load(stem)
+    S = Setup3(meta['N'], meta['stress_space']['degree'], meta['displacement_space']['degree'], meta['variant'])
+    for k in range(3):
+        assert [cio.fstr(t) for t in S.S[k].t] == meta['stress_space']['knots'][k]
+        assert [cio.fstr(t) for t in S.U[k].t] == meta['displacement_space']['knots'][k]
+    Psi, gam, V = arr['Psi'], arr['gam'], arr['V']
+    check_ties(S, Psi, gam, V)
+    integ = meta['integration']
+    if integ['mode'] == 'exact':
+        import p3exact
+        full = p3exact.full_cell_boxes(S.N)
+        a_up = Fr(p3rig.primal_upper(S, V, 0, boxes=full)) + p3exact.primal_cut_upper(S, V)
+        Q_up = Fr(p3rig.dual_upper(S, Psi, gam, 0, boxes=full)) + p3exact.dual_cut_upper(S, Psi, gam)
+    else:
+        a_up = Fr(p3rig.primal_upper(S, V, integ['displacement_depth']))
+        Q_up = Fr(p3rig.dual_upper(S, Psi, gam, integ['stress_depth']))
+    F = force(S, gam)
+    K_lo, K_hi = 2 * F * F / Q_up, 8 * a_up
+    c = meta['claims']['Q1']
+    ok = Fr(c['lower']) <= K_lo <= K_hi <= Fr(c['upper'])
+    if verbose:
+        print(f"{stem}: {float(K_lo):.8f} <= K <= {float(K_hi):.8f}; claim [{c['lower']}, {c['upper']}]: "
+              f"{'OK' if ok else 'FAILED'}", flush=True)
+    return ok
+
+
 if __name__ == '__main__':
     sys.stdout.reconfigure(encoding='utf-8')
     if sys.argv[1] == 'build':
         a = sys.argv[2:]
         build(a[0], *[int(v) for v in a[1:8]], grip=(a[8] if len(a) > 8 else 'frictionless'),
               mode=(a[9] if len(a) > 9 else 'superset'))
+    elif sys.argv[1] == 'verify':
+        sys.exit(0 if verify(sys.argv[2]) else 1)

@@ -183,6 +183,8 @@ def main():
             print(f"   eps={eps:g}: lower bound {float(Kl):.8f} vs claim upper {float(Khi):.8f}: {'no crossing' if ok else 'CROSSING'}")
             assert ok
         head("   ok")
+        head(f"5. re-evaluation of {stem}")
+        assert p3cert.verify(stem)
     head("ALL P3 TESTS PASSED")
 
 
