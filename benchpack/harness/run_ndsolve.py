@@ -36,6 +36,10 @@ VARIANTS = [("linear", 1, False, "P1"), ("quadratic-straight", 2, False, "P2-str
 # NDSolve runs: the first levels of cases.LEVELS (NIntegrate over large meshes is slow)
 NLEVELS = {"P1solid": 3, "P1": 5, "P1c": 5, "P2": 5, "P3c": 4, "P3f": 4}
 NLEVELS_QUAD_3D = 3
+# node order of a 10-node TetrahedronElement in Mathematica: vertices 1-4, then the mid-edge nodes of the edges
+# (1,2) (2,3) (3,1) (2,4) (3,4) (1,4) -- checked against ToElementMesh's own second-order tetrahedra and the volume of
+# a unit tetrahedron; the VTK / Abaqus order used by the harness ends with (1,4) (2,4) (3,4)
+MMA_TET10 = [0, 1, 2, 3, 4, 5, 6, 8, 9, 7]
 
 
 def wpath(p):
@@ -48,7 +52,8 @@ def job_entry(name, case, h, order, curved, workdir):
     P, C = m["points"], m["cells"]
     stem = os.path.join(workdir, name)
     np.savetxt(stem + "_coords.csv", P, delimiter=",", fmt="%.17g")
-    np.savetxt(stem + "_cells.csv", C + 1, delimiter=",", fmt="%d")
+    CW = C[:, MMA_TET10] if C.shape[1] == 10 else C
+    np.savetxt(stem + "_cells.csv", CW + 1, delimiter=",", fmt="%d")
     pc = pcells = "None"
     if c["q2"]:
         cent = P[C[:, :3]].mean(axis=1).T
@@ -95,7 +100,9 @@ def evaluate_nodal(case, h, skvariant, P, nodal_csv):
 def main(argv):
     sys.stdout.reconfigure(encoding="utf-8")
     todo = argv or list(cases.CASES)
-    workdir = tempfile.mkdtemp(prefix="nd_bench_")
+    # ND_WORKDIR: reuse a work directory; jobs whose result file exists there are not run again
+    workdir = os.environ.get("ND_WORKDIR") or tempfile.mkdtemp(prefix="nd_bench_")
+    os.makedirs(workdir, exist_ok=True)
     jobs, meta = [], []
     for case in todo:
         c = cases.CASES[case]
@@ -114,25 +121,30 @@ def main(argv):
         f.write("{\n" + ",\n".join(jobs) + "\n}\n")
     cmd = shlex.split(os.environ.get("WOLFRAMSCRIPT", "wolframscript"), posix=True)
     cmd += ["-file", wpath(os.path.join(HERE, "ndsolve_fem.wls")), wpath(jobfile)]
-    for attempt in range(3):
+    last_missing, tries = None, 0
+    for attempt in range(len(meta) + 2):
+        if all(os.path.exists(m[4]) for m in meta):
+            break
         print("running (attempt %d):" % (attempt + 1), " ".join(cmd), flush=True)
         p = subprocess.run(cmd, capture_output=True, text=True)
         print(p.stdout[-8000:], p.stderr[-2000:], flush=True)
-        if all(os.path.exists(m[4]) for m in meta):
+        # a job that stops the kernel twice is marked failed and skipped on the next attempt
+        missing = next((m[4] for m in meta if not os.path.exists(m[4])), None)
+        if missing is None:
             break
-        # a job that stopped the kernel is skipped on the next attempt
-        for m in meta:
-            if not os.path.exists(m[4]):
-                print("not done:", os.path.basename(m[4]), flush=True)
-                if attempt == 1:
-                    with open(m[4], "w") as f:
-                        f.write("failed\nkernel stopped\n")
-                break
+        tries = tries + 1 if missing == last_missing else 1
+        last_missing = missing
+        print("not done:", os.path.basename(missing), flush=True)
+        if tries >= 2:
+            with open(missing, "w") as f:
+                f.write("failed\nkernel stopped\n")
     by_case = {}
     for case, variant, skv, h, out, nodal, P in meta:
         row = dict(code="NDSolve", case=case, element=variant, h=h)
-        with open(out) as f:
-            r = list(csv.reader(f))
+        r = [["failed"]]
+        if os.path.exists(out):
+            with open(out) as f:
+                r = list(csv.reader(f))
         if r[0][0] == "failed":
             row["K"] = "failed (kernel stopped)"
         else:

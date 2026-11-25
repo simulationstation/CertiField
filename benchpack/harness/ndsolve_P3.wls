@@ -58,12 +58,17 @@ verdict[k_, {lo_, hi_}] := Which[
   k < lo, "BELOW the proven range by at least " <> str[Round[100 (lo - k)/lo, 0.001]] <> " %",
   True, "inside the proven range"];
 
-rows = {{"code", "case", "element", "maxcell", "ndof", "nelem", "time_s", "integrate_time_s", "K_nintegrate",
-   "K_system", "mesh_volume", "exact_volume"}};
 csv = FileNameJoin[{Directory[], "benchpack", "results", "ndsolve-toelementmesh_P3.csv"}];
+(* rows already in the CSV file are kept and not recomputed (a run stopped by the kernel can be resumed) *)
+rows = If[FileExistsQ[csv] && ! MemberQ[$ScriptCommandLine, "--fresh"], Import[csv, "CSV", "Numeric" -> False],
+   {{"code", "case", "element", "maxcell", "ndof", "nelem", "time_s", "integrate_time_s", "K_nintegrate",
+     "K_system", "mesh_volume", "exact_volume"}}];
+doneQ[grip_, mc_] := AnyTrue[Rest[rows],
+   #[[2]] === If[grip === "clamped", "P3c", "P3f"] && Abs[ToExpression[#[[4]]] - mc] < 1.*^-9 mc &];
 (* loop order changed (levels outer, grips inner): the finest level, 1e-5, stopped the kernel on the harness machine
    (about 750 000 unknowns), and it should not keep the frictionless runs from being done *)
 Do[
+  If[! doneQ[grip, mc],
   Print[grip, " grips; proven: ", certified[grip][[1]], " <= K <= ", certified[grip][[2]]];
     Module[{r = stiffness[grip, mc]},
       Print["   max cell volume ", str[mc], "   nodes ", r[[1]], "   solve time ", str[Round[r[[2]], 0.01]],
@@ -72,6 +77,6 @@ Do[
         "   mesh volume - exact ", str[r[[5]] - exactVolume]];
       AppendTo[rows, {"NDSolve", If[grip === "clamped", "P3c", "P3f"], "quadratic tet (MeshOrder 2)", mc, 3 r[[1]],
         r[[4]], r[[2]], r[[6]], str[r[[3]]], str[r[[7]]], str[r[[5]]], str[exactVolume]}];
-      Export[csv, Map[ToString, rows, {2}], "CSV"]],
+      Export[csv, Map[ToString, rows, {2}], "CSV"]]],
   {mc, {1.*^-2, 1.*^-3, 2.*^-4, 5.*^-5, 1.*^-5}}, {grip, {"clamped", "frictionless"}}];
 Print["Mathematica ", $Version];
