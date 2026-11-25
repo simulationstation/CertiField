@@ -126,6 +126,9 @@ def main():
             note = None
             for n in notes.get(nm, []):
                 if n.get('kind', c['kind']) == c['kind'] and re.search(n.get('match', ''), c['bucket']):
+                    # optional extra condition on the cluster's worst point, e.g. "x[0] < 1.95"
+                    if n.get('where') and not eval(n['where'], {'math': math}, {'x': c['worst']['x']}):
+                        continue
                     note = n
                     break
             key = note['group'] if note else 'unclassified %s' % c['kind']
