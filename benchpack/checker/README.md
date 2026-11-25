@@ -1,4 +1,4 @@
-# Independent checker (P1, P1c, P2)
+# Independent checker (P1, P1c, P2, P3)
 
 Re-checks a certificate of `benchpack/certificates/` (format `benchpack-certificate-1`, described in
 `benchpack/certificates/FORMAT.md`). It shares no code with the program that made the certificate; the only shared
@@ -7,7 +7,8 @@ file is the problem definition `benchpack/problems/definitions.py`.
 ## Use
 
     cd benchpack/checker
-    python check.py ../certificates/STEM [--procs 2] [--log logs/STEM.txt]
+    python check.py ../certificates/STEM [--procs 2] [--log logs/STEM.txt]        # P1, P1c, P2
+    python p3check.py ../certificates/STEM [--procs 2] [--log logs/STEM.txt]      # P3 (FORMAT.md section 9)
     python tests.py
 
 `check.py` prints every check with `[pass]` or `[FAIL]`, the recomputed integrals and bounds, and ends with
@@ -16,9 +17,11 @@ It runs 2 processes by default (2 threads each). Per-cell results are saved in `
 keyed by the bytes of the certificate and of the checker's per-cell code); an interrupted run resumes where it stopped.
 The P1 certificate `P1_frictionless_N16_p9` takes about a minute on one process.
 
-P3 has its own exact checker, `Reference/Curved3D/exact_check.py`. For large grids, `p3_exact.py` runs the same
-checks (a)-(h) with that program's own functions, slab by slab in two processes, with a checkpoint after every slab
-(resumable); it gives the same result as `exact_check.py` on the grid-8 certificate:
+`p3check.py` checks the new P3 certificates (FORMAT.md section 9; octant, degree-4 Beltrami potential) slab by slab
+in two processes with a checkpoint after every slab (resumable). The older curved3d certificates of P3 have their own
+exact checker, `Reference/Curved3D/exact_check.py`; for large grids `p3_exact.py` runs the same checks (a)-(h) with
+that program's own functions, slab by slab, resumable; it gives the same result as `exact_check.py` on the grid-8
+certificate:
 
     python p3_exact.py clamped ../../Reference/Curved3D/certificates/psi_clamped_N24.npz --v ../../Reference/Curved3D/certificates/v_clamped_N24.npz
 
@@ -50,6 +53,15 @@ Bounds (FORMAT.md sections 3.4 and 4.4) are recomputed from scratch:
   (square roots, `asin`, `sin(1/10)`, `cos(1/10)`) are evaluated, with `mpmath.iv` (outward rounding) at 1200 bits;
 - the bounds `K >= F^2/Q`, `K <= 4 a_q` (P1) or `a` (P2), and the two Q2 quotients, in interval arithmetic.
 
+P3 (`p3check.py`, with `exact3.py` and `ball.py`): the stress `g(y,z) e_x e_x + inc(rho^2 Psi)` and the displacement
+are rebuilt per cell as trivariate rational polynomials; exact checks of equilibrium, traction continuity across all
+faces meeting the domain, divisibility of `tau grad(rho)` by `rho` on every cell cut by the sphere, the free faces, the
+mirror planes and the grip, the grip force, the displacement's continuity and boundary values, the coefficient
+conditions. Energies: exact rationals on whole cells; on cut cells either over the octree boxes of the certificate
+(superset mode, exact rationals) or over the cell minus the ball (exact mode): integrated in z, then the polynomial
+parts over rectangles cut by circles (closed forms as above) and the part with `sqrt(R^2 - x^2 - y^2)` exactly in y
+and, by parts, in x (square roots, asin; verified closed forms); end points in `mpmath.iv`.
+
 A claim is confirmed if `lower_claim <= recomputed lower` and `recomputed upper <= upper_claim`.
 
 ## Tests (`tests.py`)
@@ -65,10 +77,16 @@ A claim is confirmed if `lower_claim <= recomputed lower` and `recomputed upper 
 6. Negative tests: shear on a mirror line, a wrong grip value, a C^0 stress function, a discontinuous displacement,
    a stress field without the weight `rho^2`, claims tighter than the bounds, traction on a free edge of P2 — each
    is rejected.
+7. P3: the solid cube with frictionless grips (K = 2 exactly); the Green identity on the solid cube for random fields
+   (exact); octree box integrals against direct integration; random fields with the cavity; negative tests.
+8. P3 exact mode: the closed forms of `ball.py` (exact identities); the moments of the octant of the ball against
+   the Gamma-function values; the lift alone (`a_o = (lambda + 2 mu)(1 - pi/48)/4`); the Green identity over the
+   octant minus the ball for random admissible fields, frictionless and clamped.
 
 ## Files
 
-- `check.py` the checker; `fields.py` certificate data to per-cell polynomials and the per-cell work;
+- `check.py` the checker (P1, P2); `p3check.py`, `exact3.py`, `ball.py` the P3 checker; `p3_exact.py` the resumable
+  run of curved3d's exact checker; `fields.py` certificate data to per-cell polynomials and the per-cell work;
   `exact.py` exact polynomials, B-splines and integrals; `region.py` integrals over the curved regions;
   `tests.py`, `synth.py` (random test certificates), `ritz.py` (near-optimal test fields from a small float Ritz
   solver; only their coefficients come from floating point, the bounds are the checker's); `logs/` run logs.

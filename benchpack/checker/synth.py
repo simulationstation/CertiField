@@ -132,3 +132,79 @@ def make_P2(rng, breaks, pu=2, ps=3, scale=0.3):
         arrays[nm + '_C'] = C
         arrays[nm + '_par'] = rnd(rng, (3,), 1.0)
     return meta, arrays
+
+
+# ------------------------------------------------------------------------------------------------- P3 (FORMAT.md 9)
+P3_COMP = [(0, 0), (1, 1), (2, 2), (0, 1), (1, 2), (0, 2)]
+
+
+def p3_space(p, N, extra_x=None, **kw):
+    br = [Fr(i, N) for i in range(N + 1)]
+    kx = open_knots(p, br, extra_x)
+    ky = open_knots(p, br)
+    d = dict(degree=p, knots=[[str(v) for v in kx], [str(v) for v in ky], [str(v) for v in ky]])
+    d.update(kw)
+    return d, [len(kx) - p - 1, len(ky) - p - 1, len(ky) - p - 1]
+
+
+def p3_conditions(Psi, frictionless):
+    """impose the parity, grip and free-face conditions of FORMAT.md 9 on a (6, nx, ny, nz) array"""
+    for c, (a, b) in enumerate(P3_COMP):
+        A = Psi[c]
+        for ax in range(3):
+            even = ((a == ax) + (b == ax)) % 2 == 0
+            s0 = [slice(None)] * 3
+            s1 = [slice(None)] * 3
+            s0[ax], s1[ax] = 0, 1
+            A[tuple(s0)] = A[tuple(s1)] if even else Fr(0)
+        if frictionless:
+            even = ((a == 0) + (b == 0)) % 2 == 0
+            A[-1] = A[-2] if even else Fr(0)
+        for ax in (1, 2):
+            for idx in (-1, -2):
+                s = [slice(None)] * 3
+                s[ax] = idx
+                A[tuple(s)] = Fr(0)
+    return Psi
+
+
+def make_P3(rng, N=4, pu=2, ps=3, gexp=(0, 1, 2), variant='frictionless', cavity=True, L=2, Lu=2, scale=0.3):
+    """random admissible P3 fields (octant model) in the format of FORMAT.md 9"""
+    fr = variant in ('frictionless', 'nocavity-test')
+    dsp, dn = p3_space(pu, N)
+    ssp, sn = p3_space(ps, N, {Fr(3, 4): ps - 1} if cavity else None, g_exponents=list(gexp),
+                       g_base='1/2' if cavity else '0', eta_flat_from='3/4')
+    meta = dict(format='benchpack-certificate-1', problem='P3',
+                variant=variant if cavity else ('nocavity-test' if fr else 'nocavity-clamped-test'),
+                model='octant', N=N, displacement_space=dsp, stress_space=ssp,
+                integration=dict(mode='superset', stress_depth=L, displacement_depth=Lu), label='test')
+    V = rnd(rng, (3,) + tuple(dn), 0.1)
+    V[0][0] = Fr(0)
+    V[0][-1] = Fr(0)
+    V[1][:, 0, :] = Fr(0)
+    V[2][:, :, 0] = Fr(0)
+    if not fr:
+        V[1][-1] = Fr(0)
+        V[2][-1] = Fr(0)
+    Psi = p3_conditions(rnd(rng, (6,) + tuple(sn), scale), fr)
+    gam = rnd(rng, (2 * len(gexp),), 1.0)
+    return meta, dict(V=V, Psi=Psi, gam=gam)
+
+
+def make_P3_solid(N=4):
+    """the solid cube with frictionless grips (test-only variant): tau = (1/2) e_x e_x, v = (x/2, -nu y/2, -nu z/2);
+    K = 2 exactly"""
+    pu, ps = 2, 3
+    dsp, dn = p3_space(pu, N)
+    ssp, sn = p3_space(ps, N, None, g_exponents=[0], g_base='0', eta_flat_from='3/4')
+    meta = dict(format='benchpack-certificate-1', problem='P3', variant='nocavity-test', model='octant', N=N,
+                displacement_space=dsp, stress_space=ssp, label='test')
+    ky = [Fr(v) for v in dsp['knots'][1]]
+    g = greville(ky, pu)
+    V = X.zeros((3,) + tuple(dn))
+    for i in range(dn[0]):
+        for j in range(dn[1]):
+            for k in range(dn[2]):
+                V[1][i, j, k] = Fr(-3, 20) * g[j]
+                V[2][i, j, k] = Fr(-3, 20) * g[k]
+    return meta, dict(V=V, Psi=X.zeros((6,) + tuple(sn)), gam=np.array([Fr(1, 4), Fr(1, 4)], dtype=object))

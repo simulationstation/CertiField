@@ -14,6 +14,11 @@
 6. Negative tests: broken certificates are rejected (shear on a mirror line, a C^0 stress function, a wrong grip
    value, a discontinuous displacement, a stress field not traction-free on the hole, claims tighter than the bounds,
    a free edge of P2 with traction).
+7. P3: the solid cube (K = 2 exactly); the Green identity on the solid cube (exact); octree box integrals against
+   direct integration; random fields with the cavity; negative tests (mirror shear, no weight, C^0 potential, claim).
+8. P3 exact mode: the closed forms of ball.py (exact identities); moments of the octant of the ball against the
+   Gamma-function values; the lift alone, a_o = (lambda + 2 mu)(1 - pi/48)/4; the Green identity over the octant
+   minus the ball for random admissible fields (frictionless and clamped).
 """
 import sys
 import time
@@ -374,6 +379,189 @@ def test_negative():
     expect_fail(meta5, arr5, 'traction on y = 1, y = -1', 'P2 stress with traction on the free edge x = 0')
 
 
+# ------------------------------------------------------------------------------------------------- 7 (P3)
+def run3(meta, arrays, weight=True):
+    import io
+    import contextlib
+    import p3check
+    rep = p3check.Rep()
+    with contextlib.redirect_stdout(io.StringIO()):
+        try:
+            good = p3check.check_cert(meta, arrays, rep, procs=1, weight=weight, claims_required=False)
+        except AssertionError as exc:
+            rep.fail.append('assertion: %s' % (exc,))
+            good = False
+    return good, rep
+
+
+def cross3(meta, arrays):
+    """int over the unit octant cube of tau:eps(v) (no cavity; every cell whole), exact"""
+    import exact3 as E
+    import p3check
+    cert = p3check.Cert(meta, arrays)
+    N = cert.N
+    tot = Fr(0)
+    w = {(p, p + 6): Fr(1) for p in range(6)}
+    for i in range(N):
+        for j in range(N):
+            for k in range(N):
+                tau, _ = p3check.stress_cell(cert, (i, j, k))
+                _, eps = p3check.disp_cell(cert, (i, j, k))
+                tot += E.quad_form3([tau[c] for c in p3check.COMP] + eps, w) / N ** 3
+    return tot
+
+
+def test_p3():
+    print('7. P3 (3D, octant): known answer, Green identity, box integrals, falsification, negative tests')
+    import exact3 as E
+    import p3check
+    meta, arrays = synth.make_P3_solid()
+    good, rep = run3(meta, arrays)
+    ok(good and rep.bounds == (2, 2), 'solid cube, frictionless grips: all checks pass, K = [2, 2] exactly (known answer)')
+    rng = np.random.default_rng(41)
+    for variant in ('frictionless', 'clamped'):
+        meta, arrays = synth.make_P3(rng, variant=variant, cavity=False)
+        good, rep = run3(meta, arrays)
+        cert = p3check.Cert(meta, arrays)
+        F = sum(((g + d) * (1 - cert.gbase) ** (e + 1) / (e + 1) for e, g, d in zip(cert.gexp, cert.gamma, cert.delta)),
+                Fr(0))
+        val = cross3(meta, arrays)
+        ok(good and val == F / 2, 'solid cube, %s grips, random admissible fields: all checks pass and int tau:eps(v) = '
+                                  'F_o/2 = %.12g exactly' % (variant, float(F / 2)))
+    # superset box integrals against direct integration on each box
+    meta, arrays = synth.make_P3(rng)
+    cert = p3check.Cert(meta, arrays)
+    e = next(c for c in ((0, 0, 1), (0, 1, 1), (1, 1, 0)) if p3check.cell_class(cert, c) == 'cut')
+    tau, _ = p3check.stress_cell(cert, e)
+    T = [tau[c] for c in p3check.COMP]
+    f = E.t_add(*[E.t_mul(T[p], T[q]) for p in range(6) for q in range(6)])
+    boxes = p3check.kept_boxes(cert, e, 3)
+    direct = sum((E.t_integral(f, tuple((Fr(j, 2 ** l), Fr(j + 1, 2 ** l)) for j in jj))
+                  for (l, *jj) in boxes), Fr(0))
+    fi, den = E.density_int(T, {(p, q): Fr(1) for p in range(6) for q in range(6)})
+    ok(p3check.box_integrals(f, boxes) == direct == p3check.box_integrals(fi, boxes, den) and len(boxes) > 8,
+       'octree boxes of a cut cell (%d boxes, depth 3): integer box integrals (Fraction and integer densities) equal '
+       'direct exact integrals' % len(boxes))
+    for trial in range(2):
+        meta, arrays = synth.make_P3(rng, variant=('frictionless', 'clamped')[trial], scale=10.0 ** rng.uniform(-3, 0))
+        good, rep = run3(meta, arrays)
+        ok(good and rep.bounds[0] <= rep.bounds[1], 'random admissible fields with the cavity (%s): all checks pass, '
+                                                    'lower bound below upper bound' % meta['variant'])
+    # negative tests
+    meta, arrays = synth.make_P3(rng)
+    a2 = dict(arrays)
+    P = arrays['Psi'].copy()
+    P[3][0, 2, 2] = Fr(1, 8)               # xy component is odd in x: must vanish at index 0 (shear on x = 0)
+    a2['Psi'] = P
+    good, rep = run3(meta, a2)
+    ok(not good and any('mirror' in f for f in rep.fail), 'rejected: P3 potential that puts shear on the mirror x = 0')
+    good, rep = run3(meta, arrays, weight=False)
+    ok(not good and any('sphere' in f for f in rep.fail), 'rejected: P3 stress without the weight rho^2 (traction on '
+                                                         'the sphere)')
+    meta3, arr3 = synth.make_P3(np.random.default_rng(5))
+    ss = dict(meta3['stress_space'])
+    kx = [Fr(v) for v in ss['knots'][0]]
+    kx.insert(kx.index(Fr(1, 4)), Fr(1, 4))
+    kx.insert(kx.index(Fr(1, 4)), Fr(1, 4))
+    ss['knots'] = [[str(v) for v in kx]] + ss['knots'][1:]
+    meta3 = dict(meta3, stress_space=ss)
+    P = synth.p3_conditions(synth.rnd(np.random.default_rng(6), (6, len(kx) - 4) + arr3['Psi'].shape[2:], 0.3), True)
+    arr3 = dict(arr3, Psi=P)
+    good, rep = run3(meta3, arr3)
+    ok(not good and any('traction continuous' in f for f in rep.fail), 'rejected: P3 potential only C^0 across x = 1/4')
+    meta4, arr4 = synth.make_P3_solid()
+    meta4 = dict(meta4, claims={'Q1': {'lower': '2.000001', 'upper': '2.1'}})
+    good, rep = run3(meta4, arr4)
+    ok(not good and any('claim' in f for f in rep.fail), 'rejected: claimed lower bound above the recomputed one')
+
+
+def gamma_half(m2):
+    """Gamma(m2/2) = rational * sqrt(pi)^k"""
+    from math import factorial
+    if m2 % 2 == 0:
+        return Fr(factorial(m2 // 2 - 1)), 0
+    n = (m2 - 1) // 2
+    return Fr(factorial(2 * n), 4 ** n * factorial(n)), 1
+
+
+def octant_ball_moment(a, b, c, R):
+    """int over {x, y, z >= 0, |x| <= R} of x^a y^b z^c  =  R^(s)/s * Gamma(A)Gamma(B)Gamma(C) / (4 Gamma(A+B+C)),
+    s = a+b+c+3, A = (a+1)/2, ...  (an interval)"""
+    num, p = Fr(1), 0
+    for m in (a + 1, b + 1, c + 1):
+        g, q = gamma_half(m)
+        num, p = num * g, p + q
+    gd, qd = gamma_half(a + b + c + 3)
+    s = a + b + c + 3
+    return RG.ivq(num / gd / 4 * R ** s / s) * iv.sqrt(iv.pi) ** (p - qd)
+
+
+def test_p3_exact():
+    print('8. P3 exact integration over cells cut by the sphere (ball.py)')
+    import ball
+    import exact3 as E
+    import p3check
+    ok(all(ball.check_Pn(n) for n in range(24)), 'closed forms int y^n sqrt(c^2 - y^2) dy: exact identities, n < 24')
+    R2 = Fr(1, 4)
+    for (a, b, c) in ((0, 0, 0), (2, 0, 0), (1, 1, 1), (3, 2, 0), (2, 3, 5)):
+        f = E.zeros3((a + 1, b + 1, c + 1))
+        f[a, b, c] = Fr(1)
+        N = 4
+        lo = hi = Fr(0)
+        for e in [(i, j, k) for i in range(N) for j in range(N) for k in range(N)]:
+            rmin, rmax = sum(v * v for v in e), sum((v + 1) ** 2 for v in e)
+            if rmin * 4 >= N * N:
+                continue
+            box = tuple((Fr(v, N), Fr(v + 1, N)) for v in e)
+            if rmax * 4 <= N * N:
+                v = E.t_integral(f, box)
+                lo, hi = lo + v, hi + v
+            else:
+                I = ball.ball_part(f, box, R2)
+                lo, hi = lo + RG.lo_q(I), hi + RG.hi_q(I)
+        ex = octant_ball_moment(a, b, c, Fr(1, 2))
+        ok(RG.ivq(lo).a <= ex.a and ex.b <= RG.ivq(hi).b and hi - lo < Fr(1, 10 ** 150),
+           'int x^%d y^%d z^%d over the octant of the ball (grid 4, cut cells in closed form) encloses the Gamma-function '
+           'value (width %.0e)' % (a, b, c, float(hi - lo)))
+    # known answer: the lift alone, v = (x/2) e_x, has a_o = (lambda + 2 mu) |Omega_o| / 4, |Omega_o| = 1 - pi/48
+    rng = np.random.default_rng(43)
+    meta, arrays = synth.make_P3(rng, N=4, pu=2, ps=3)
+    meta = dict(meta, integration={'mode': 'exact'})
+    arr0 = dict(arrays, V=arrays['V'] * 0)
+    good, rep = run3(meta, arr0)
+    lam, mu = FD.D.P3_LAME['lam'], FD.D.P3_LAME['mu']
+    exact_a = RG.ivq((lam + 2 * mu) / 4) * (1 - iv.pi / 48)
+    Alo, Ahi = rep.energies[2], rep.energies[3]
+    ok(good and RG.ivq(Alo).a <= exact_a.a and exact_a.b <= RG.ivq(Ahi).b and Ahi - Alo < Fr(1, 10 ** 100),
+       'exact mode, the lift alone: a_o encloses (lambda + 2 mu)(1 - pi/48)/4 (width %.0e)' % float(Ahi - Alo))
+    # Green identity over the octant minus the ball, random admissible fields, exact mode
+    for variant in ('frictionless', 'clamped'):
+        meta, arrays = synth.make_P3(rng, N=4, pu=2, ps=3, variant=variant)
+        meta = dict(meta, integration={'mode': 'exact'})
+        good, rep = run3(meta, arrays)
+        cert = p3check.Cert(meta, arrays)
+        lo = hi = Fr(0)
+        w = {(p, p + 6): Fr(1) for p in range(6)}
+        N = cert.N
+        for e in [(i, j, k) for i in range(N) for j in range(N) for k in range(N)]:
+            cls = p3check.cell_class(cert, e)
+            if cls == 'out':
+                continue
+            tau, _ = p3check.stress_cell(cert, e)
+            _, eps = p3check.disp_cell(cert, e)
+            polys = [tau[c] for c in p3check.COMP] + eps
+            if cls == 'full':
+                v = E.quad_form3(polys, w) / N ** 3
+                lo, hi = lo + v, hi + v
+            else:
+                a_, b_ = p3check.cut_exact(cert, e, polys, w)
+                lo, hi = lo + a_, hi + b_
+        F = rep.energies[4]
+        ok(good and lo <= F / 2 <= hi and hi - lo < Fr(1, 10 ** 100),
+           'octant minus the ball, %s grips, random admissible fields: all checks pass and int tau:eps(v) encloses '
+           'F_o/2 = %.12g (width %.0e)' % (variant, float(F / 2), float(hi - lo)))
+
+
 if __name__ == '__main__':
     sys.stdout.reconfigure(encoding='utf-8')
     t0 = time.time()
@@ -384,6 +572,8 @@ if __name__ == '__main__':
     test_falsification()
     test_near_optimal()
     test_negative()
+    test_p3()
+    test_p3_exact()
     print('%s   (%.0f s)' % ('ALL TESTS PASSED' if not FAILS else '%d TEST(S) FAILED: %s' % (len(FAILS), FAILS),
                             time.time() - t0))
     sys.exit(1 if FAILS else 0)

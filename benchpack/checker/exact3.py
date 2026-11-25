@@ -140,23 +140,65 @@ def levi(i, j, k):
 def inc(Phi, scale):
     """tau_ij = sum eps_ikl eps_jmn d_k d_m Phi_ln for a symmetric potential Phi (dict (l, n) -> local array, both
     orders present); scale = (1/h_x, 1/h_y, 1/h_z) converts local to physical derivatives."""
-    D2 = {}
-    for (l, n), P in Phi.items():
+    # integers inside: Phi_ln = I_ln / D, scale[k] scale[m] = f_km / DEN, so tau = (integer combination) / (D DEN)
+    keys = [(l, n) for l in range(3) for n in range(l, 3)]
+    ints, Dn = to_int(*[Phi[key] for key in keys])
+    I = dict(zip(keys, ints))
+    fac = {(k, m): Fr(scale[k]) * Fr(scale[m]) for k in range(3) for m in range(k, 3)}
+    DEN = 1
+    for v in fac.values():
+        DEN = lcm(DEN, v.denominator)
+    fint = {km: v.numerator * (DEN // v.denominator) for km, v in fac.items()}
+    D2 = {}                                     # only l <= n and k <= m (Phi symmetric, derivatives commute)
+    for (l, n) in keys:
         for k in range(3):
-            dk = t_diff(P, k) * scale[k]
-            for m in range(3):
-                D2[(l, n, k, m)] = t_diff(dk, m) * scale[m]
+            dk = t_diff(I[(l, n)], k)
+            for m in range(k, 3):
+                D2[(l, n, k, m)] = t_diff(dk, m) * fint[(k, m)]
     tau = {}
+    den = Dn * DEN
     for i in range(3):
         for j in range(i, 3):
-            terms = []
+            acc = None
             for k, l, m, n in itertools.product(range(3), repeat=4):
                 s = levi(i, k, l) * levi(j, m, n)
                 if s:
-                    terms.append(D2[(l, n, k, m)] * s)
-            tau[(i, j)] = t_add(*terms)
-            tau[(j, i)] = tau[(i, j)]
+                    term = D2[(min(l, n), max(l, n), min(k, m), max(k, m))] * s
+                    acc = term if acc is None else _iadd(acc, term)
+            out = np.empty(acc.shape, dtype=object)
+            for idx, v in np.ndenumerate(acc):
+                out[idx] = Fr(v, den)
+            tau[(i, j)] = out
+            tau[(j, i)] = out
     return tau
+
+
+def density_int(polys, weights):
+    """sum_{(p,q)} w_pq P_p P_q as an integer array F and a denominator: the density is F / den, exactly"""
+    Xs, D = to_int(*polys)
+    DW = 1
+    for w in weights.values():
+        DW = lcm(DW, Fr(w).denominator)
+    shp = tuple(2 * max(Xp.shape[d] for Xp in Xs) - 1 for d in range(3))
+    out = np.zeros(shp, dtype=object)
+    for (p, q), w in weights.items():
+        w = Fr(w)
+        wi = w.numerator * (DW // w.denominator)
+        if not wi:
+            continue
+        A, B = Xs[p], Xs[q]
+        for (a, b, c), v in np.ndenumerate(A):
+            if v:
+                out[a:a + B.shape[0], b:b + B.shape[1], c:c + B.shape[2]] += (v * wi) * B
+    return out, D * D * DW
+
+
+def _iadd(A, B):
+    shp = tuple(max(A.shape[d], B.shape[d]) for d in range(3))
+    out = np.zeros(shp, dtype=object)
+    out[:A.shape[0], :A.shape[1], :A.shape[2]] += A
+    out[:B.shape[0], :B.shape[1], :B.shape[2]] += B
+    return out
 
 
 def divisible_quadratic(P, Q, ax):
