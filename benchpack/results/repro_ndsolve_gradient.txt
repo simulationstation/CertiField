@@ -1,0 +1,21 @@
+Part 1
+u(0.7, 0.2)            = 0.49999999999999994   (piecewise linear interpolant: 0.5)
+du/dx at (0.7, 0.2)    = 1.   (element gradient: 1)
+du/dx at (0.2, 0.7)    = 0.   (element gradient: 0)
+du/dx at (0.5 + d, 0.5 - d), inside the lower triangle, d = 0.01:  1.   (element gradient: 1)
+du/dx at (0.5 + d, 0.5 - d), inside the lower triangle, d = 0.001:  1.   (element gradient: 1)
+du/dx at (0.5 + d, 0.5 - d), inside the lower triangle, d = 0.0001:  1.   (element gradient: 1)
+du/dx at (0.5 + d, 0.5 - d), inside the lower triangle, d = 1.*^-6:  1.   (element gradient: 1)
+integral |grad u|^2, NIntegrate default               = 0.9998840408825821   (exact: 1)
+integral |grad u|^2, NIntegrate PrecisionGoal -> 10    = 0.9998840408825821
+integral |grad u|^2, NIntegrate Method FiniteElement   = 0.9998840408825821
+
+NIntegrate::izero: Integral and error estimates are 0 on all integration subregions. Try increasing the value of the MinRecursion option. If value of integral may be 0, specify a finite value for the AccuracyGoal option.
+integral |grad u|^2, sum over the two triangles        = 0.9999999999999998
+smooth integrand x^2 + y^2 over the mesh (exact 2/3)   = 0.666666666666667
+Part 2
+triangles: 158;  max |gradient of the interpolation at a centroid - element gradient| = 5.0242958677880805*^-15
+sum of area * |element gradient|^2          = 87.03732596063765
+NIntegrate over the ElementMesh             = 86.78003292663749   relative difference -0.0029561229180744384
+sum of NIntegrate over the single triangles = 87.03732596063765   relative difference 0.
+15.0.0 for Microsoft Windows (64-bit) (June 2, 2026)

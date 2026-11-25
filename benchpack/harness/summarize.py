@@ -106,11 +106,17 @@ def verdict(seq, interval, code):
         res["text"] = "no certified interval stored yet"
         return res
     lo, hi = float(interval[0]), float(interval[1])
+    dist = lo - v if v < lo else (v - hi if v > hi else 0.0)
+    side = "below" if v < lo else "above"
+    if code == "CalculiX":
+        resolution = 0.5 * 10 ** (math.floor(math.log10(abs(v))) - 6)   # ccx prints 7 significant digits
+        if dist <= resolution and (hi - lo) < 2 * resolution:
+            res["text"] = ("agrees to the 7 digits ccx prints (the interval is narrower than that); "
+                           "remaining change about %.2g" % e)
+            return res
     if lo <= v - e and v + e <= hi:
         res["text"] = "converges into the interval"
     elif v < lo or v > hi:
-        dist = lo - v if v < lo else v - hi
-        side = "below" if v < lo else "above"
         if dist > 2 * e:
             res["text"] = "lands outside: %s by %.3g (%.2g relative)" % (side, dist, dist / abs(v))
         else:
