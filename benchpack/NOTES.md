@@ -281,17 +281,28 @@ a ball containing the integral when the integrand reports non-analytic points (h
 root and of asin, checked on every complex ball) — Arb's guarantee. Irrational interval ends are handled by
 integrating to a nearby exact point and adding `|end − point| · sup|f|` over a ball around the end.
 
-**Results (frictionless grips; 8 cells per half-edge, potential degree 4, displacement degree 3, exponents of `g`
+**Results (frictionless grips; N cells per half-edge, potential degree 4, displacement degree 3, exponents of `g`
 4, 5, 6).**
 
 | Certificate | Integration | Rigorous bounds (builder) | Relative width | Claim (weakened) | Label |
 |---|---|---|---|---|---|
-| `P3_frictionless_N8_p4_exact` | exact | 1.75716672 <= K <= 1.75762799 | 2.6e-4 | [1.757166257, 1.757628452] | CERTIFIED (checked by the agent only; independent checker pending) |
+| `P3_frictionless_N12_p4_exact` (N = 12) | exact | 1.75741142 <= K <= 1.75762196 | 1.2e-4 | [1.757411214, 1.757622167] | CERTIFIED (checked by the agent only; independent checker pending) |
+| `P3_frictionless_N8_p4_exact` (N = 8) | exact | 1.75716672 <= K <= 1.75762799 | 2.6e-4 | [1.757166257, 1.757628452] | CERTIFIED (checked by the agent only; independent checker pending) |
 | `P3_frictionless_N8_p4` | superset, depths 4 / 6 | 1.75451382 <= K <= 1.75956610 | 2.9e-3 | [1.754508766, 1.759571150] | CERTIFIED (checked by the agent only; independent checker pending) |
 | curved3d N = 24 (stored, unchanged) | superset | 1.74510549 <= K <= 1.75827651 | 7.5e-3 | | CERTIFIED (stored earlier) |
 
-The exact certificate meets the target (0.1 %) by a factor of about four; build time 564 s on one process. The
-three intervals are consistent (the exact one lies inside the other two). The superset certificate shows how
+Both exact certificates meet the target (0.1 %): by a factor of about four at N = 8 (564 s on one process) and of
+about eight at N = 12 (1368 s). The intervals are consistent (each finer one lies inside the coarser ones).
+
+Clamped grips (same discretisation; the potential has no condition at x = 1 and `v_y = v_z = 0` there):
+
+| Certificate | Integration | Rigorous bounds (builder) | Relative width | Claim (weakened) | Label |
+|---|---|---|---|---|---|
+| `P3_clamped_N8_p4_exact` | exact | 1.83043704 <= K <= 1.83320745 | 1.5e-3 | [1.830434273, 1.833210223] | CERTIFIED (checked by the agent only; independent checker pending) |
+| curved3d N = 24 (stored, unchanged) | superset | 1.81732246 <= K <= 1.83348613 | 8.9e-3 | | CERTIFIED (stored earlier) |
+
+The clamped grip meets the free faces y = 1 and z = 1 along edges where the stress is singular, so the clamped
+bounds converge more slowly; at 8 cells per half-edge the width is 1.5e-3, above the 0.1 % target. The superset certificate shows how
 much of curved3d's width came from the integration domain: the same displacement space gives 1.75957 over the
 superset at depth 6 and 1.75763 over the exact domain.
 
@@ -305,9 +316,9 @@ cell integration agrees with mpmath on four cut cells to 1e-18. 4. With a certif
 **What is guaranteed and what is not (P3, new certificates).**
 - Guaranteed, if the argument of section 1 (octant form) is right, python-flint's rational and ball arithmetic and
   Arb's rigorous integration are correct, and the outward-rounded float interval arithmetic of curved3d's `ia.py`
-  is correct: the stiffness K of P3 (frictionless grips) lies in the claimed interval.
+  is correct: the stiffness K of P3 lies in the claimed interval of each certificate (frictionless or clamped grips).
 - The independent checker had not reported on these certificates when this was written; the argument has been
   checked by the agent only.
 - Assumptions: linear 3D elasticity, the weak (H¹) solution, the octant symmetry (the problem is invariant under
   the three reflections; the stress is unique).
-- The clamped variant is not covered by these new certificates (see below).
+- Nothing is claimed about the stress near the cavity or along the clamped edges (singular there), only about K.
