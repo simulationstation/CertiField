@@ -46,7 +46,10 @@ VLABEL = {"lin": "linear", "qs": "quadratic, straight edges", "qc": "quadratic, 
 STYLE = {"lin": ("#257de0", "o"), "qs": ("#f47230", "s"), "qc": ("#00b894", "^"),
          "sys": ("#257de0", "D"), "nint": ("#f47230", "v")}
 INK, INK2, GRID, AXIS = "#191919", "#666666", "#e7e7e7", "#c2c2c2"
-CODES = ["scikit-fem", "CalculiX", "NDSolve", "NDSolve, own mesh"]
+CODES = ["scikit-fem", "CalculiX", "NDSolve", "NDSolve, NIntegrate", "NDSolve, own mesh"]
+# NDSolve:            a(u_h, u_h) of NDSolve's solution (assembled system) and Q2 of its nodal field
+# NDSolve, NIntegrate: the same solution post-processed with NIntegrate of the InterpolatingFunction
+# NDSolve, own mesh:   P3 meshed by ToElementMesh (Reference/Curved3D/ndsolve_compare.wls)
 
 
 def fnum(x):
@@ -72,6 +75,9 @@ def load(case):
                 if v is None or n is None:
                     continue
                 out.setdefault(code, {}).setdefault(v, []).append((n, fnum(r.get("K")), fnum(r.get("Q2"))))
+                if code == "NDSolve" and fnum(r.get("K_nintegrate")) is not None:
+                    out.setdefault("NDSolve, NIntegrate", {}).setdefault(v, []).append(
+                        (n, fnum(r.get("K_nintegrate")), fnum(r.get("Q2_nintegrate"))))
     if case in ("P3c", "P3f"):
         path = os.path.join(RESULTS, "ndsolve-toelementmesh_P3.csv")
         if os.path.exists(path):
@@ -150,7 +156,16 @@ def plot_case(case, data, ivs, path):
     for qi, q in enumerate(qs):
         interval = ivs.get(q)
         allvals = [t[1 + qi] for c in codes for s in data[c].values() for t in s]
-        win = window(allvals, interval)
+        # with an interval: relative deviation from its midpoint on a symmetric-log axis, linear inside the interval
+        rel = None
+        if interval is not None:
+            lo, hi = float(interval[0]), float(interval[1])
+            mid, hw = (lo + hi) / 2, (hi - lo) / 2
+            hwr = hw / abs(mid)
+            rel = (mid, max(hwr, 1e-14))
+            win = None
+        else:
+            win = window(allvals, interval)
         for ci, code in enumerate(codes):
             ax = axes[qi][ci]
             ax.set_facecolor("#ffffff")
@@ -161,12 +176,12 @@ def plot_case(case, data, ivs, path):
             ax.tick_params(colors=INK2, labelsize=8)
             ax.grid(True, color=GRID, linewidth=0.6)
             ax.set_axisbelow(True)
-            if interval is not None:
-                lo, hi = float(interval[0]), float(interval[1])
-                ax.axhspan(lo, hi, color="#d9d9d9", alpha=0.7, linewidth=0,
+            if rel is not None:
+                ax.set_yscale("symlog", linthresh=rel[1], linscale=0.6)
+                ax.axhspan(-hwr, hwr, color="#d9d9d9", alpha=0.8, linewidth=0,
                            label="certified interval" if (qi == 0 and ci == 0) else None)
-                ax.axhline(lo, color=INK2, linewidth=0.6)
-                ax.axhline(hi, color=INK2, linewidth=0.6)
+                ax.axhline(-hwr, color=INK2, linewidth=0.6)
+                ax.axhline(hwr, color=INK2, linewidth=0.6)
             for v, pts in data[code].items():
                 pts = [(n, t[qi]) for n, *t in [(p[0], p[1], p[2]) for p in pts] if t[qi] is not None]
                 if not pts:
@@ -174,6 +189,8 @@ def plot_case(case, data, ivs, path):
                 col, mk = STYLE[v]
                 xs = [p[0] for p in pts]
                 ys = [p[1] for p in pts]
+                if rel is not None:
+                    ys = [(y - rel[0]) / abs(rel[0]) for y in ys]
                 if win is not None:
                     yc = [min(max(y, win[0]), win[1]) for y in ys]
                 else:
@@ -190,18 +207,27 @@ def plot_case(case, data, ivs, path):
             ax.set_xscale("log")
             if win is not None:
                 ax.set_ylim(*win)
-            ax.ticklabel_format(axis="y", useOffset=False)
+                ax.ticklabel_format(axis="y", useOffset=False)
             if qi == 0:
                 ax.set_title(code, color=INK, fontsize=10)
             if ci == 0:
-                ax.set_ylabel("Q1 = K" if q == "Q1" else "Q2 = mean of sigma_xx on the patch", color=INK2, fontsize=9)
+                name = "Q1 = K" if q == "Q1" else "Q2"
+                if rel is not None:
+                    ax.set_ylabel("%s: (value - m) / m\nm = %.10g" % (name, rel[0]), color=INK2, fontsize=8)
+                else:
+                    ax.set_ylabel(name if q == "Q1" else "Q2 = mean of sigma_xx on the patch", color=INK2, fontsize=9)
             if qi == len(qs) - 1:
                 ax.set_xlabel("degrees of freedom", color=INK2, fontsize=9)
-            ax.legend(fontsize=7, frameon=False, labelcolor=INK2, loc="best")
+            ax.legend(fontsize=7, frameon=False, labelcolor=INK2, loc="upper right")
     fig.suptitle("%s: finite element values (FLOAT) against the certified interval%s" % (
         TITLE[case], "" if ivs else " (no interval stored yet)"), color=INK, fontsize=11)
-    fig.text(0.01, 0.005, "Open markers: value outside the plotted window, drawn at its edge.  "
-             "Grey band: certified interval.  Data: benchpack/results/*_%s.csv" % case, color=INK2, fontsize=7)
+    if ivs:
+        note = ("Grey band: certified interval; m = its midpoint; y axis symmetric-log, linear inside the band.  "
+                "Data: benchpack/results/*_%s.csv" % case)
+    else:
+        note = ("Open markers: value outside the plotted window, drawn at its edge.  "
+                "Data: benchpack/results/*_%s.csv" % case)
+    fig.text(0.01, 0.005, note, color=INK2, fontsize=7)
     fig.tight_layout(rect=(0, 0.03, 1, 0.95))
     fig.savefig(path, dpi=130, facecolor="#ffffff")
     plt.close(fig)

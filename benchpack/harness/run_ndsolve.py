@@ -35,7 +35,7 @@ VARIANTS = [("linear", 1, False, "P1"), ("quadratic-straight", 2, False, "P2-str
             ("quadratic-curved", 2, True, "P2-curved")]
 # NDSolve runs: the first levels of cases.LEVELS (NIntegrate over large meshes is slow)
 NLEVELS = {"P1solid": 3, "P1": 5, "P1c": 5, "P2": 5, "P3c": 4, "P3f": 4}
-NLEVELS_QUAD_3D = 3
+NLEVELS_QUAD_3D = 4
 # node order of a 10-node TetrahedronElement in Mathematica: vertices 1-4, then the mid-edge nodes of the edges
 # (1,2) (2,3) (3,1) (2,4) (3,4) (1,4) -- checked against ToElementMesh's own second-order tetrahedra and the volume of
 # a unit tetrahedron; the VTK / Abaqus order used by the harness ends with (1,4) (2,4) (3,4)
