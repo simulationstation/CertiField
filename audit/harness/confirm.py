@@ -128,7 +128,7 @@ def main():
                 if stuck and stuck.get('t') == nm and stuck.get('k') == k:
                     c = {'status': 'timeout'}
                 else:
-                    c = R.run({'t': nm, 'k': k}, lambda: tasks.confirm(nm, tuple(r['x']), r['y']))
+                    c = R.run({'t': nm, 'k': k}, lambda: tasks.confirm(nm, tuple(r['x']), r['y'], r.get('r')))
                 c = dict(c or {})
                 c.update(k=k, target=nm, cluster=repr(key), cluster_kind=key[0], cluster_size=size,
                          screen_relerr=r.get('relerr'), screen_flag=r.get('flag'), x=r['x'], y=r['y'])

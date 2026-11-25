@@ -399,7 +399,8 @@ def _agree(a, b, digits=20):
     return abs(a - b) <= mpf(10) ** (-digits) * abs(b)
 
 
-def confirm(name, args, y):
+def confirm(name, args, y, r0=None):
+    """r0: the screening reference (a starting point for inverse functions only)."""
     t = targets.get(name)
     res = {'args': list(args), 'y': y}
     if t.out == 'discrete':
@@ -431,6 +432,11 @@ def confirm(name, args, y):
         return res
     if t.inv is not None:
         x0 = y if math.isfinite(y) else None
+        try:
+            if r0 is not None and math.isfinite(float(r0)) and float(r0) != 0:
+                x0 = float(r0)
+        except (TypeError, ValueError):
+            pass
         with mp.workdps(50):
             r50 = t.inv['solve'](*args, x0=x0)
         with mp.workdps(100):
