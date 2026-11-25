@@ -142,7 +142,7 @@ sums of the interval evaluation (six boxes were recomputed exactly, not all).
   `ndsolve_compare.wls` does that for NDSolve's finite element solver (written, not yet run).
 - Cost: the lower bound converges like h^1.6. Halving the gap costs roughly 8 times the work.
 - The clamped problem has a weak stress singularity along the grip edges, which slows both bounds.
-- Not ported to the Wolfram Language.
+- Ported to the Wolfram Language as the model `ElasticCavity3D` of the paclet (`Kernel/Curved3D.wl`).
 - The argument has been checked by its author only. `prompt.md` asks for a second check.
 
 ## What is known
