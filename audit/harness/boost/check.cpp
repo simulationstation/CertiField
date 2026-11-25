@@ -19,6 +19,7 @@
 #include <boost/math/special_functions/hypergeometric_1F1.hpp>
 #include <boost/math/distributions/beta.hpp>
 #include <boost/math/distributions/binomial.hpp>
+#include <boost/math/distributions/fisher_f.hpp>
 #include <boost/math/distributions/students_t.hpp>
 
 using namespace boost::math::policies;
@@ -57,6 +58,8 @@ static double eval(const std::string& f, const std::vector<double>& a)
     if (f == "hyp1f1") return bm::hypergeometric_1F1(a[0], a[1], a[2], sp);
     if (f == "t_cdf") return bm::cdf(bm::students_t_distribution<double, SpecialPolicy>(a[0]), a[1]);
     if (f == "t_ppf") return bm::quantile(bm::students_t_distribution<double, SpecialPolicy>(a[0]), a[1]);
+    if (f == "f_cdf") return bm::cdf(bm::fisher_f_distribution<double, SpecialPolicy>(a[0], a[1]), a[2]);
+    if (f == "f_sf") return bm::cdf(bm::complement(bm::fisher_f_distribution<double, SpecialPolicy>(a[0], a[1]), a[2]));
     if (f == "beta_ppf") return bm::quantile(bm::beta_distribution<double, StatsPolicy>(a[1], a[2]), a[0]);
     if (f == "beta_isf") return bm::quantile(bm::complement(bm::beta_distribution<double, StatsPolicy>(a[1], a[2]), a[0]));
     if (f == "beta_sf") return bm::cdf(bm::complement(bm::beta_distribution<double, StatsPolicy>(a[1], a[2]), a[0]));
