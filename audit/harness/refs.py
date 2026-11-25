@@ -113,12 +113,29 @@ def _tol():
     return mpf(2) ** (-mp.prec - 6)
 
 
-def _lentz(an, bn, b0, tol, maxit=MAXIT):
+class capped:
+    """Temporarily cap the number of series / continued-fraction terms (screening: a slow
+    case raises NoConvergence and another formulation is used)."""
+
+    def __init__(self, n):
+        self.n = n
+
+    def __enter__(self):
+        global MAXIT
+        self.old, MAXIT = MAXIT, self.n
+
+    def __exit__(self, *a):
+        global MAXIT
+        MAXIT = self.old
+        return False
+
+
+def _lentz(an, bn, b0, tol, maxit=None):
     """Modified Lentz for b0 + a1/(b1 + a2/(b2 + ...)); an(n), bn(n) for n>=1."""
     tiny = mpf(2) ** (-mp.prec * 4)
     f = b0 if b0 != 0 else tiny
     C, D = f, mpf(0)
-    for n in range(1, maxit):
+    for n in range(1, maxit or MAXIT):
         a, b = an(n), bn(n)
         D = b + a * D
         D = tiny if D == 0 else D

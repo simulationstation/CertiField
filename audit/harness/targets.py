@@ -140,7 +140,7 @@ def th(name, dtype):
 class Target:
     def __init__(self, name, lib, dtype, call, kinds, gens=None, sampler=None, grid=(),
                  valid=None, mref=None, aref=None, malt=None, inv=None, out='value',
-                 osc=None, note=''):
+                 osc=None, note='', mfirst=False):
         self.name, self.lib, self.dtype, self.call = name, lib, dtype, call
         self.kinds = kinds
         self.nargs = len(kinds)
@@ -148,6 +148,7 @@ class Target:
         self.valid = valid or (lambda *a: True)
         self.mref, self.aref, self.malt, self.inv, self.out = mref, aref, malt, inv, out
         self.osc = osc
+        self.mfirst = mfirst  # screen with mpmath first (incomplete gamma family)
         self.note = note
 
     def sample(self, rng, n):
@@ -317,8 +318,8 @@ def _bdtr_sampler(rng, n):
     return np.stack([k, N, p], axis=1)
 
 
-def _inv_dict(solve, fwd_a, increasing, yi=None):
-    d = dict(solve=solve, fwd_a=fwd_a, increasing=increasing)
+def _inv_dict(solve, fwd_a, increasing, yi=None, fwd_m=None):
+    d = dict(solve=solve, fwd_a=fwd_a, increasing=increasing, fwd_m=fwd_m)
     if yi is not None:
         d['yi'] = yi
     return d
@@ -338,21 +339,21 @@ def _build_scipy_special():
     add(Target(sp + 'betaincinv', S, D, sc('betaincinv'), ('pos', 'pos', 'unit'),
                gens=(PAR, PAR, PROB), grid=grid3,
                valid=lambda a, b, y: pos(a, b) and unit_open(y),
-               inv=_inv_dict(refs.inv_betaincinv, refs.A_betainc, True)))
+               inv=_inv_dict(refs.inv_betaincinv, refs.A_betainc, True, fwd_m=refs.m_betainc)))
     grid2 = _prod(G_PAR + [1e8, 1e10, 1e12], [1e-300, 1e-100, 1e-20, 1e-5, 0.01, 0.1, 0.5, 1.0, 2.0,
                                                5.0, 10.0, 30.0, 100.0, 1e3, 1e4, 1e5, 1e6, 1e8, 1e10,
                                                1e12, 1e15, 1e100, 1e300])
     add(Target(sp + 'gammainc', S, D, sc('gammainc'), ('pos', 'pos'), sampler=_gamma_sampler,
                grid=grid2, valid=lambda a, x: pos(a) and fin(x) and x >= 0,
-               mref=refs.m_gammainc, aref=refs.A_gammainc, malt=refs.mb_gammainc))
+               mref=refs.m_gammainc, aref=refs.A_gammainc, malt=refs.mb_gammainc, mfirst=True))
     add(Target(sp + 'gammaincc', S, D, sc('gammaincc'), ('pos', 'pos'), sampler=_gamma_sampler,
                grid=grid2, valid=lambda a, x: pos(a) and fin(x) and x >= 0,
-               mref=refs.m_gammaincc, aref=refs.A_gammaincc, malt=refs.mb_gammaincc))
+               mref=refs.m_gammaincc, aref=refs.A_gammaincc, malt=refs.mb_gammaincc, mfirst=True))
     add(Target(sp + 'gammaincinv', S, D, sc('gammaincinv'), ('pos', 'unit'),
                gens=(M((1.5, LU(1e-6, 1e-2)), (3.5, LU(1e-2, 10)), (3, LU(10, 1e5)), (2, LU(1e5, 1e12))), PROB),
                grid=_prod(G_PAR + [1e8, 1e10, 1e12], G_UNIT[:-1] + [1 - 1e-15]),
                valid=lambda a, y: pos(a) and unit_open(y),
-               inv=_inv_dict(refs.inv_gammaincinv, refs.A_gammainc, True)))
+               inv=_inv_dict(refs.inv_gammaincinv, refs.A_gammainc, True, fwd_m=refs.m_gammainc), mfirst=True))
     LG = M((3, REAL_WIDE), (2, NEARINT(0, 170, -1.0, 1e-300, 0.5)), (1, NEAR(1.0)), (1, NEAR(2.0)),
            (2, NEAR_SET('lgamma_zeros', 1e-17, 1e-3)), (1, LU(1e-300, 1e300)))
     gx = [(v,) for v in G_REAL] + [(v,) for v in (1.0 + 2.0 ** -52, 1.0 - 2.0 ** -53, 2.0 + 2.0 ** -51, -0.5, -1.5, -2.5,
@@ -381,9 +382,9 @@ def _build_scipy_special():
     add(Target(sp + 'erfcinv', S, D, sc('erfcinv'), ('p2',), gens=(P2,),
                grid=[(v,) for v in [1e-300, 1e-100, 1e-20, 1e-5, 0.1, 0.5, 1.0, 1.5, 1.9, 2 - 1e-10, 2 - 2.0 ** -52]],
                valid=lambda y: fin(y) and 0 < y < 2,
-               inv=_inv_dict(refs.inv_erfcinv, refs.A_erfc, False)))
+               inv=_inv_dict(refs.inv_erfcinv, refs.A_erfc, False, fwd_m=refs.m_erfc)))
     add(Target(sp + 'ndtri', S, D, sc('ndtri'), ('unit',), gens=(PROB,), grid=[(v,) for v in G_UNIT],
-               valid=lambda p: unit_open(p), inv=_inv_dict(refs.inv_ndtri, refs.A_ndtr, True)))
+               valid=lambda p: unit_open(p), inv=_inv_dict(refs.inv_ndtri, refs.A_ndtr, True, fwd_m=refs.m_ndtr)))
 
     def st_sampler(rng, n):
         df = DF(rng, n)
@@ -400,7 +401,7 @@ def _build_scipy_special():
                mref=refs.m_stdtr, aref=refs.A_stdtr))
     add(Target(sp + 'stdtrit', S, D, sc('stdtrit'), ('pos', 'unit'), gens=(DF, PROB),
                grid=_prod(G_DF, G_UNIT), valid=lambda df, p: pos(df) and unit_open(p),
-               inv=_inv_dict(refs.inv_stdtrit, refs.A_stdtr, True)))
+               inv=_inv_dict(refs.inv_stdtrit, refs.A_stdtr, True, fwd_m=refs.m_stdtr)))
     FD = M((1.5, LU(1e-3, 1)), (4, LU(1, 1e3)), (3, LU(1e3, 1e8)), (1, LU(1e8, 1e15)))
 
     def fd_sampler(rng, n):
@@ -429,7 +430,7 @@ def _build_scipy_special():
         return np.stack([v, x], axis=1)
     add(Target(sp + 'chdtr', S, D, sc('chdtr'), ('pos', 'pos'), sampler=ch_sampler,
                grid=[(2 * a, 2 * x) for a, x in grid2], valid=lambda v, x: pos(v) and fin(x) and x >= 0,
-               mref=refs.m_chdtr, aref=refs.A_chdtr))
+               mref=refs.m_chdtr, aref=refs.A_chdtr, mfirst=True))
     add(Target(sp + 'bdtr', S, D, sc('bdtr'), ('int', 'int', 'unit'), sampler=_bdtr_sampler,
                grid=[(k, n, p) for n in (1.0, 2.0, 10.0, 100.0, 1e4, 1e6, 1e9) for k in (0.0, 1.0, n // 2, n - 1)
                      for p in G_UNIT],
@@ -528,12 +529,14 @@ def _build_scipy_stats():
         for meth in ('sf', 'logsf', 'logcdf'):
             add(Target(sx + dist + '.' + meth, S, D, st(dist, meth), kinds,
                        sampler=tail_x(dist, shapes[dist], xgen[dist]), grid=grid, valid=valid_for(dist),
-                       mref=refs.m_dist(dist, meth), aref=refs.a_dist(dist, meth)))
+                       mref=refs.m_dist(dist, meth), aref=refs.a_dist(dist, meth),
+                       mfirst=dist in ('chi2', 'gamma')))
         mf = refs.DISTS[dist][1]
         add(Target(sx + dist + '.isf', S, D, st(dist, 'isf'), ('unit',) + ('pos',) * len(shapes[dist]),
                    gens=(PROB,) + shapes[dist], grid=[(q,) + s for s in gridshape[dist] for q in G_UNIT],
                    valid=lambda q, *s: unit_open(q) and all(fin(t) and t > 0 for t in s),
-                   inv=_inv_dict(refs.inv_isf(dist), refs.a_dist(dist, 'sf'), False, yi=0),
+                   inv=_inv_dict(refs.inv_isf(dist), refs.a_dist(dist, 'sf'), False, yi=0, fwd_m=refs.m_dist(dist, 'sf')),
+                   mfirst=dist in ('chi2', 'gamma'),
                    note='isf(q, *shape)'))
     # binomial: (k, n, p)
 
@@ -581,7 +584,7 @@ def _build_torch(dt):
         add(Target(tp + nm + sfx, T, dt, th(nm, dt), ('real',), gens=(EX,), grid=[(v,) for v in G_REAL],
                    valid=lambda x: fin(x), mref=mr, aref=ar))
     add(Target(tp + 'ndtri' + sfx, T, dt, th('ndtri', dt), ('unit',), gens=(PROB,), grid=[(v,) for v in G_UNIT],
-               valid=lambda p: unit_open(p), inv=_inv_dict(refs.inv_ndtri, refs.A_ndtr, True)))
+               valid=lambda p: unit_open(p), inv=_inv_dict(refs.inv_ndtri, refs.A_ndtr, True, fwd_m=refs.m_ndtr)))
     add(Target(tp + 'zeta' + sfx, T, dt, th('zeta', dt), ('pos', 'pos'),
                gens=(M((3, lambda rng, n: 1.0 + LU(1e-7, 1)(rng, n)), (5, LU(1, 100))),
                      M((4, LU(1e-30, 1e30)), (4, LU(1e-3, 1e3)), (2, LU(1e-10, 1e-3)))),

@@ -125,13 +125,26 @@ def inv_fast(t, args, y):
     yi = inv_yi(t, args)
     base = list(args)
     base[yi] = y
-    F0, _, _ = refs.arb_eval(t.inv['fwd_a'], base, min_bits=90, budget=5)
-    if F0 is None:
-        return None
     h = 2.0 ** -40
-    F1, _, _ = refs.arb_eval(t.inv['fwd_a'], base, min_bits=90, pert=(yi, h), budget=5)
-    if F1 is None:
-        return None
+    if getattr(t, 'mfirst', False) and t.inv.get('fwd_m'):
+        # incomplete gamma family: mpmath series / continued fraction (capped) first
+        try:
+            with mp.workdps(30), refs.capped(20000):
+                b = [mpf(v) for v in base]
+                F0 = t.inv['fwd_m'](*b)
+                b[yi] = b[yi] * (1 + mpf(h))
+                F1 = t.inv['fwd_m'](*b)
+        except (mpmath.libmp.NoConvergence, ZeroDivisionError, ValueError, OverflowError):
+            F0 = F1 = None
+    else:
+        F0 = F1 = None
+    if F0 is None or F1 is None:
+        F0, _, _ = refs.arb_eval(t.inv['fwd_a'], base, min_bits=90, budget=5)
+        if F0 is None:
+            return None
+        F1, _, _ = refs.arb_eval(t.inv['fwd_a'], base, min_bits=90, pert=(yi, h), budget=5)
+        if F1 is None:
+            return None
     dF = (F1 - F0) / (mpf(h) * mpf(y))
     if dF == 0:
         return None
@@ -168,6 +181,17 @@ def ref_screen(t, args, y):
             except (mpmath.libmp.NoConvergence, ZeroDivisionError, ValueError, OverflowError):
                 x = None
         return x, 'mp30-solve', None
+    if getattr(t, 'mfirst', False):
+        with refs.capped(20000):
+            v = _mref(t, args, 30)
+        if v is not None:
+            return v, 'mp30', None
+        v, ball, i = refs.arb_eval(t.aref, args, budget=8) if t.aref else (None, None, None)
+        if v is not None:
+            return v, 'arb%d' % i, None
+        with refs.capped(150000):  # about 10 s; slower cases are left to confirm.py
+            v = _mref(t, args, 30)
+        return v, 'mp30', None
     v, ball, i = refs.arb_eval(t.aref, args) if t.aref else (None, None, None)
     if v is not None:
         return v, 'arb%d' % i, None
@@ -182,46 +206,58 @@ def kappa(t, args, r, pts=None):
     cont = [i for i, k in enumerate(t.kinds) if k not in ('int', 'fixed')]
     if t.out == 'discrete':
         return None
+    # step 2^-60 (much smaller than the distance to any pole or zero that a double input can
+    # resolve), values to >= 110 bits (Arb) or 50 digits (mpmath): the differences keep
+    # about 50 bits
     if t.inv is None:
-        # step 2^-60 (much smaller than the distance to any pole or zero that a double input
-        # can resolve), values to >= 110 bits so the difference keeps ~50 bits
-        r0, _, _ = refs.arb_eval(t.aref, args, min_bits=KB) if t.aref else (None, None, None)
+        fa, fm, base = t.aref, t.mref, list(args)
+    else:  # x solves F(fwd args) = y, the forward args being args with y replaced by x
+        yi = inv_yi(t, args)
+        fa, fm, base = t.inv['fwd_a'], t.inv.get('fwd_m'), list(args)
+        base[yi] = r
+    use_mp = bool(getattr(t, 'mfirst', False) and fm) or not fa
+
+    def F(pert=None):
+        if not use_mp:
+            v, _, _ = refs.arb_eval(fa, base, min_bits=KB, pert=pert)
+            if v is not None:
+                return v
+        if fm is None:
+            return None
+        try:
+            with mp.workdps(50), refs.capped(200000):
+                b = [mpf(v) for v in base]
+                if pert is not None:
+                    b[pert[0]] = b[pert[0]] * (1 + mpf(pert[1]))
+                return fm(*b)
+        except Exception:
+            return None
+
+    F0 = F()
+    if F0 is None or F0 == 0:
+        return None
+    if t.inv is None:
         tot = 0.0
         for i in cont:
             if args[i] == 0:
                 continue
-            v, _, _ = refs.arb_eval(t.aref, args, min_bits=KB, pert=(i, H)) if (t.aref and r0 is not None) else (None, None, None)
+            v = F((i, H))
             if v is None:
-                with mp.workdps(50):
-                    try:
-                        a = [mpf(x) for x in args]
-                        b = list(a)
-                        b[i] = b[i] * (1 + mpf(H))
-                        r0m, v = t.mref(*a), t.mref(*b)
-                    except Exception:
-                        return None
-                tot += float(abs((v - r0m) / (H * r0m)))
-            else:
-                tot += float(abs((v - r0) / (H * r0)))
+                return None
+            tot += float(abs((v - F0) / (H * F0)))
         return tot
-    # inverse: x solves F(fwd args) = y, the forward args being args with y replaced by x
-    yi = inv_yi(t, args)
-    y = args[yi]
-    fa = t.inv['fwd_a']
-    base = list(args)
-    base[yi] = r
-    F0, _, _ = refs.arb_eval(fa, base, min_bits=KB)
-    Fx, _, _ = refs.arb_eval(fa, base, min_bits=KB, pert=(yi, H))
-    if F0 is None or Fx is None:
+    Fx = F((yi, H))
+    if Fx is None:
         return None
     dFx = (Fx - F0) / (H * r)  # dF/dx
     if dFx == 0:
         return None
+    y = args[yi]
     tot = float(abs(mpf(y) / (r * dFx)))
     for i in cont:
         if i == yi or args[i] == 0:
             continue
-        Fi, _, _ = refs.arb_eval(fa, base, min_bits=KB, pert=(i, H))
+        Fi = F((i, H))
         if Fi is None:
             continue
         dFi = (Fi - F0) / (H * mpf(args[i]))
